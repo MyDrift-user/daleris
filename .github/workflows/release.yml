@@ -54,6 +54,7 @@ jobs:
           if ($LASTEXITCODE) { throw "ISCC failed" }
           wix build -arch x64 -d "Version=$env:VERSION" -o "dist\$base.msi" installer\app.wxs
           if ($LASTEXITCODE) { throw "wix failed" }
+          Remove-Item dist*.wixpdb
           Copy-Item target\release\bolt-explorer.exe "dist\$base-portable.exe"
           Compress-Archive -Path target\release\bolt-explorer.exe -DestinationPath "dist\$base.zip"
           Compress-Archive -Path policy\* -DestinationPath "dist\bolt-explorer-v$env:VERSION-policy-definitions.zip"
