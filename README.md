@@ -81,15 +81,21 @@ On Windows, you can manage settings through **Group Policy (ADMX/ADML in English
 
 ## 📦 Install
 
-Download the file for your system from **[Releases](../../releases)**, unpack it and run `bolt-explorer`. No installer is needed.
+Download what you need from **[Releases](../../releases)**:
 
-| System | File | Status |
+| System | File | What it is |
 |---|---|---|
-| Windows 10 / 11 (x64) | `bolt-explorer-vX.Y.Z-windows-x64.zip` | Main platform |
-| Linux (x64, X11 and Wayland) | `bolt-explorer-vX.Y.Z-linux-x64.tar.gz` | Builds, not yet tested in daily use |
-| macOS (Apple Silicon) | `bolt-explorer-vX.Y.Z-macos-arm64.tar.gz` | Builds, not yet tested in daily use |
+| Windows 10 / 11 (x64) | `...-windows-x64-setup.exe` | Installer, for this PC or just your account |
+| | `...-windows-x64.msi` | MSI installer, for managed deployment |
+| | `...-windows-x64-portable.exe` | Portable, runs without installing |
+| | `...-windows-x64.zip` | The same portable program, zipped |
+| | `...-policy-definitions.zip` | Group Policy templates |
+| Linux (x64, X11 and Wayland) | `...-linux-x64`, `...-linux-x64.tar.gz` | Program, or the same in an archive |
+| macOS (Apple Silicon) | `...-macos-arm64`, `...-macos-arm64.tar.gz` | Program, or the same in an archive |
 
-The macOS build isn't signed. If macOS blocks it, run `xattr -d com.apple.quarantine bolt-explorer`.
+Windows is the main platform. The Linux and macOS versions build, but aren't yet tested in daily use. After downloading the plain Linux or macOS file, make it runnable with `chmod +x`.
+
+The Windows files aren't signed, so SmartScreen may show a warning. The macOS build isn't signed. If macOS blocks it, run `xattr -d com.apple.quarantine bolt-explorer`.
 
 Bug reports for Linux and macOS are especially welcome.
 
@@ -116,7 +122,7 @@ Every push is built on all three systems by the CI workflow. Releases only start
 1. Bump `version` in `Cargo.toml` and push.
 2. Go to **Actions → Release → Run workflow** and enter the same version (e.g. `0.2.0`).
 
-The workflow builds all three versions, tags `v<version>` and publishes a GitHub Release with the downloads.
+The workflow builds all three versions plus the Windows installers, tests that both installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads.
 
 ## 🗺️ Project layout
 
@@ -131,6 +137,7 @@ src/
   policy.rs               Group Policy
   theme.rs                colours, icons and logo
 policy/                   ADMX / ADML templates
+installer/                setup.exe (Inno Setup) and MSI (WiX) definitions
 ```
 
 ---

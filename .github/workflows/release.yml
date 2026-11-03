@@ -19,14 +19,8 @@ env:
   VERSION: ${{ inputs.version }}
 
 jobs:
-  build:
-    strategy:
-      matrix:
-        include:
-          - { os: windows-latest, name: windows-x64, bin: bolt-explorer.exe }
-          - { os: ubuntu-latest, name: linux-x64, bin: bolt-explorer }
-          - { os: macos-latest, name: macos-arm64, bin: bolt-explorer }
-    runs-on: ${{ matrix.os }}
+  windows:
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +29,66 @@ jobs:
         run: |
           v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           [ "$v" = "$VERSION" ] || { echo "Cargo.toml says $v, input says $VERSION"; exit 1; }
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Install installer tools
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          dotnet tool install --global wix --version 5.0.2
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Build installers and portable files
+        shell: pwsh
+        env:
+          DOTNET_ROLL_FORWARD: Major
+        run: |
+          $base = "bolt-explorer-v$env:VERSION-windows-x64"
+          New-Item -ItemType Directory -Force dist | Out-Null
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$env:VERSION" "/DOutputName=$base-setup" installer\setup.iss
+          if ($LASTEXITCODE) { throw "ISCC failed" }
+          wix build -arch x64 -d "Version=$env:VERSION" -o "dist\$base.msi" installer\app.wxs
+          if ($LASTEXITCODE) { throw "wix failed" }
+          Copy-Item target\release\bolt-explorer.exe "dist\$base-portable.exe"
+          Compress-Archive -Path target\release\bolt-explorer.exe -DestinationPath "dist\$base.zip"
+          Compress-Archive -Path policy\* -DestinationPath "dist\bolt-explorer-v$env:VERSION-policy-definitions.zip"
+
+      - name: Test installers
+        shell: pwsh
+        run: |
+          $base = "bolt-explorer-v$env:VERSION-windows-x64"
+          $exe = "$env:ProgramFiles\Bolt Explorer\bolt-explorer.exe"
+          $p = Start-Process "dist\$base-setup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ALLUSERS' -Wait -PassThru
+          if ($p.ExitCode -or -not (Test-Path $exe)) { throw "setup.exe did not install" }
+          $p = Start-Process "$env:ProgramFiles\Bolt Explorer\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          Start-Sleep -Seconds 5
+          if ($p.ExitCode -or (Test-Path $exe)) { throw "setup.exe did not uninstall" }
+          $msi = (Resolve-Path "dist\$base.msi").Path
+          $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+          if ($p.ExitCode -or -not (Test-Path $exe)) { throw "MSI did not install: $($p.ExitCode)" }
+          $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+          if ($p.ExitCode -or (Test-Path $exe)) { throw "MSI did not uninstall: $($p.ExitCode)" }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/*
+          if-no-files-found: error
+
+  unix:
+    strategy:
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: macos-latest, name: macos-arm64 }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Install Linux libraries
         if: runner.os == 'Linux'
@@ -47,29 +101,22 @@ jobs:
         run: cargo build --release --locked
 
       - name: Package
-        shell: bash
         env:
           NAME: ${{ matrix.name }}
-          BIN: ${{ matrix.bin }}
         run: |
-          dir="bolt-explorer-v$VERSION-$NAME"
-          mkdir "$dir"
-          cp "target/release/$BIN" "$dir/"
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            cp -r policy "$dir/"
-            7z a "$dir.zip" "$dir"
-          else
-            tar czf "$dir.tar.gz" "$dir"
-          fi
+          base="bolt-explorer-v$VERSION-$NAME"
+          mkdir dist
+          cp target/release/bolt-explorer "dist/$base"
+          tar czf "dist/$base.tar.gz" -C target/release bolt-explorer
 
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.name }}
-          path: bolt-explorer-v*
+          path: dist/*
           if-no-files-found: error
 
   release:
-    needs: build
+    needs: [windows, unix]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -86,4 +133,4 @@ jobs:
         run: |
           flags=()
           [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
-          gh release create "v$VERSION" dist/*.zip dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Bolt Explorer v$VERSION" --generate-notes "${flags[@]}"
+          gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Bolt Explorer v$VERSION" --generate-notes "${flags[@]}"

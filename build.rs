@@ -1,8 +1,10 @@
-// The self-contained MinGW toolchain has no libshlwapi.a, which a dependency
-// (webbrowser) links against. GNU ld can link straight against a DLL, so give it
-// a private copy of the system's shlwapi.dll to resolve the import from.
 fn main() {
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=assets/icon.ico");
+    embed_icon();
+    // The self-contained MinGW toolchain has no libshlwapi.a, which a dependency
+    // (webbrowser) links against. GNU ld can link straight against a DLL, so give it
+    // a private copy of the system's shlwapi.dll to resolve the import from.
     if std::env::var("CARGO_CFG_TARGET_ENV").as_deref() != Ok("gnu") {
         return;
     }
@@ -14,3 +16,17 @@ fn main() {
         println!("cargo:rustc-link-search=native={out}");
     }
 }
+
+/// Icon and version details of the .exe. Without a resource compiler the program still
+/// builds, just without them.
+#[cfg(windows)]
+fn embed_icon() {
+    let mut res = winresource::WindowsResource::new();
+    res.set_icon("assets/icon.ico").set("ProductName", "Bolt Explorer").set("FileDescription", "Bolt Explorer");
+    if let Err(e) = res.compile() {
+        println!("cargo:warning=building without the embedded icon: {e}");
+    }
+}
+
+#[cfg(not(windows))]
+fn embed_icon() {}
