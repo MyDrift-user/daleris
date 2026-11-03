@@ -1,0 +1,772 @@
+//! The Settings page (opens as its own tab): appearance (theme, accent, icon pack,
+//! density, title bar), the sidebar and ribbon bar editors, the right-click menu editor, and file options.
+
+use super::sidebar::side_key;
+use super::*;
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub enum Page {
+    Appearance,
+    Sidebar,
+    Ribbon,
+    ContextMenu,
+    Files,
+}
+
+const PAGES: [(Page, &str, &str); 5] = [
+    (Page::Appearance, I_PALETTE, "Appearance"),
+    (Page::Sidebar, I_NAVPANE, "Sidebar"),
+    (Page::Ribbon, I_GRID, "Ribbon bar"),
+    (Page::ContextMenu, I_MORE, "Right-click menu"),
+    (Page::Files, I_FOLDER, "Files & folders"),
+];
+
+/// `%APPDATA%\BoltExplorer\icon packs`: each sub-folder is an icon pack of PNGs.
+pub fn icon_pack_dir() -> PathBuf {
+    std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_default().join("BoltExplorer").join("icon packs")
+}
+
+pub fn list_icon_packs() -> Vec<String> {
+    let mut v: Vec<String> = std::fs::read_dir(icon_pack_dir())
+        .map(|rd| rd.filter_map(|e| e.ok()).filter(|e| e.path().is_dir()).map(|e| e.file_name().to_string_lossy().to_string()).collect())
+        .unwrap_or_default();
+    v.sort_by_key(|s| s.to_lowercase());
+    v
+}
+
+pub fn load_png(path: &Path) -> Option<egui::ColorImage> {
+    let f = std::fs::File::open(path).ok()?;
+    let mut dec = png::Decoder::new(std::io::BufReader::new(f));
+    dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+    let mut reader = dec.read_info().ok()?;
+    let mut buf = vec![0; reader.output_buffer_size()?];
+    let info = reader.next_frame(&mut buf).ok()?;
+    let (w, h) = (info.width as usize, info.height as usize);
+    let px = &buf[..info.buffer_size()];
+    let rgba: Vec<u8> = match info.color_type {
+        png::ColorType::Rgba => px.to_vec(),
+        png::ColorType::Rgb => px.chunks_exact(3).flat_map(|c| [c[0], c[1], c[2], 255]).collect(),
+        png::ColorType::GrayscaleAlpha => px.chunks_exact(2).flat_map(|c| [c[0], c[0], c[0], c[1]]).collect(),
+        png::ColorType::Grayscale => px.iter().flat_map(|&g| [g, g, g, 255]).collect(),
+        _ => return None,
+    };
+    (rgba.len() == w * h * 4).then(|| egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba))
+}
+
+fn card() -> egui::Frame {
+    egui::Frame::new().fill(PANEL()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(10).inner_margin(egui::Margin::same(16))
+}
+
+fn heading(ui: &mut Ui, title: &str, sub: &str) {
+    ui.label(egui::RichText::new(title).size(15.0).strong());
+    if !sub.is_empty() {
+        ui.label(egui::RichText::new(sub).color(DIM()));
+    }
+    ui.add_space(8.0);
+}
+
+/// A small switch, like Windows 11 settings.
+pub(super) fn toggle(ui: &mut Ui, on: &mut bool, label: &str) -> bool {
+    let mut changed = false;
+    ui.horizontal(|ui| {
+        let (r, resp) = ui.allocate_exact_size(vec2(40.0, 20.0), Sense::click());
+        if resp.clicked() {
+            *on = !*on;
+            changed = true;
+        }
+        let t = ui.ctx().animate_bool(resp.id, *on);
+        let bg = if *on { ACCENT() } else { RAISED() };
+        ui.painter().rect_filled(r, CornerRadius::same(10), bg);
+        ui.painter().rect_stroke(r, CornerRadius::same(10), Stroke::new(1.0_f32, if *on { ACCENT() } else { FAINT() }), StrokeKind::Inside);
+        let x = egui::lerp(r.left() + 10.0..=r.right() - 10.0, t);
+        ui.painter().circle_filled(pos2(x, r.center().y), 6.0, if *on { Color32::WHITE } else { DIM() });
+        let l = ui.add(egui::Label::new(label).sense(Sense::click()));
+        if l.clicked() {
+            *on = !*on;
+            changed = true;
+        }
+    });
+    changed
+}
+
+/// Tooltip and note on anything a policy fixes.
+pub(super) const MANAGED: &str = "Managed by your organization";
+
+/// A small lock and "Managed by your organization", for a grayed-out setting or section.
+pub(super) fn managed_note(ui: &mut Ui) {
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 4.0;
+        ui.label(egui::RichText::new(ic(I_LOCK)).font(icon_font(11.0)).color(DIM()));
+        ui.label(egui::RichText::new(MANAGED).small().color(DIM()));
+    });
+}
+
+/// A switch for one settings value: grayed out with a note when a policy fixes that value.
+fn managed_toggle(ui: &mut Ui, on: &mut bool, key: &str, label: &str) -> bool {
+    let fixed = policy::is_fixed(key);
+    let mut changed = false;
+    ui.horizontal(|ui| {
+        ui.add_enabled_ui(!fixed, |ui| changed = toggle(ui, on, label));
+        if fixed {
+            managed_note(ui);
+        }
+    });
+    changed
+}
+
+/// A section title for one settings value, with the note when a policy fixes it.
+fn managed_heading(ui: &mut Ui, title: &str, sub: &str, key: &str) {
+    heading(ui, title, sub);
+    if policy::is_fixed(key) {
+        managed_note(ui);
+        ui.add_space(4.0);
+    }
+}
+
+impl App {
+    pub(super) fn set_titlebar(&mut self) {
+        self.ctx.send_viewport_cmd(egui::ViewportCommand::Decorations(!self.settings.title_custom));
+        // re-apply the size so Windows recomputes the client area around the new frame
+        if let Some(r) = self.ctx.input(|i| i.viewport().inner_rect) {
+            self.ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(r.size()));
+        }
+        self.save_settings();
+    }
+
+    /// With "Follow Windows" / the Windows accent, pick up changes made in Windows Settings
+    /// while the app is running (checked every two seconds; two registry reads).
+    pub(super) fn follow_windows_theme(&mut self, ctx: &egui::Context) {
+        if self.settings.theme != 0 && self.settings.accent < ACCENTS.len() {
+            return;
+        }
+        let now = ctx.input(|i| i.time);
+        if now - self.sys_check < 2.0 {
+            return;
+        }
+        self.sys_check = now;
+        ctx.request_repaint_after(Duration::from_secs(2));
+        let p = self.settings.palette();
+        let cur = pal();
+        if p.accent != cur.accent || p.dark != cur.dark {
+            apply(ctx, p);
+            let icon = egui::IconData { rgba: logo_rgba(64, p.accent), width: 64, height: 64 };
+            ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(Arc::new(icon))));
+        }
+    }
+
+    pub(super) fn apply_theme(&mut self) {
+        let p = self.settings.palette();
+        apply(&self.ctx, p);
+        let icon = egui::IconData { rgba: logo_rgba(64, p.accent), width: 64, height: 64 };
+        self.ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(Arc::new(icon))));
+        self.save_settings();
+    }
+
+    pub(super) fn settings_ui(&mut self, ui: &mut Ui) {
+        egui::SidePanel::left("settings_nav")
+            .resizable(false)
+            .exact_width(210.0)
+            .frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin { left: 16, right: 8, top: 18, bottom: 12 }))
+            .show_separator_line(false)
+            .show_inside(ui, |ui| {
+                ui.label(egui::RichText::new("Settings").size(20.0).strong());
+                ui.add_space(12.0);
+                for (p, g, label) in PAGES {
+                    let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());
+                    let active = self.settings_page == p;
+                    if active {
+                        ui.painter().rect_filled(r, CornerRadius::same(6), SEL());
+                        ui.painter().rect_filled(Rect::from_min_size(r.left_top() + vec2(0.0, 9.0), vec2(3.0, 16.0)), CornerRadius::same(2), ACCENT());
+                    } else if resp.hovered() {
+                        ui.painter().rect_filled(r, CornerRadius::same(6), HOVER());
+                    }
+                    ui.painter().text(r.left_center() + vec2(18.0, 0.0), Align2::CENTER_CENTER, ic(g), icon_font(14.0), if active { ACCENT() } else { DIM() });
+                    ui.painter().text(r.left_center() + vec2(38.0, 0.0), Align2::LEFT_CENTER, label, FontId::proportional(14.0), TEXT());
+                    if resp.clicked() {
+                        self.settings_page = p;
+                    }
+                }
+            });
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin { left: 24, right: 24, top: 18, bottom: 12 })).show_inside(ui, |ui| {
+            egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
+                // cap the width on very wide windows; never wider than what's visible
+                let w = ui.available_width().min(1040.0);
+                ui.set_max_width(w);
+                if policy::current().any_fixed() {
+                    ui.horizontal(|ui| {
+                        ui.label(egui::RichText::new(ic(I_LOCK)).font(icon_font(13.0)).color(ACCENT()));
+                        ui.label(egui::RichText::new("Some settings are managed by your organization. They are grayed out and can't be changed here.").color(DIM()));
+                    });
+                    ui.add_space(10.0);
+                }
+                match self.settings_page {
+                    Page::Appearance => self.page_appearance(ui),
+                    Page::Sidebar => self.page_sidebar(ui),
+                    Page::Ribbon => self.page_ribbon(ui),
+                    Page::ContextMenu => {
+                        card().show(ui, |ui| {
+                            ui.set_width(ui.available_width());
+                            self.menu_editor(ui);
+                        });
+                    }
+                    Page::Files => self.page_files(ui),
+                }
+                ui.add_space(20.0);
+            });
+        });
+    }
+
+    // ------------------------------------------------------------------ appearance
+
+    fn page_appearance(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            managed_heading(ui, "Theme", "", "theme");
+            ui.add_enabled_ui(!policy::is_fixed("theme"), |ui| ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
+                let accent = self.settings.palette().accent;
+                for (i, name) in [(0u8, "Follow Windows"), (1, "Dark"), (2, "Light")] {
+                    let dark = match i {
+                        0 => system_dark(),
+                        1 => true,
+                        _ => false,
+                    };
+                    if theme_card(ui, name, Palette::new(dark, accent), self.settings.theme == i) {
+                        self.settings.theme = i;
+                        self.apply_theme();
+                    }
+                }
+            }));
+            ui.add_space(16.0);
+            managed_heading(ui, "Accent colour", "", "accent2");
+            ui.add_enabled_ui(!policy::is_fixed("accent2"), |ui| ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = vec2(10.0, 10.0);
+                let dark = pal().dark;
+                // Windows' own accent first: it's the default
+                let mut opts: Vec<(usize, String, Color32)> = vec![(ACCENTS.len(), "Windows accent colour (follows your Windows settings)".into(), system_accent().unwrap_or(ACCENTS[0].1))];
+                opts.extend(ACCENTS.iter().enumerate().map(|(i, a)| (i, a.0.to_string(), if dark { a.1 } else { a.2 })));
+                for (n, (i, name, c)) in opts.into_iter().enumerate() {
+                    let (r, resp) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::click());
+                    ui.painter().circle_filled(r.center(), 13.0, c);
+                    if n == 0 {
+                        // mark the Windows option with the Windows logo squares
+                        for (dx, dy) in [(-1.0, -1.0), (1.0, -1.0), (-1.0, 1.0), (1.0, 1.0)] {
+                            let q = Rect::from_center_size(r.center() + vec2(dx * 2.6, dy * 2.6), vec2(4.2, 4.2));
+                            ui.painter().rect_filled(q, CornerRadius::ZERO, Color32::from_white_alpha(230));
+                        }
+                    }
+                    if self.settings.accent == i {
+                        ui.painter().circle_stroke(r.center(), 16.0, Stroke::new(2.0_f32, TEXT()));
+                    } else if resp.hovered() {
+                        ui.painter().circle_stroke(r.center(), 16.0, Stroke::new(1.0_f32, FAINT()));
+                    }
+                    if resp.on_hover_text(name).clicked() {
+                        self.settings.accent = i;
+                        self.apply_theme();
+                    }
+                }
+            }));
+            ui.add_space(16.0);
+            managed_heading(ui, "Row height", "How tall each row in the file list is.", "density");
+            ui.add_enabled_ui(!policy::is_fixed("density"), |ui| ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
+                for (i, l) in ["Compact", "Normal", "Comfortable"].iter().enumerate() {
+                    if self.density_card(ui, i as u8, l) {
+                        self.settings.density = i as u8;
+                        self.save_settings();
+                    }
+                }
+            }));
+        });
+        ui.add_space(14.0);
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Title bar", "The bar with the tabs at the top of the window.");
+            if managed_toggle(ui, &mut self.settings.title_custom, "title_custom", "Use the Bolt Explorer title bar (off = standard Windows title bar)") {
+                self.set_titlebar();
+                self.save_settings();
+            }
+            ui.add_enabled_ui(self.settings.title_custom, |ui| {
+                let mut ch = managed_toggle(ui, &mut self.settings.title_logo, "title_logo", "Show the logo");
+                ch |= managed_toggle(ui, &mut self.settings.title_name, "title_name2", "Show the app name");
+                if ch {
+                    self.save_settings();
+                }
+            });
+            if managed_toggle(ui, &mut self.settings.title_gear, "title_gear", "Show the settings button (Settings also opens with Ctrl+,)") {
+                self.save_settings();
+            }
+        });
+        ui.add_space(14.0);
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
+            let mut packs: Vec<(String, String)> = vec![("system".into(), "Windows (system icons)".into()), ("flat".into(), "Flat (built-in)".into())];
+            packs.extend(list_icon_packs().into_iter().map(|p| (p.clone(), p)));
+            let pack_free = !policy::is_fixed("iconpack");
+            for (id, name) in packs {
+                let selected = self.settings.icon_pack == id;
+                let fill = if selected { SEL() } else { RAISED() };
+                let resp = ui
+                    .add_enabled_ui(pack_free, |ui| {
+                        egui::Frame::new()
+                            .fill(fill)
+                            .stroke(Stroke::new(1.0_f32, if selected { ACCENT() } else { LINE() }))
+                            .corner_radius(8)
+                            .inner_margin(egui::Margin::symmetric(12, 8))
+                            .show(ui, |ui| {
+                                ui.set_width(ui.available_width());
+                                ui.horizontal(|ui| {
+                                    ui.add_sized(vec2(190.0, 28.0), egui::Label::new(egui::RichText::new(&name).strong()).selectable(false));
+                                    self.pack_preview(ui, &id);
+                                });
+                            })
+                            .response
+                            .interact(Sense::click())
+                    })
+                    .inner;
+                if resp.clicked() && !selected && pack_free {
+                    self.settings.icon_pack = id.clone();
+                    self.save_settings();
+                }
+                ui.add_space(6.0);
+            }
+            ui.add_space(4.0);
+            ui.label(
+                egui::RichText::new(
+                    "Add your own pack: make a folder in the icon packs folder and put PNG files in it named folder.png, file.png, drive.png, \
+                     desktop.png, documents.png, downloads.png…, or by file type (pdf.png, jpg.png) or kind (image.png, video.png, audio.png, code.png, archive.png). \
+                     Anything missing falls back to the Windows icon.",
+                )
+                .color(DIM()),
+            );
+            ui.horizontal(|ui| {
+                if ui.button(egui::RichText::new(format!("{}  Open icon packs folder", ic(I_FOLDER))).font(icon_font(13.0))).clicked() {
+                    let d = icon_pack_dir();
+                    let _ = std::fs::create_dir_all(&d);
+                    self.acts.push(Act::NavigateNewTab(Loc::Dir(d)));
+                }
+                if ui.button("Reload packs").clicked() {
+                    self.icons.retain(|k, _| !k.starts_with("pack:"));
+                }
+            });
+        });
+    }
+
+    /// A miniature file list drawn at one row height, so the choice is visible.
+    fn density_card(&mut self, ui: &mut Ui, density: u8, label: &str) -> bool {
+        let row_h = [24.0, 28.0, 34.0][density as usize];
+        let rows = 4;
+        let (r, resp) = ui.allocate_exact_size(vec2(230.0, rows as f32 * row_h + 34.0), Sense::click());
+        let selected = self.settings.density == density;
+        let list = Rect::from_min_size(r.min, vec2(r.width(), rows as f32 * row_h + 8.0));
+        ui.painter().rect_filled(list, CornerRadius::same(8), BG());
+        let samples = [("Documents", "", true), ("Holiday.jpg", "jpg", false), ("Report.pdf", "pdf", false), ("notes.txt", "txt", false)];
+        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone()).unwrap_or_default();
+        for (k, (name, ext, dir)) in samples.iter().enumerate() {
+            let rr = Rect::from_min_size(list.min + vec2(4.0, 4.0 + k as f32 * row_h), vec2(list.width() - 8.0, row_h));
+            if k == 1 {
+                ui.painter().rect_filled(rr.shrink2(vec2(0.0, 1.0)), CornerRadius::same(4), SEL());
+            }
+            let ic_r = Rect::from_center_size(pos2(rr.left() + 14.0, rr.center().y), vec2(16.0, 16.0));
+            let p = if *dir { docs.clone() } else { PathBuf::from(format!("x.{ext}")) };
+            self.draw_icon(ui, ic_r, &p, ext, *dir, if *dir { fsx::A_READONLY } else { 0 });
+            ui.painter().text(pos2(rr.left() + 30.0, rr.center().y), Align2::LEFT_CENTER, *name, FontId::proportional(12.5), TEXT());
+            ui.painter().text(pos2(rr.right() - 6.0, rr.center().y), Align2::RIGHT_CENTER, "2026-11-02", FontId::proportional(11.0), FAINT());
+        }
+        let stroke = if selected { Stroke::new(2.0_f32, ACCENT()) } else if resp.hovered() { Stroke::new(1.0_f32, DIM()) } else { Stroke::new(1.0_f32, LINE()) };
+        ui.painter().rect_stroke(list, CornerRadius::same(8), stroke, StrokeKind::Outside);
+        ui.painter().text(pos2(r.left() + 2.0, r.bottom() - 12.0), Align2::LEFT_CENTER, label, FontId::proportional(13.5), if selected { TEXT() } else { DIM() });
+        resp.clicked()
+    }
+
+    /// A row of sample icons drawn with icon pack `id`.
+    fn pack_preview(&mut self, ui: &mut Ui, id: &str) {
+        let saved = std::mem::replace(&mut self.settings.icon_pack, id.to_string());
+        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone());
+        let desk = self.places.iter().find(|p| p.name == "Desktop").map(|p| p.path.clone());
+        let mut samples: Vec<(PathBuf, String, bool)> = Vec::new();
+        samples.push((PathBuf::from(r"C:\"), String::new(), true));
+        if let Some(d) = desk {
+            samples.push((d, String::new(), true));
+        }
+        if let Some(d) = docs {
+            samples.push((d, String::new(), true));
+        }
+        samples.push((PathBuf::from(r"C:\_sample_folder"), String::new(), true));
+        for e in ["txt", "pdf", "jpg", "mp3", "mp4", "zip", "rs", "exe"] {
+            samples.push((PathBuf::from(format!("sample.{e}")), e.into(), false));
+        }
+        for (p, ext, dir) in samples {
+            let (r, _) = ui.allocate_exact_size(vec2(26.0, 26.0), Sense::hover());
+            let attrs = if dir && p.to_string_lossy().contains("_sample") { 0 } else { fsx::A_READONLY };
+            let path = if ext == "exe" { PathBuf::from(r"C:\Windows\explorer.exe") } else { p };
+            self.draw_icon(ui, r.shrink(2.0), &path, &ext, dir, attrs);
+        }
+        self.settings.icon_pack = saved;
+    }
+
+    // ------------------------------------------------------------------ sidebar editor
+
+    fn page_sidebar(&mut self, ui: &mut Ui) {
+        ui.label(egui::RichText::new("Sidebar").heading());
+        ui.label(
+            egui::RichText::new(
+                "Show, hide and reorder sections and the places in them. In the sidebar itself you can also drag places to reorder them, \
+                 drag folders from the file list onto a section title to pin them, and right-click anything for more.",
+            )
+            .color(DIM()),
+        );
+        let locked = policy::current().sidebar_locked();
+        if locked {
+            managed_note(ui);
+        }
+        ui.add_space(10.0);
+        ui.add_enabled_ui(!locked, |ui| self.sidebar_editor(ui));
+    }
+
+    fn sidebar_editor(&mut self, ui: &mut Ui) {
+        let model = self.sidebar_model();
+        let n = model.len();
+        for (si, sec) in model.iter().enumerate() {
+            card().show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    let mut vis = sec.visible;
+                    if eye(ui, &mut vis, &sec.id) {
+                        if let Some(s) = self.settings.section_mut(&sec.id) {
+                            s.visible = vis;
+                        }
+                        self.save_settings();
+                    }
+                    if sec.custom {
+                        let mut title = sec.title.clone();
+                        if ui.add(egui::TextEdit::singleline(&mut title).desired_width(220.0).font(FontId::proportional(14.0))).changed() {
+                            if let Some(s) = self.settings.section_mut(&sec.id) {
+                                s.title = title;
+                            }
+                            self.save_settings();
+                        }
+                    } else {
+                        ui.label(egui::RichText::new(&sec.title).size(14.0).strong().color(if sec.visible { TEXT() } else { FAINT() }));
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if sec.custom && small_btn(ui, I_DELETE, "Delete section") {
+                            self.settings.sections.retain(|s| s.id != sec.id);
+                            self.save_settings();
+                        }
+                        if sec.accepts_pins && ui.button(egui::RichText::new(format!("{}  Add folder…", ic(I_ADD))).font(icon_font(12.5))).clicked() {
+                            if let Some(p) = shell::pick_folder() {
+                                self.pin_to(&sec.id, p);
+                            }
+                        }
+                        if si + 1 < n && small_btn(ui, I_CHEV_D, "Move section down") {
+                            self.move_section(&sec.id, 1);
+                        }
+                        if si > 0 && small_btn(ui, I_CHEV_U, "Move section up") {
+                            self.move_section(&sec.id, -1);
+                        }
+                    });
+                });
+                ui.add_space(4.0);
+                if sec.items.is_empty() {
+                    ui.label(egui::RichText::new(if sec.accepts_pins { "No folders yet. Add one, or drag a folder onto this section in the sidebar." } else { "Nothing to show on this PC right now." }).color(FAINT()));
+                }
+                let m = sec.items.len();
+                for (ii, item) in sec.items.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        ui.add_space(24.0);
+                        let mut vis = item.visible;
+                        if eye(ui, &mut vis, &format!("{}{}", sec.id, item.key)) {
+                            self.toggle_side_item(&sec.id, &item.key);
+                        }
+                        let (r, _) = ui.allocate_exact_size(vec2(20.0, 20.0), Sense::hover());
+                        match (&item.loc, item.glyph) {
+                            (_, Some(g)) => {
+                                ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(g), icon_font(14.0), ACCENT());
+                            }
+                            (Some(Loc::Dir(p)), None) => {
+                                let p = p.clone();
+                                self.draw_icon(ui, r, &p, "", true, fsx::A_READONLY);
+                            }
+                            _ => {}
+                        }
+                        ui.label(egui::RichText::new(&item.label).color(if item.visible && sec.visible { TEXT() } else { FAINT() }));
+                        if item.pinned {
+                            ui.label(egui::RichText::new("pinned").small().color(FAINT()));
+                        }
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if item.pinned && small_btn(ui, I_CLOSE, "Unpin") {
+                                if let Some(s) = self.settings.section_mut(&sec.id) {
+                                    s.pins.retain(|p| side_key(p) != item.key);
+                                }
+                                self.save_settings();
+                            }
+                            if ii + 1 < m && small_btn(ui, I_CHEV_D, "Move down") {
+                                self.move_side_item(&sec.id, &item.key, None, 1);
+                            }
+                            if ii > 0 && small_btn(ui, I_CHEV_U, "Move up") {
+                                self.move_side_item(&sec.id, &item.key, None, -1);
+                            }
+                        });
+                    });
+                }
+            });
+            ui.add_space(10.0);
+        }
+        ui.horizontal(|ui| {
+            if ui.button(egui::RichText::new(format!("{}  New section", ic(I_ADD))).font(icon_font(13.0))).clicked() {
+                self.new_section(None);
+                self.renaming_section = None; // rename right here instead
+            }
+            if ui.button("Reset sidebar").clicked() {
+                let pins: Vec<(String, Vec<PathBuf>)> = self.settings.sections.iter().map(|s| (s.id.clone(), s.pins.clone())).collect();
+                self.settings.sections = default_sections();
+                for (id, p) in pins {
+                    if let Some(s) = self.settings.section_mut(&id) {
+                        s.pins = p;
+                    }
+                }
+                self.settings.side_hidden.clear();
+                self.settings.side_order.clear();
+                self.save_settings();
+            }
+        });
+    }
+
+    // ------------------------------------------------------------------ ribbon bar editor
+
+    fn page_ribbon(&mut self, ui: &mut Ui) {
+        ui.label(egui::RichText::new("Ribbon bar").heading());
+        ui.label(egui::RichText::new("Show, hide and reorder what's in the bar above the file list, and choose which side each item sits on.").color(DIM()));
+        let locked = policy::current().ribbon_locked();
+        if locked {
+            managed_note(ui);
+        }
+        ui.add_space(10.0);
+        self.ribbon_preview(ui);
+        ui.add_space(10.0);
+        ui.add_enabled_ui(!locked, |ui| {
+            self.ribbon_side(ui, true);
+            ui.add_space(10.0);
+            self.ribbon_side(ui, false);
+            ui.add_space(10.0);
+            if ui.button("Reset ribbon bar").clicked() {
+                let d = Settings::baseline();
+                self.settings.ribbon_left = d.ribbon_left;
+                self.settings.ribbon_right = d.ribbon_right;
+                self.settings.ribbon_hidden = d.ribbon_hidden;
+                self.save_settings();
+            }
+        });
+    }
+
+    /// The bar as it will look, so a change can be seen without leaving Settings.
+    fn ribbon_preview(&self, ui: &mut Ui) {
+        let (rect, _) = ui.allocate_exact_size(vec2(ui.available_width(), 40.0), Sense::hover());
+        let painter = ui.painter_at(rect);
+        painter.rect_filled(rect, CornerRadius::same(8), PANEL());
+        painter.rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, LINE()), StrokeKind::Inside);
+        let item_w = |id: &str| -> (f32, Option<Arc<egui::Galley>>) {
+            let word = match id {
+                "new" => format!("{}  New", ic(I_ADD)),
+                "sort" => format!("{}  Sort: Name", ic(I_SORT)),
+                "view" => format!("{}  View", ic(I_LIST)),
+                _ => return (if id.starts_with("sep") { 22.0 } else { 34.0 }, None),
+            };
+            let g = painter.layout_no_wrap(word, icon_font(13.5), TEXT());
+            (g.size().x + 16.0, Some(g))
+        };
+        let draw = |x: f32, id: &str, w: f32, galley: Option<Arc<egui::Galley>>| {
+            let cy = rect.center().y;
+            if let Some(g) = galley {
+                painter.galley(pos2(x + 8.0, cy - g.size().y / 2.0), g, TEXT());
+            } else if id.starts_with("sep") {
+                painter.line_segment([pos2(x + w / 2.0, cy - 11.0), pos2(x + w / 2.0, cy + 11.0)], Stroke::new(1.0_f32, LINE()));
+            } else if let Some((_, g, _)) = RIBBON_ITEMS.iter().find(|(k, _, _)| *k == id) {
+                painter.text(pos2(x + w / 2.0, cy), Align2::CENTER_CENTER, ic(g), icon_font(15.0), TEXT());
+            }
+        };
+        let mut x = rect.left() + 8.0;
+        for id in self.settings.ribbon_shown(&self.settings.ribbon_left) {
+            let (w, g) = item_w(&id);
+            draw(x, &id, w, g);
+            x += w;
+        }
+        let mut x = rect.right() - 8.0;
+        for id in self.settings.ribbon_shown(&self.settings.ribbon_right).iter().rev() {
+            let (w, g) = item_w(id);
+            x -= w;
+            draw(x, id, w, g);
+        }
+    }
+
+    /// One side of the bar: the same rows as the sidebar editor, plus a button to change sides.
+    fn ribbon_side(&mut self, ui: &mut Ui, left: bool) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.label(egui::RichText::new(if left { "Left side" } else { "Right side" }).size(14.0).strong());
+            ui.add_space(4.0);
+            let ids = if left { self.settings.ribbon_left.clone() } else { self.settings.ribbon_right.clone() };
+            if ids.is_empty() {
+                ui.label(egui::RichText::new("Nothing here. Move an item over from the other side.").color(FAINT()));
+            }
+            let m = ids.len();
+            for (i, id) in ids.iter().enumerate() {
+                let Some((_, glyph, label)) = RIBBON_ITEMS.iter().find(|(k, _, _)| k == id) else { continue };
+                if id == "more" && !cfg!(windows) {
+                    continue;
+                }
+                ui.horizontal(|ui| {
+                    let mut vis = !self.settings.ribbon_hidden.contains(id);
+                    if eye(ui, &mut vis, id) {
+                        if vis {
+                            self.settings.ribbon_hidden.remove(id);
+                        } else {
+                            self.settings.ribbon_hidden.insert(id.clone());
+                        }
+                        self.save_settings();
+                    }
+                    let (r, _) = ui.allocate_exact_size(vec2(20.0, 20.0), Sense::hover());
+                    ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(glyph), icon_font(14.0), if vis { ACCENT() } else { FAINT() });
+                    ui.label(egui::RichText::new(*label).color(if vis { TEXT() } else { FAINT() }));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if small_btn(ui, if left { I_FWD } else { I_BACK }, if left { "Move to the right side" } else { "Move to the left side" }) {
+                            self.ribbon_switch_side(id, left);
+                        }
+                        if i + 1 < m && small_btn(ui, I_CHEV_D, "Move down (further right in the bar)") {
+                            self.ribbon_move(left, i, i + 1);
+                        }
+                        if i > 0 && small_btn(ui, I_CHEV_U, "Move up (further left in the bar)") {
+                            self.ribbon_move(left, i, i - 1);
+                        }
+                    });
+                });
+            }
+        });
+    }
+
+    fn ribbon_move(&mut self, left: bool, from: usize, to: usize) {
+        let side = if left { &mut self.settings.ribbon_left } else { &mut self.settings.ribbon_right };
+        if from < side.len() && to < side.len() {
+            side.swap(from, to);
+            self.save_settings();
+        }
+    }
+
+    /// Move an item to the other side, to the end nearest the side it came from.
+    fn ribbon_switch_side(&mut self, id: &str, from_left: bool) {
+        if from_left {
+            self.settings.ribbon_left.retain(|k| k != id);
+            self.settings.ribbon_right.insert(0, id.to_string());
+        } else {
+            self.settings.ribbon_right.retain(|k| k != id);
+            self.settings.ribbon_left.push(id.to_string());
+        }
+        self.save_settings();
+    }
+
+    // ------------------------------------------------------------------ files
+
+    fn page_files(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Files & folders", "");
+            let mut ch = false;
+            if managed_toggle(ui, &mut self.settings.show_hidden, "hidden", "Show hidden and system items") {
+                self.refilter_tabs();
+                ch = true;
+            }
+            ch |= managed_toggle(ui, &mut self.settings.show_ext, "ext", "Show file name extensions");
+            ch |= managed_toggle(ui, &mut self.settings.show_preview, "preview", "Show the preview pane");
+            if managed_toggle(ui, &mut self.settings.folder_sizes, "folder_sizes", "Show folder sizes (everything inside each folder, counted in the background)") {
+                self.tabs.iter_mut().for_each(|t| t.dirty = true);
+                ch = true;
+            }
+            ch |= managed_toggle(ui, &mut self.settings.restore_tabs, "restore_tabs2", "Reopen my tabs when Bolt Explorer starts");
+            if shell::HAS_NATIVE_PROPERTIES {
+                ch |= managed_toggle(ui, &mut self.settings.native_props, "native_props", "Use the Windows Properties dialog instead of Bolt Explorer's");
+            }
+            ui.add_space(8.0);
+            ui.horizontal(|ui| {
+                let fixed = policy::is_fixed("view");
+                ui.add_enabled_ui(!fixed, |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Default view");
+                        if ui.selectable_label(self.settings.view == View::Details, "Details").clicked() {
+                            self.settings.view = View::Details;
+                            ch = true;
+                        }
+                        if ui.selectable_label(self.settings.view == View::Icons, "Large icons").clicked() {
+                            self.settings.view = View::Icons;
+                            ch = true;
+                        }
+                    });
+                });
+                if fixed {
+                    managed_note(ui);
+                }
+            });
+            ui.add_space(8.0);
+            let mut sub = self.settings.nested_search;
+            if managed_toggle(ui, &mut sub, "nested_search", "Search subfolders too") {
+                self.settings.nested_search = sub;
+                let scope = if sub { Scope::Subfolders } else { Scope::ThisFolder };
+                for t in self.tabs.iter_mut().filter(|t| t.scope != Scope::AllDrives) {
+                    t.scope = scope;
+                }
+                self.refilter_tabs();
+                ch = true;
+            }
+            if managed_toggle(ui, &mut self.settings.regex_search, "regex_search", "Treat searches as regular expressions") {
+                self.refilter_tabs();
+                ch = true;
+            }
+            if ch {
+                self.save_settings();
+            }
+        });
+    }
+}
+
+fn small_btn(ui: &mut Ui, glyph: &'static str, tip: &str) -> bool {
+    let (r, resp) = ui.allocate_exact_size(vec2(26.0, 26.0), Sense::click());
+    if resp.hovered() {
+        ui.painter().rect_filled(r, CornerRadius::same(5), HOVER());
+    }
+    ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(glyph), icon_font(12.0), DIM());
+    resp.on_hover_text(tip).clicked()
+}
+
+fn eye(ui: &mut Ui, on: &mut bool, id: &str) -> bool {
+    let (r, resp) = ui.allocate_exact_size(vec2(26.0, 26.0), Sense::click());
+    let _ = id;
+    if resp.hovered() {
+        ui.painter().rect_filled(r, CornerRadius::same(5), HOVER());
+    }
+    ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(if *on { I_EYE } else { I_HIDE }), icon_font(13.0), if *on { ACCENT() } else { FAINT() });
+    let clicked = resp.on_hover_text(if *on { "Shown. Click to hide" } else { "Hidden. Click to show" }).clicked();
+    if clicked {
+        *on = !*on;
+    }
+    clicked
+}
+
+/// A clickable miniature of the window in a given theme.
+fn theme_card(ui: &mut Ui, name: &str, p: Palette, selected: bool) -> bool {
+    let (r, resp) = ui.allocate_exact_size(vec2(178.0, 128.0), Sense::click());
+    let painter = ui.painter();
+    let shot = Rect::from_min_size(r.min, vec2(r.width(), 96.0));
+    painter.rect_filled(shot, CornerRadius::same(8), p.bg);
+    painter.rect_filled(Rect::from_min_size(shot.min, vec2(shot.width(), 16.0)), CornerRadius { nw: 8, ne: 8, sw: 0, se: 0 }, p.chrome);
+    painter.rect_filled(Rect::from_min_size(shot.min + vec2(0.0, 16.0), vec2(46.0, 80.0)), CornerRadius { nw: 0, ne: 0, sw: 8, se: 0 }, p.panel);
+    for i in 0..4 {
+        let y = shot.top() + 26.0 + i as f32 * 16.0;
+        let row = Rect::from_min_size(pos2(shot.left() + 54.0, y), vec2(shot.width() - 64.0, 10.0));
+        painter.rect_filled(row, CornerRadius::same(3), if i == 1 { p.sel_strong } else { p.raised });
+        painter.rect_filled(Rect::from_min_size(pos2(shot.left() + 8.0, y), vec2(30.0, 6.0)), CornerRadius::same(3), if i == 0 { p.accent } else { p.line });
+    }
+    painter.rect_stroke(shot, CornerRadius::same(8), Stroke::new(if selected { 2.0_f32 } else { 1.0_f32 }, if selected { ACCENT() } else { LINE() }), StrokeKind::Outside);
+    painter.text(pos2(r.left() + 2.0, r.bottom() - 12.0), Align2::LEFT_CENTER, name, FontId::proportional(13.5), if selected { TEXT() } else { DIM() });
+    resp.clicked()
+}

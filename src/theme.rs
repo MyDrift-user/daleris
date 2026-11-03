@@ -1,0 +1,486 @@
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Arc;
+
+use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily, FontId, TextStyle};
+
+/// The colours of the current theme. Read through the `BG()`, `TEXT()`… functions.
+#[derive(Clone, Copy)]
+pub struct Palette {
+    pub dark: bool,
+    pub bg: Color32,
+    pub panel: Color32,
+    pub chrome: Color32,
+    pub raised: Color32,
+    pub hover: Color32,
+    pub sel: Color32,
+    pub sel_strong: Color32,
+    pub accent: Color32,
+    pub text: Color32,
+    pub dim: Color32,
+    pub faint: Color32,
+    pub line: Color32,
+    pub green: Color32,
+    pub cloud: Color32,
+    pub folder: Color32,
+    pub warn: Color32,
+    pub code_bg: Color32,
+}
+
+/// Accent colour choices (name, colour on dark, colour on light).
+pub const ACCENTS: [(&str, Color32, Color32); 7] = [
+    ("Blue", Color32::from_rgb(0x4c, 0xa3, 0xff), Color32::from_rgb(0x00, 0x5f, 0xb8)),
+    ("Teal", Color32::from_rgb(0x2e, 0xc4, 0xb6), Color32::from_rgb(0x00, 0x7a, 0x70)),
+    ("Purple", Color32::from_rgb(0xa8, 0x8b, 0xff), Color32::from_rgb(0x6b, 0x3f, 0xd4)),
+    ("Pink", Color32::from_rgb(0xff, 0x6f, 0xb1), Color32::from_rgb(0xc2, 0x18, 0x6b)),
+    ("Orange", Color32::from_rgb(0xff, 0xa2, 0x4c), Color32::from_rgb(0xc2, 0x5a, 0x00)),
+    ("Green", Color32::from_rgb(0x5f, 0xd0, 0x7a), Color32::from_rgb(0x1e, 0x7e, 0x34)),
+    ("Red", Color32::from_rgb(0xff, 0x6b, 0x6b), Color32::from_rgb(0xc4, 0x2b, 0x1c)),
+];
+
+fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
+    let l = |x: u8, y: u8| (x as f32 + (y as f32 - x as f32) * t).round() as u8;
+    Color32::from_rgb(l(a.r(), b.r()), l(a.g(), b.g()), l(a.b(), b.b()))
+}
+
+impl Palette {
+    pub fn new(dark: bool, accent: Color32) -> Palette {
+        if dark {
+            let bg = Color32::from_rgb(0x1b, 0x1b, 0x1d);
+            Palette {
+                dark,
+                bg,
+                panel: Color32::from_rgb(0x22, 0x22, 0x25),
+                chrome: Color32::from_rgb(0x16, 0x16, 0x18),
+                raised: Color32::from_rgb(0x2c, 0x2c, 0x30),
+                hover: Color32::from_rgb(0x2e, 0x2f, 0x34),
+                sel: mix(bg, accent, 0.28),
+                sel_strong: mix(bg, accent, 0.40),
+                accent,
+                text: Color32::from_rgb(0xe8, 0xe8, 0xea),
+                dim: Color32::from_rgb(0x9c, 0x9e, 0xa6),
+                faint: Color32::from_rgb(0x5d, 0x5f, 0x66),
+                line: Color32::from_rgb(0x33, 0x34, 0x39),
+                green: Color32::from_rgb(0x3f, 0xc1, 0x6b),
+                cloud: Color32::from_rgb(0x6c, 0xb4, 0xff),
+                folder: Color32::from_rgb(0xf2, 0xc2, 0x4e),
+                warn: Color32::from_rgb(0xe8, 0x6a, 0x5a),
+                code_bg: Color32::from_rgb(0x16, 0x16, 0x18),
+            }
+        } else {
+            let bg = Color32::from_rgb(0xfb, 0xfb, 0xfc);
+            Palette {
+                dark,
+                bg,
+                panel: Color32::from_rgb(0xf3, 0xf3, 0xf5),
+                chrome: Color32::from_rgb(0xe6, 0xe7, 0xea),
+                raised: Color32::from_rgb(0xff, 0xff, 0xff),
+                hover: Color32::from_rgb(0xe4, 0xe5, 0xe9),
+                sel: mix(bg, accent, 0.16),
+                sel_strong: mix(bg, accent, 0.26),
+                accent,
+                text: Color32::from_rgb(0x1b, 0x1b, 0x1f),
+                dim: Color32::from_rgb(0x5c, 0x5e, 0x66),
+                faint: Color32::from_rgb(0x9a, 0x9c, 0xa4),
+                line: Color32::from_rgb(0xd9, 0xda, 0xde),
+                green: Color32::from_rgb(0x1e, 0x8e, 0x45),
+                cloud: Color32::from_rgb(0x1f, 0x74, 0xd1),
+                folder: Color32::from_rgb(0xe8, 0xb3, 0x30),
+                warn: Color32::from_rgb(0xc4, 0x41, 0x3a),
+                code_bg: Color32::from_rgb(0xee, 0xef, 0xf2),
+            }
+        }
+    }
+}
+
+thread_local! {
+    static PAL: std::cell::Cell<Palette> = std::cell::Cell::new(Palette::new(true, ACCENTS[0].1));
+}
+
+pub fn pal() -> Palette {
+    PAL.with(|p| p.get())
+}
+
+macro_rules! colour_fns {
+    ($($name:ident => $field:ident),* $(,)?) => {
+        $( #[allow(non_snake_case)] #[inline] pub fn $name() -> Color32 { PAL.with(|p| p.get().$field) } )*
+    };
+}
+colour_fns!(BG => bg, PANEL => panel, CHROME => chrome, RAISED => raised, HOVER => hover, SEL => sel, SEL_STRONG => sel_strong,
+    ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, FOLDER => folder, WARN => warn);
+
+/// Is Windows itself in dark mode (apps setting)?
+#[cfg(windows)]
+pub fn system_dark() -> bool {
+    use windows::core::w;
+    use windows::Win32::System::Registry::*;
+    let mut v: u32 = 1;
+    let mut len = 4u32;
+    let rc = unsafe {
+        RegGetValueW(
+            HKEY_CURRENT_USER,
+            w!(r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize"),
+            w!("AppsUseLightTheme"),
+            RRF_RT_REG_DWORD,
+            None,
+            Some(&mut v as *mut u32 as *mut _),
+            Some(&mut len),
+        )
+    };
+    rc.is_err() || v == 0
+}
+
+/// Windows' own accent colour, if set.
+#[cfg(windows)]
+pub fn system_accent() -> Option<Color32> {
+    use windows::core::w;
+    use windows::Win32::System::Registry::*;
+    let mut v: u32 = 0;
+    let mut len = 4u32;
+    let rc = unsafe {
+        RegGetValueW(HKEY_CURRENT_USER, w!(r"Software\Microsoft\Windows\DWM"), w!("AccentColor"), RRF_RT_REG_DWORD, None, Some(&mut v as *mut u32 as *mut _), Some(&mut len))
+    };
+    // stored as 0xAABBGGRR
+    rc.is_ok().then(|| Color32::from_rgb(v as u8, (v >> 8) as u8, (v >> 16) as u8))
+}
+
+/// Run a small system query and keep its answer for a while (it is polled every couple of seconds).
+#[cfg(not(windows))]
+fn cached_query(slot: &'static std::sync::Mutex<Option<(std::time::Instant, Option<String>)>>, cmd: &str, args: &[&str]) -> Option<String> {
+    let mut g = slot.lock().unwrap();
+    if let Some((at, v)) = g.as_ref() {
+        if at.elapsed() < std::time::Duration::from_secs(10) {
+            return v.clone();
+        }
+    }
+    let v = std::process::Command::new(cmd)
+        .args(args)
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string());
+    *g = Some((std::time::Instant::now(), v.clone()));
+    v
+}
+
+/// Is the system in dark mode? macOS: AppleInterfaceStyle; Linux: GNOME/GTK colour scheme.
+#[cfg(not(windows))]
+pub fn system_dark() -> bool {
+    static SLOT: std::sync::Mutex<Option<(std::time::Instant, Option<String>)>> = std::sync::Mutex::new(None);
+    if cfg!(target_os = "macos") {
+        return cached_query(&SLOT, "defaults", &["read", "-g", "AppleInterfaceStyle"]).is_some_and(|v| v.contains("Dark"));
+    }
+    match cached_query(&SLOT, "gsettings", &["get", "org.gnome.desktop.interface", "color-scheme"]) {
+        Some(v) if v.contains("dark") => true,
+        Some(v) if v.contains("light") => false,
+        _ => std::env::var("GTK_THEME").map(|t| t.to_lowercase().contains("dark")).unwrap_or(true),
+    }
+}
+
+/// The system accent colour (macOS accent setting, GNOME 47+ accent-color).
+#[cfg(not(windows))]
+pub fn system_accent() -> Option<Color32> {
+    static SLOT: std::sync::Mutex<Option<(std::time::Instant, Option<String>)>> = std::sync::Mutex::new(None);
+    if cfg!(target_os = "macos") {
+        // -1 graphite, 0 red, 1 orange, 2 yellow, 3 green, 4 blue (default, key absent), 5 purple, 6 pink
+        let v = cached_query(&SLOT, "defaults", &["read", "-g", "AppleAccentColor"]);
+        let n: i32 = v.as_deref().and_then(|s| s.parse().ok()).unwrap_or(4);
+        return Some(match n {
+            -1 => Color32::from_rgb(0x8c, 0x8c, 0x8c),
+            0 => Color32::from_rgb(0xff, 0x52, 0x57),
+            1 => Color32::from_rgb(0xf7, 0x82, 0x1b),
+            2 => Color32::from_rgb(0xff, 0xc6, 0x00),
+            3 => Color32::from_rgb(0x62, 0xba, 0x46),
+            5 => Color32::from_rgb(0xa5, 0x50, 0xa7),
+            6 => Color32::from_rgb(0xf7, 0x4f, 0x9e),
+            _ => Color32::from_rgb(0x00, 0x7a, 0xff),
+        });
+    }
+    let v = cached_query(&SLOT, "gsettings", &["get", "org.gnome.desktop.interface", "accent-color"])?;
+    Some(match v.trim_matches('\'') {
+        "teal" => Color32::from_rgb(0x21, 0x90, 0xa4),
+        "green" => Color32::from_rgb(0x3a, 0x94, 0x4a),
+        "yellow" => Color32::from_rgb(0xc8, 0x88, 0x00),
+        "orange" => Color32::from_rgb(0xed, 0x5b, 0x00),
+        "red" => Color32::from_rgb(0xe6, 0x2d, 0x42),
+        "pink" => Color32::from_rgb(0xd5, 0x61, 0x99),
+        "purple" => Color32::from_rgb(0x91, 0x41, 0xac),
+        "slate" => Color32::from_rgb(0x6f, 0x83, 0x96),
+        "blue" => Color32::from_rgb(0x35, 0x84, 0xe4),
+        _ => return None,
+    })
+}
+
+/// Apply a palette to the app and egui's widgets.
+pub fn apply(ctx: &egui::Context, p: Palette) {
+    PAL.with(|c| c.set(p));
+    let mut style = (*ctx.style()).clone();
+    let v = &mut style.visuals;
+    *v = if p.dark { egui::Visuals::dark() } else { egui::Visuals::light() };
+    v.panel_fill = p.panel;
+    v.window_fill = p.raised;
+    v.extreme_bg_color = if p.dark { Color32::from_rgb(0x14, 0x14, 0x16) } else { Color32::WHITE };
+    v.faint_bg_color = if p.dark { Color32::from_rgb(0x20, 0x20, 0x23) } else { Color32::from_rgb(0xf0, 0xf0, 0xf3) };
+    v.override_text_color = Some(p.text);
+    v.selection.bg_fill = p.sel_strong;
+    v.selection.stroke = egui::Stroke::new(1.0_f32, p.accent);
+    v.hyperlink_color = p.accent;
+    v.window_stroke = egui::Stroke::new(1.0_f32, p.line);
+    v.window_corner_radius = egui::CornerRadius::same(8);
+    v.menu_corner_radius = egui::CornerRadius::same(8);
+    v.window_shadow = egui::epaint::Shadow { offset: [0, 6], blur: 18, spread: 0, color: Color32::from_black_alpha(if p.dark { 110 } else { 40 }) };
+    v.popup_shadow = v.window_shadow;
+    for (w, fill) in [
+        (&mut v.widgets.noninteractive, p.panel),
+        (&mut v.widgets.inactive, p.raised),
+        (&mut v.widgets.hovered, p.hover),
+        (&mut v.widgets.active, p.sel),
+        (&mut v.widgets.open, p.hover),
+    ] {
+        w.bg_fill = fill;
+        w.weak_bg_fill = fill;
+        w.corner_radius = egui::CornerRadius::same(5);
+        w.bg_stroke = egui::Stroke::NONE;
+        w.fg_stroke.color = p.text;
+    }
+    v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, p.line);
+    v.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
+    v.widgets.inactive.bg_stroke = egui::Stroke::NONE;
+    ctx.set_style(style);
+}
+
+static ICON_FONT: AtomicBool = AtomicBool::new(false);
+
+pub fn icon_family() -> FontFamily {
+    FontFamily::Name("icons".into())
+}
+
+pub fn icon_font(size: f32) -> FontId {
+    if ICON_FONT.load(Ordering::Relaxed) {
+        FontId::new(size, icon_family())
+    } else {
+        FontId::proportional(size)
+    }
+}
+
+/// Segoe Fluent / MDL2 glyph, or a plain fallback when that font is missing.
+pub fn ic(glyph: &'static str) -> &'static str {
+    if ICON_FONT.load(Ordering::Relaxed) {
+        return glyph;
+    }
+    match glyph {
+        I_LOCK => "🔒",
+        I_BACK => "←",
+        I_FWD => "→",
+        I_UP => "↑",
+        I_REFRESH => "⟳",
+        I_SEARCH => "🔍",
+        I_ADD => "+",
+        I_CLOSE => "×",
+        I_COPY => "⧉",
+        I_CUT => "✂",
+        I_PASTE => "📋",
+        I_RENAME => "✎",
+        I_DELETE => "🗑",
+        I_NEWFOLDER => "📁",
+        I_SORT => "⇅",
+        I_LIST => "☰",
+        I_GRID => "▦",
+        I_EYE => "👁",
+        I_PANE => "▣",
+        I_CLOUD => "☁",
+        I_DRIVE => "🖴",
+        I_NETDRIVE => "🖧",
+        I_HOME => "⌂",
+        I_PIN => "📌",
+        I_MORE => "…",
+        I_CHEV_R => "›",
+        I_CHEV_D => "⌄",
+        I_PC => "🖥",
+        I_TERMINAL => ">_",
+        I_INFO => "ⓘ",
+        I_FILTER => "⚲",
+        I_SETTINGS => "⚙",
+        I_CHECK => "✔",
+        I_GRIP => "⠿",
+        I_CHEV_U => "⌃",
+        I_HIDE => "⊘",
+        I_MIN => "_",
+        I_MAX => "□",
+        I_RESTORE => "❐",
+        I_WCLOSE => "✕",
+        I_PALETTE => "🎨",
+        I_PICTURE => "🖼",
+        I_NAVPANE => "☰",
+        I_FOLDER => "📁",
+        _ => "•",
+    }
+}
+
+pub const I_LOCK: &str = "\u{E72E}";
+pub const I_BACK: &str = "\u{E72B}";
+pub const I_FWD: &str = "\u{E72A}";
+pub const I_UP: &str = "\u{E74A}";
+pub const I_REFRESH: &str = "\u{E72C}";
+pub const I_SEARCH: &str = "\u{E721}";
+pub const I_ADD: &str = "\u{E710}";
+pub const I_CLOSE: &str = "\u{E711}";
+pub const I_COPY: &str = "\u{E8C8}";
+pub const I_CUT: &str = "\u{E8C6}";
+pub const I_PASTE: &str = "\u{E77F}";
+pub const I_RENAME: &str = "\u{E8AC}";
+pub const I_DELETE: &str = "\u{E74D}";
+pub const I_NEWFOLDER: &str = "\u{E8F4}";
+pub const I_SORT: &str = "\u{E8CB}";
+pub const I_LIST: &str = "\u{E8FD}";
+pub const I_GRID: &str = "\u{F0E2}";
+pub const I_EYE: &str = "\u{E7B3}";
+pub const I_PANE: &str = "\u{E8A0}";
+pub const I_CLOUD: &str = "\u{E753}";
+pub const I_DRIVE: &str = "\u{EDA2}";
+pub const I_NETDRIVE: &str = "\u{E8CE}";
+pub const I_HOME: &str = "\u{E80F}";
+pub const I_PIN: &str = "\u{E718}";
+pub const I_MORE: &str = "\u{E712}";
+pub const I_CHEV_R: &str = "\u{E76C}";
+pub const I_CHEV_D: &str = "\u{E70D}";
+pub const I_PC: &str = "\u{E7F8}";
+pub const I_TERMINAL: &str = "\u{E756}";
+pub const I_INFO: &str = "\u{E946}";
+pub const I_FILTER: &str = "\u{E71C}";
+pub const I_SETTINGS: &str = "\u{E713}";
+pub const I_CHECK: &str = "\u{E73E}";
+pub const I_GRIP: &str = "\u{E76F}";
+pub const I_CHEV_U: &str = "\u{E70E}";
+pub const I_HIDE: &str = "\u{ED1A}";
+pub const I_MIN: &str = "\u{E921}";
+pub const I_MAX: &str = "\u{E922}";
+pub const I_RESTORE: &str = "\u{E923}";
+pub const I_WCLOSE: &str = "\u{E8BB}";
+pub const I_PALETTE: &str = "\u{E790}";
+pub const I_PICTURE: &str = "\u{E8B9}";
+pub const I_NAVPANE: &str = "\u{E700}";
+pub const I_FOLDER: &str = "\u{E8B7}";
+
+pub fn install(ctx: &egui::Context) {
+    let mut fonts = FontDefinitions::default();
+    // the system's own UI fonts: Segoe (Windows), SF/Helvetica (macOS), Noto/Cantarell/Ubuntu/DejaVu (Linux)
+    let fdir = std::path::PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into())).join("Fonts");
+    let load = |names: &[&str]| -> Option<Vec<u8>> {
+        names.iter().find_map(|n| {
+            let p = std::path::Path::new(n);
+            std::fs::read(if p.is_absolute() { p.to_path_buf() } else { fdir.join(n) }).ok()
+        })
+    };
+    let ui_fonts: &[&str] = if cfg!(windows) {
+        &["segoeui.ttf"]
+    } else if cfg!(target_os = "macos") {
+        &["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/Helvetica.ttc", "/Library/Fonts/Arial Unicode.ttf"]
+    } else {
+        &[
+            "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
+            "/usr/share/fonts/noto/NotoSans-Regular.ttf",
+            "/usr/share/fonts/google-noto/NotoSans-Regular.ttf",
+            "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+            "/usr/share/fonts/dejavu/DejaVuSans.ttf",
+        ]
+    };
+    let mono_fonts: &[&str] = if cfg!(windows) {
+        &["consola.ttf"]
+    } else if cfg!(target_os = "macos") {
+        &["/System/Library/Fonts/SFNSMono.ttf", "/System/Library/Fonts/Menlo.ttc"]
+    } else {
+        &["/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", "/usr/share/fonts/TTF/DejaVuSansMono.ttf", "/usr/share/fonts/truetype/noto/NotoSansMono-Regular.ttf"]
+    };
+    let symbol_fonts: &[&str] = if cfg!(windows) {
+        &["seguisym.ttf"]
+    } else if cfg!(target_os = "macos") {
+        &["/System/Library/Fonts/Apple Symbols.ttf"]
+    } else {
+        &["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf", "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf"]
+    };
+
+    if let Some(b) = load(ui_fonts) {
+        fonts.font_data.insert("segoe".into(), Arc::new(FontData::from_owned(b)));
+        fonts.families.entry(FontFamily::Proportional).or_default().insert(0, "segoe".into());
+    }
+    if let Some(b) = load(mono_fonts) {
+        fonts.font_data.insert("consolas".into(), Arc::new(FontData::from_owned(b)));
+        fonts.families.entry(FontFamily::Monospace).or_default().insert(0, "consolas".into());
+    }
+    if let Some(b) = load(symbol_fonts) {
+        fonts.font_data.insert("segsym".into(), Arc::new(FontData::from_owned(b)));
+        fonts.families.entry(FontFamily::Proportional).or_default().push("segsym".into());
+    }
+    if let Some(b) = load(&["SegoeIcons.ttf", "segmdl2.ttf"]).filter(|_| cfg!(windows)) {
+        fonts.font_data.insert("icons".into(), Arc::new(FontData::from_owned(b)));
+        let mut fam = vec!["icons".to_string()];
+        fam.extend(fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default());
+        fonts.families.insert(icon_family(), fam);
+        ICON_FONT.store(true, Ordering::Relaxed);
+    }
+    ctx.set_fonts(fonts);
+
+    let mut style = (*ctx.style()).clone();
+    style.text_styles = [
+        (TextStyle::Small, FontId::proportional(11.5)),
+        (TextStyle::Body, FontId::proportional(13.5)),
+        (TextStyle::Button, FontId::proportional(13.5)),
+        (TextStyle::Heading, FontId::proportional(18.0)),
+        (TextStyle::Monospace, FontId::monospace(12.5)),
+    ]
+    .into();
+    style.spacing.item_spacing = egui::vec2(6.0, 4.0);
+    style.spacing.button_padding = egui::vec2(8.0, 4.0);
+    style.spacing.menu_margin = egui::Margin::same(6);
+    style.spacing.interact_size.y = 26.0;
+    style.spacing.scroll.bar_width = 8.0;
+    style.spacing.scroll.floating = true;
+    ctx.set_style(style);
+    apply(ctx, pal());
+}
+
+// ---------------------------------------------------------------- logo
+
+/// The bolt mark as triangles in a unit square.
+const BOLT: [[(f32, f32); 3]; 4] = [
+    [(0.62, 0.08), (0.24, 0.57), (0.52, 0.57)],
+    [(0.62, 0.08), (0.52, 0.57), (0.50, 0.43)],
+    [(0.50, 0.43), (0.78, 0.43), (0.38, 0.92)],
+    [(0.50, 0.43), (0.38, 0.92), (0.52, 0.57)],
+];
+
+/// Paint the app logo (rounded accent square with a white bolt) into `r`.
+pub fn paint_logo(p: &egui::Painter, r: egui::Rect, accent: Color32) {
+    p.rect_filled(r, egui::CornerRadius::same((r.width() * 0.24) as u8), accent);
+    for tri in BOLT {
+        let pts = tri.iter().map(|&(x, y)| egui::pos2(r.left() + x * r.width(), r.top() + y * r.height())).collect();
+        p.add(egui::Shape::convex_polygon(pts, Color32::WHITE, egui::Stroke::NONE));
+    }
+}
+
+/// The logo as RGBA pixels, for the window/taskbar icon.
+pub fn logo_rgba(size: u32, accent: Color32) -> Vec<u8> {
+    let s = size as f32;
+    let rad = s * 0.24;
+    let inside = |px: f32, py: f32, t: &[(f32, f32); 3]| {
+        let sign = |a: (f32, f32), b: (f32, f32), c: (f32, f32)| (a.0 - c.0) * (b.1 - c.1) - (b.0 - c.0) * (a.1 - c.1);
+        let p = (px, py);
+        let (d1, d2, d3) = (sign(p, t[0], t[1]), sign(p, t[1], t[2]), sign(p, t[2], t[0]));
+        !((d1 < 0.0 || d2 < 0.0 || d3 < 0.0) && (d1 > 0.0 || d2 > 0.0 || d3 > 0.0))
+    };
+    let mut out = Vec::with_capacity((size * size * 4) as usize);
+    for y in 0..size {
+        for x in 0..size {
+            let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
+            let (cx, cy) = (fx.clamp(rad, s - rad), fy.clamp(rad, s - rad));
+            let d = ((fx - cx).powi(2) + (fy - cy).powi(2)).sqrt();
+            let a = (rad - d + 0.5).clamp(0.0, 1.0);
+            let c = if BOLT.iter().any(|t| inside(fx / s, fy / s, t)) { Color32::WHITE } else { accent };
+            out.extend_from_slice(&[c.r(), c.g(), c.b(), (a * 255.0) as u8]);
+        }
+    }
+    out
+}

@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <displayName>Bolt Explorer</displayName>
+  <description>Bolt Explorer</description>
+  <resources>
+    <stringTable>
+      <string id="SUPPORTED_ANY">Bolt Explorer on Windows</string>
+      <string id="BoltExplorer">Bolt Explorer</string>
+      <string id="CatFixed">Fixed settings (cannot be changed by users)</string>
+      <string id="CatRecommended">Default settings (users can change them)</string>
+      <string id="ExplainFixed">This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplainRecommended">This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ShowHiddenItems">Show hidden and system items</string>
+      <string id="ShowPreviewPane">Show the preview pane</string>
+      <string id="ShowFileExtensions">Show file name extensions</string>
+      <string id="CustomTitleBar">Use the Bolt Explorer title bar</string>
+      <string id="TitleBarLogo">Show the logo in the title bar</string>
+      <string id="TitleBarName">Show the app name in the title bar</string>
+      <string id="TitleBarSettingsButton">Show the settings button</string>
+      <string id="ReopenTabs">Reopen tabs at startup</string>
+      <string id="WindowsPropertiesDialog">Use the Windows Properties dialog</string>
+      <string id="FolderSizes">Show folder sizes</string>
+      <string id="SearchSubfolders">Search subfolders</string>
+      <string id="SearchRegex">Treat searches as regular expressions</string>
+      <string id="DefaultView">Default view</string>
+      <string id="Details">Details</string>
+      <string id="LargeIcons">Large icons</string>
+      <string id="Theme">Theme</string>
+      <string id="FollowWindows">Follow Windows</string>
+      <string id="Dark">Dark</string>
+      <string id="Light">Light</string>
+      <string id="AccentColor">Accent colour</string>
+      <string id="AccentWindows">Windows accent colour</string>
+      <string id="RowHeight">Row height</string>
+      <string id="Compact">Compact</string>
+      <string id="Normal">Normal</string>
+      <string id="Comfortable">Comfortable</string>
+      <string id="Accent0">Blue</string>
+      <string id="Accent1">Teal</string>
+      <string id="Accent2">Purple</string>
+      <string id="Accent3">Pink</string>
+      <string id="Accent4">Orange</string>
+      <string id="Accent5">Green</string>
+      <string id="Accent6">Red</string>
+      <string id="IconPack">Icon pack</string>
+      <string id="IconPackExplain_ExplainFixed">system, flat, or the name of an icon pack folder This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="IconPackExplain_ExplainRecommended">system, flat, or the name of an icon pack folder This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="RibbonLeft">Ribbon bar: left side</string>
+      <string id="RibbonLeftExplain_ExplainFixed">Items separated by the pipe character. Anything not listed on either side is not shown. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="RibbonLeftExplain_ExplainRecommended">Items separated by the pipe character. Anything not listed on either side is not shown. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="RibbonRight">Ribbon bar: right side</string>
+      <string id="RibbonRightExplain_ExplainFixed">Items separated by the pipe character. Anything not listed on either side is not shown. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="RibbonRightExplain_ExplainRecommended">Items separated by the pipe character. Anything not listed on either side is not shown. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="RibbonHidden">Ribbon bar: hidden items</string>
+      <string id="RibbonHiddenExplain_ExplainFixed">Items separated by the pipe character. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="RibbonHiddenExplain_ExplainRecommended">Items separated by the pipe character. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="SidebarHiddenSections">Sidebar: hidden sections</string>
+      <string id="SidebarHiddenSectionsExplain_ExplainFixed">Any of quick, cloud, pc, network, separated by the pipe character. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="SidebarHiddenSectionsExplain_ExplainRecommended">Any of quick, cloud, pc, network, separated by the pipe character. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="LockRibbon">Lock the ribbon bar</string>
+      <string id="LockRibbonExplain">The ribbon bar stays as defined by the policies here and cannot be customized.</string>
+      <string id="LockSidebar">Lock the sidebar</string>
+      <string id="LockSidebarExplain">Sections and places in the sidebar cannot be rearranged, hidden or pinned.</string>
+      <string id="LockContextMenu">Lock the right-click menu</string>
+      <string id="LockContextMenuExplain">The right-click menu cannot be customized.</string>
+      <string id="DisableCustomCommands">Turn off custom commands</string>
+      <string id="DisableCustomCommandsExplain">Commands people added themselves are not shown or run, and none can be added.</string>
+    </stringTable>
+    <presentationTable>
+      <presentation id="DefaultView"><dropdownList refId="DefaultView" noSort="true" /></presentation>
+      <presentation id="Theme"><dropdownList refId="Theme" noSort="true" /></presentation>
+      <presentation id="AccentColor"><dropdownList refId="AccentColor" noSort="true" /></presentation>
+      <presentation id="RowHeight"><dropdownList refId="RowHeight" noSort="true" /></presentation>
+      <presentation id="IconPack"><textBox refId="IconPack"><label>Icon pack</label></textBox></presentation>
+      <presentation id="RibbonLeft"><textBox refId="RibbonLeft"><label>Ribbon bar: left side</label></textBox></presentation>
+      <presentation id="RibbonRight"><textBox refId="RibbonRight"><label>Ribbon bar: right side</label></textBox></presentation>
+      <presentation id="RibbonHidden"><textBox refId="RibbonHidden"><label>Ribbon bar: hidden items</label></textBox></presentation>
+      <presentation id="SidebarHiddenSections"><textBox refId="SidebarHiddenSections"><label>Sidebar: hidden sections</label></textBox></presentation>
+    </presentationTable>
+  </resources>
+</policyDefinitionResources>

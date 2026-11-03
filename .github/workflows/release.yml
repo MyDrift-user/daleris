@@ -1,0 +1,89 @@
+name: Release
+
+# Started by hand: Actions -> Release -> Run workflow.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to release, without the v (e.g. 0.1.0)"
+        required: true
+      prerelease:
+        description: "Mark as pre-release"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+env:
+  VERSION: ${{ inputs.version }}
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - { os: windows-latest, name: windows-x64, bin: bolt-explorer.exe }
+          - { os: ubuntu-latest, name: linux-x64, bin: bolt-explorer }
+          - { os: macos-latest, name: macos-arm64, bin: bolt-explorer }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version matches Cargo.toml
+        shell: bash
+        run: |
+          v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
+          [ "$v" = "$VERSION" ] || { echo "Cargo.toml says $v, input says $VERSION"; exit 1; }
+
+      - name: Install Linux libraries
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgl1-mesa-dev libwayland-dev libx11-dev
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package
+        shell: bash
+        env:
+          NAME: ${{ matrix.name }}
+          BIN: ${{ matrix.bin }}
+        run: |
+          dir="bolt-explorer-v$VERSION-$NAME"
+          mkdir "$dir"
+          cp "target/release/$BIN" "$dir/"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp -r policy "$dir/"
+            7z a "$dir.zip" "$dir"
+          else
+            tar czf "$dir.tar.gz" "$dir"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: bolt-explorer-v*
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PRERELEASE: ${{ inputs.prerelease }}
+        run: |
+          flags=()
+          [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
+          gh release create "v$VERSION" dist/*.zip dist/*.tar.gz --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Bolt Explorer v$VERSION" --generate-notes "${flags[@]}"
