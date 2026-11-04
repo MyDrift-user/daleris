@@ -181,6 +181,7 @@ try {
   New-Item $policy -Force | Out-Null
   Set-ItemProperty $policy AutomaticUpdates 0 -Type DWord
   Assert-Stays $exe 0 $off
+  New-Item (Split-Path $switch) -ItemType Directory -Force | Out-Null
   Set-Content $switch '1'
   Assert-Stays $exe 0 $off
   Clear-Policy
