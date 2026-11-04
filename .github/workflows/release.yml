@@ -127,18 +127,23 @@ jobs:
           $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
           if ($p.ExitCode -or (Test-Path "$dir\daleris.exe")) { throw "MSI did not uninstall from a chosen folder: $($p.ExitCode)" }
 
-          # Installing over the published release has to replace it, even with the same version number.
+          # Installing over the published release has to replace it, for this PC and for one account alike.
           New-Item -ItemType Directory old | Out-Null
           gh release download --repo "$env:GITHUB_REPOSITORY" --pattern 'daleris-*.msi' --dir old
           $previous = Get-ChildItem old -Filter *.msi | Select-Object -First 1
           if ($previous) {
-            $p = Start-Process msiexec -ArgumentList '/i',"`"$($previous.FullName)`"",'/qn','/norestart' -Wait -PassThru
-            if ($p.ExitCode) { throw "The published MSI did not install: $($p.ExitCode)" }
-            $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart','ALLUSERS=1' -Wait -PassThru
-            if ($p.ExitCode) { throw "MSI did not upgrade: $($p.ExitCode)" }
-            if ((Listed).Count -ne 1) { throw "After upgrading, Windows lists Daleris $((Listed).Count) times" }
-            $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
-            if ($p.ExitCode -or (Test-Path $exe)) { throw "MSI did not uninstall after upgrading: $($p.ExitCode)" }
+            function ListedAnywhere { @(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*', 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object DisplayName -eq 'Daleris') }
+            foreach ($scope in @(@('ALLUSERS=1'), @('ALLUSERS=2', 'MSIINSTALLPERUSER=1'))) {
+              $installed = if ($scope.Count -eq 1) { $exe } else { $own }
+              $p = Start-Process msiexec -ArgumentList (@('/i', "`"$($previous.FullName)`"", '/qn', '/norestart') + $scope) -Wait -PassThru
+              if ($p.ExitCode) { throw "The published MSI did not install: $($p.ExitCode)" }
+              $p = Start-Process msiexec -ArgumentList (@('/i', "`"$msi`"", '/qn', '/norestart') + $scope) -Wait -PassThru
+              if ($p.ExitCode) { throw "MSI did not upgrade: $($p.ExitCode)" }
+              if ((ListedAnywhere).Count -ne 1) { throw "After upgrading ($scope), Windows lists Daleris $((ListedAnywhere).Count) times" }
+              if ((ListedAnywhere)[0].DisplayVersion -ne $env:VERSION) { throw "After upgrading ($scope), Windows lists version $((ListedAnywhere)[0].DisplayVersion)" }
+              $p = Start-Process msiexec -ArgumentList (@('/x', "`"$msi`"", '/qn', '/norestart') + $scope) -Wait -PassThru
+              if ($p.ExitCode -or (Test-Path $installed)) { throw "MSI did not uninstall after upgrading ($scope): $($p.ExitCode)" }
+            }
           }
           $global:LASTEXITCODE = 0
 
