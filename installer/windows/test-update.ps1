@@ -35,9 +35,12 @@ function Assert-Version($exe, $version) {
   if ($got -ne "Daleris $version") { throw "$exe is '$got', not $version" }
 }
 
+# Where the installer of the update being tested writes its log.
+$script:installerLog = $null
+
 function Show-Logs {
-  foreach ($log in "$systemLog\daleris.log", "$systemLog\installer.log", "$ownLog\daleris.log", "$ownLog\installer.log") {
-    if (Test-Path $log) {
+  foreach ($log in "$systemLog\daleris.log", "$ownLog\daleris.log", $script:installerLog) {
+    if ($log -and (Test-Path $log)) {
       Write-Host "--- $log"
       # an installer's log is long, so show what led to its first failure
       $failed = Select-String -Path $log -Pattern 'Return value 3|Error \d{4}\.|^.*error occurred' | Select-Object -First 1
@@ -58,14 +61,9 @@ function Wait-Updated($exe) {
     if ($i -eq 72) { Show-Logs; throw "$exe didn't update" }
   }
   Assert-Version $exe $new
-  foreach ($log in "$systemLog\installer.log", "$ownLog\installer.log") {
-    if (Test-Path $log) {
-      $text = Get-Content -Raw $log
-      # an in-use file only gets replaced at the next restart
-      if ($text -match 'requires a system restart|ReplacedInUseFiles|Need to restart Windows\? Yes') { Show-Logs; throw "The update needs a restart: $log" }
-      Remove-Item $log
-    }
-  }
+  if ($script:installerLog -notlike '*.log' -or -not (Test-Path $script:installerLog)) { throw "The installer left no log at $script:installerLog" }
+  # an in-use file only gets replaced at the next restart
+  if ((Get-Content -Raw $script:installerLog) -match 'requires a system restart|ReplacedInUseFiles|Need to restart Windows\? Yes') { Show-Logs; throw "The update needs a restart" }
 }
 
 function Install-Msi($msi, [string[]]$properties) {
@@ -95,6 +93,7 @@ function Listed($root) { @(Get-ItemProperty "$root\SOFTWARE\Microsoft\Windows\Cu
 function Test-Machine($folder) {
   $exe = "$folder\daleris.exe"
   Assert-Version $exe $env:VERSION
+  $script:installerLog = "$folder\updates\installer.log"
   schtasks /Run /TN $task | Out-Null
   if ($LASTEXITCODE) { throw "The task didn't start" }
   Wait-Updated $exe
@@ -271,6 +270,7 @@ try {
     if ($test.Msi) { Install-Msi "$oldBase.msi" ($perUser + $test.Extra) } else { Install-Setup (@('/CURRENTUSER') + $test.Extra) }
     $exe = "$($test.Folder)\daleris.exe"
     Assert-Version $exe $env:VERSION
+    $script:installerLog = "$ownLog\updates\installer.log"
     $r = Run $exe '--update-now'
     if ($r.Code -or $r.Text -notmatch 'InstallsOnClose') { Show-Logs; throw "--update-now said '$($r.Text)', exit $($r.Code)" }
     Wait-Updated $exe

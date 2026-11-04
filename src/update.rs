@@ -300,10 +300,12 @@ fn clean_dir(dir: &Path, keep: Option<&Path>) {
 
 /// What the installers need beyond their switches: an MSI goes to the default folder unless told where this copy is,
 /// and neither can show what went wrong except in a log. Quoted by hand, as msiexec doesn't read a quoted `NAME=value`.
+/// The log goes next to the installer: setup.exe is 32-bit, so it can't reach SYSTEM's own folder under System32 and
+/// gives up when it can't write its log.
 #[cfg(windows)]
-fn add_installer_args(c: &mut Command, msi: bool) {
+fn add_installer_args(c: &mut Command, installer: &Path, msi: bool) {
     use std::os::windows::process::CommandExt;
-    let log = crate::util::log_dir().map(|d| d.join("installer.log"));
+    let log = installer.parent().map(|d| d.join("installer.log"));
     if msi {
         if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
             c.raw_arg(format!("APPLICATIONFOLDER=\"{}\"", dir.display()));
@@ -317,7 +319,7 @@ fn add_installer_args(c: &mut Command, msi: bool) {
 }
 
 #[cfg(not(windows))]
-fn add_installer_args(_: &mut Command, _: bool) {}
+fn add_installer_args(_: &mut Command, _: &Path, _: bool) {}
 
 fn run_installer(installer: &Path, install: &Install) -> Result<Command, String> {
     let mut c;
@@ -344,7 +346,7 @@ fn run_installer(installer: &Path, install: &Install) -> Result<Command, String>
         }
         _ => return Err("This copy isn't installed by an installer".into()),
     };
-    add_installer_args(&mut c, msi);
+    add_installer_args(&mut c, installer, msi);
     Ok(c)
 }
 
@@ -684,7 +686,7 @@ fn run_service() -> i32 {
         }
     };
     log::info!("update service: installing {}", manifest.version);
-    // Not waiting for it, as this program is one of the files it replaces. It writes installer.log next to this log.
+    // Not waiting for it, as this program is one of the files it replaces. It writes installer.log next to itself.
     match run_installer(&path, &install).and_then(|mut c| c.spawn().map_err(|e| e.to_string())) {
         Ok(_) => 0,
         Err(e) => {
