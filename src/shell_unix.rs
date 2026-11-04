@@ -39,7 +39,7 @@ pub struct RawImg {
 pub enum ImgReq {
     #[allow(dead_code)]
     Icon { key: String, path: String, by_attrs: bool, is_dir: bool },
-    Thumb { key: String, path: PathBuf, size: i32, icon_only: bool },
+    Thumb { key: String, path: PathBuf, size: i32, icon_only: bool, #[allow(dead_code)] preview_only: bool },
     #[allow(dead_code)]
     KnownFolder { key: String, id: KfId },
 }
@@ -104,7 +104,7 @@ fn spawn_worker(i: usize, q: Queue, tx: Sender<ImgResult>, ctx: eframe::egui::Co
                 v.pop().unwrap()
             };
             let res = match &req {
-                ImgReq::Thumb { key, path, size, icon_only } => ImgResult { key: key.clone(), img: if *icon_only { None } else { thumbnail(path, *size as u32) }, type_name: None },
+                ImgReq::Thumb { key, path, size, icon_only, .. } => ImgResult { key: key.clone(), img: if *icon_only { None } else { thumbnail(path, *size as u32) }, type_name: None },
                 other => ImgResult { key: other.key().to_string(), img: None, type_name: None },
             };
             if tx.send(res).is_err() {

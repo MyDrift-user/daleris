@@ -51,7 +51,7 @@ pub enum ImgReq {
     /// Small icon + type name, by extension (cheap, shared) or by full path (exe/lnk/ico, drives).
     Icon { key: String, path: String, by_attrs: bool, is_dir: bool },
     /// Shell thumbnail (images, videos, PDFs…, falls back to a big icon).
-    Thumb { key: String, path: PathBuf, size: i32, icon_only: bool },
+    Thumb { key: String, path: PathBuf, size: i32, icon_only: bool, preview_only: bool },
     /// The icon Explorer shows for a known folder (Desktop, Downloads…), read from its
     /// shell identity rather than its disk folder (which can carry a custom desktop.ini icon).
     KnownFolder { key: String, id: windows::core::GUID },
@@ -129,8 +129,8 @@ fn spawn_workers(q: &Queue, n: usize, tx: &Sender<ImgResult>, ctx: &eframe::egui
                             let (img, tn) = unsafe { file_icon(path, *by_attrs, *is_dir) };
                             ImgResult { key: key.clone(), img, type_name: tn }
                         }
-                        ImgReq::Thumb { key, path, size, icon_only } => {
-                            let img = unsafe { thumbnail(path, *size, *icon_only) };
+                        ImgReq::Thumb { key, path, size, icon_only, preview_only } => {
+                            let img = unsafe { thumbnail(path, *size, *icon_only, *preview_only) };
                             ImgResult { key: key.clone(), img, type_name: None }
                         }
                         ImgReq::KnownFolder { key, id } => {
@@ -274,10 +274,16 @@ unsafe fn bitmap_bgra(hbm: HBITMAP) -> Option<(usize, usize, Vec<u8>)> {
     (n != 0).then_some((w as usize, h as usize, buf))
 }
 
-unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool) -> Option<RawImg> {
+unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool) -> Option<RawImg> {
     let w = wide(path.as_os_str());
     let f: IShellItemImageFactory = SHCreateItemFromParsingName(PCWSTR(w.as_ptr()), None).ok()?;
-    let flags = if icon_only { SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0) } else { SIIGBF_RESIZETOFIT };
+    let flags = if icon_only {
+        SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0)
+    } else if preview_only {
+        SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_THUMBNAILONLY.0)
+    } else {
+        SIIGBF_RESIZETOFIT
+    };
     let hbm = f.GetImage(SIZE { cx: size, cy: size }, flags).ok()?;
     let r = bitmap_bgra(hbm);
     let _ = DeleteObject(hbm);

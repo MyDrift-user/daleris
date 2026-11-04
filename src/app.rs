@@ -17,6 +17,7 @@ use crate::util::*;
 
 mod actions;
 mod chrome;
+mod file_icons;
 mod list;
 mod menu;
 mod props;
@@ -24,6 +25,7 @@ mod settings_page;
 mod sidebar;
 
 use actions::*;
+use file_icons::{flat_icon, IconFor};
 
 // ====================================================================== model
 
@@ -1444,13 +1446,21 @@ impl App {
         let tint = if dim { Color32::from_white_alpha(130) } else { Color32::WHITE };
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
         let place = if is_dir { self.place_of(path).map(|p| (p.name.clone(), p.kf)) } else { None };
-        let is_drive = is_dir && (path.parent().is_none() || self.drives.iter().any(|d| fsx::same_path(&d.root, path)));
+        let is_root = is_dir && path.parent().is_none();
+        let drive = if is_dir { self.drives.iter().find(|d| fsx::same_path(&d.root, path)).map(|d| d.kind) } else { None };
+        let is_drive = is_root || drive.is_some();
+        let cloud = if is_dir { self.clouds.iter().find(|c| fsx::same_path(&c.path, path)).map(|c| c.provider.clone()) } else { None };
+        let name = path.file_name().map(|n| n.to_string_lossy().to_lowercase()).unwrap_or_default();
+        let place_name = place.as_ref().map(|p| p.0.clone());
+
         let kind = kind_of(ext, is_dir);
+        let flat = |p: &egui::Painter| flat_icon(p, rect, &IconFor { kind, ext, name: &name, place: place_name.as_deref(), drive, is_root, cloud: cloud.as_deref(), dim });
+
 
         match self.settings.icon_pack.clone().as_str() {
             "system" => {}
             "flat" => {
-                flat_icon(ui.painter(), rect, kind, ext, place.as_ref().map(|p| p.0.as_str()), is_drive, dim);
+                flat(ui.painter());
                 return;
             }
             pack => {
@@ -1480,10 +1490,9 @@ impl App {
         }
         // Only Windows has system icons to ask for; a custom pack's gaps get the built-in ones.
         if prefers_bundled_icons() {
-            flat_icon(ui.painter(), rect, kind, ext, place.as_ref().map(|p| p.0.as_str()), is_drive, dim);
+            flat(ui.painter());
             return;
         }
-        let place_name = place.as_ref().map(|p| p.0.clone());
         // Known folders use the icon Explorer shows (their shell identity), not the disk folder's.
         let (key, req) = match place {
             Some((name, kf)) => {
@@ -1495,7 +1504,7 @@ impl App {
         if let Some(id) = self.tex(&key, || req) {
             ui.painter().image(id, rect, uv, tint);
         } else {
-            flat_icon(ui.painter(), rect, kind, ext, place_name.as_deref(), is_drive, dim);
+            flat(ui.painter());
         }
     }
 
@@ -1503,17 +1512,19 @@ impl App {
         let px = (rect.width().max(rect.height()) * ui.ctx().pixels_per_point()).round().clamp(32.0, 512.0) as i32;
         let online_only = attrs & (fsx::A_RECALL_ON_DATA | fsx::A_OFFLINE) != 0;
         let kind = kind_of(row_ext, is_dir);
-        let packed = self.settings.icon_pack != "system" && !matches!(kind, Kind::Image | Kind::Video);
+        let own_icons = self.settings.icon_pack != "system";
+        // with an icon pack, a picture or video only replaces its icon when it has a real preview
+        let packed = own_icons && (online_only || !matches!(kind, Kind::Image | Kind::Video));
         if packed || (is_dir && self.place_of(path).is_some()) {
             let side = rect.width().min(rect.height()) * 0.8;
             self.draw_icon(ui, Rect::from_center_size(rect.center(), vec2(side, side)), path, row_ext, is_dir, attrs);
             return;
         }
         let media = matches!(kind, Kind::Image | Kind::Video | Kind::Document | Kind::Folder | Kind::App) && !online_only;
-        let key = if media { format!("t:{px}:{}:{mtime}", path.to_string_lossy().to_lowercase()) } else { format!("t:{px}:e:{row_ext}:{is_dir}") };
+        let key = if media { format!("t:{px}:{own_icons}:{}:{mtime}", path.to_string_lossy().to_lowercase()) } else { format!("t:{px}:e:{row_ext}:{is_dir}") };
         let p = path.to_path_buf();
         let k2 = key.clone();
-        match self.tex(&key, || ImgReq::Thumb { key: k2, path: p, size: px, icon_only: !media }) {
+        match self.tex(&key, || ImgReq::Thumb { key: k2, path: p, size: px, icon_only: !media, preview_only: own_icons }) {
             Some(id) => {
                 let size = match self.icons.get(&key) {
                     Some(Slot::Ready(t)) => t.size_vec2() / ui.ctx().pixels_per_point(),
@@ -1537,50 +1548,6 @@ fn fit_rect(area: Rect, img: egui::Vec2) -> Rect {
     }
     let s = (area.width() / img.x).min(area.height() / img.y).min(2.0);
     Rect::from_center_size(area.center(), img * s)
-}
-
-/// The built-in icons: solid glyphs in a colour per type, drawn from a font so they stay sharp at any size.
-fn flat_icon(p: &egui::Painter, r: Rect, kind: Kind, ext: &str, place: Option<&str>, is_drive: bool, dim: bool) {
-    use egui_phosphor::fill as g;
-    const BLUE: Color32 = Color32::from_rgb(0x4a, 0x90, 0xe2);
-    const RED: Color32 = Color32::from_rgb(0xe0, 0x56, 0x4f);
-    const LIME: Color32 = Color32::from_rgb(0x3f, 0xb3, 0x76);
-    const ORANGE: Color32 = Color32::from_rgb(0xf0, 0x8c, 0x3a);
-    const PURPLE: Color32 = Color32::from_rgb(0x9b, 0x72, 0xe8);
-    const TEAL: Color32 = Color32::from_rgb(0x2f, 0xb5, 0xb0);
-    const GOLD: Color32 = Color32::from_rgb(0xc9, 0xa2, 0x27);
-    const GRAY: Color32 = Color32::from_rgb(0x8d, 0x93, 0xa1);
-    let known = match place {
-        Some("Home") => Some((g::HOUSE, BLUE)),
-        Some("Desktop") => Some((g::DESKTOP, BLUE)),
-        Some("Downloads") => Some((g::DOWNLOAD_SIMPLE, TEAL)),
-        Some("Documents") => Some((g::FILE_TEXT, BLUE)),
-        Some("Pictures") => Some((g::IMAGE, LIME)),
-        Some("Music") => Some((g::MUSIC_NOTES, ORANGE)),
-        Some("Videos") => Some((g::FILM_STRIP, PURPLE)),
-        _ => None,
-    };
-    let (glyph, color) = known.unwrap_or(match kind {
-        _ if is_drive => (g::HARD_DRIVE, GRAY),
-        Kind::Folder => (g::FOLDER, FOLDER()),
-        Kind::Image => (g::FILE_IMAGE, LIME),
-        Kind::Video => (g::FILE_VIDEO, PURPLE),
-        Kind::Audio => (g::FILE_AUDIO, ORANGE),
-        Kind::Code => (g::FILE_CODE, TEAL),
-        Kind::Archive => (g::FILE_ZIP, GOLD),
-        Kind::App => (g::APP_WINDOW, BLUE),
-        Kind::Document => match ext {
-            "pdf" => (g::FILE_PDF, RED),
-            "doc" | "docx" | "odt" | "rtf" => (g::FILE_DOC, BLUE),
-            "xls" | "xlsx" | "ods" => (g::FILE_XLS, LIME),
-            "csv" => (g::FILE_CSV, LIME),
-            "ppt" | "pptx" => (g::FILE_PPT, ORANGE),
-            _ => (g::FILE_TEXT, GRAY),
-        },
-        Kind::Other => (g::FILE, GRAY),
-    });
-    let color = if dim { color.gamma_multiply(0.5) } else { color };
-    p.text(r.center(), Align2::CENTER_CENTER, glyph, file_icon_font(r.height()), color);
 }
 
 /// Cloud status glyphs as Explorer shows them: cloud = online-only,
