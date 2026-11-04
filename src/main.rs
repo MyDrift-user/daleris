@@ -46,6 +46,8 @@ fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
             .with_title("Bolt Explorer")
+            // matches the .desktop file, which is how Wayland desktops find the icon
+            .with_app_id("bolt-explorer")
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([720.0, 420.0])
             .with_icon(std::sync::Arc::new(eframe::egui::IconData { rgba: theme::logo_rgba(64, theme::ACCENTS[0].1), width: 64, height: 64 }))

@@ -90,12 +90,18 @@ Download what you need from **[Releases](../../releases)**:
 | | `...-windows-x64-portable.exe` | Portable, runs without installing |
 | | `...-windows-x64.zip` | The same portable program, zipped |
 | | `...-policy-definitions.zip` | Group Policy templates |
-| Linux (x64, X11 and Wayland) | `...-linux-x64`, `...-linux-x64.tar.gz` | Program, or the same in an archive |
-| macOS (Apple Silicon) | `...-macos-arm64`, `...-macos-arm64.tar.gz` | Program, or the same in an archive |
+| Linux (x64 or arm64, X11 and Wayland) | `...-linux-*.AppImage` | Runs on most distros without installing |
+| | `...-linux-*.deb` | Debian, Ubuntu, Mint and others |
+| | `...-linux-*.rpm` | Fedora, openSUSE and others |
+| | `...-linux-x64.pkg.tar.zst` | Arch Linux and others |
+| | `...-linux-*`, `...-linux-*.tar.gz` | Program, or the same in an archive |
+| macOS 11+ (Apple Silicon `arm64` or Intel `x64`) | `...-macos-*.dmg` | Disk image, drag to Applications |
+| | `...-macos-*.pkg` | Installer, for managed deployment |
+| | `...-macos-*`, `...-macos-*.tar.gz` | Program, or the same in an archive |
 
-Windows is the main platform. The Linux and macOS versions build, but aren't yet tested in daily use. After downloading the plain Linux or macOS file, make it runnable with `chmod +x`.
+Windows is the main platform. The Linux and macOS packages are tested automatically when they're built, but aren't yet tested in daily use. After downloading an AppImage or plain program, make it runnable with `chmod +x`.
 
-The Windows files aren't signed, so SmartScreen may show a warning. The macOS build isn't signed. If macOS blocks it, run `xattr -d com.apple.quarantine bolt-explorer`.
+Nothing is signed by a known publisher, so SmartScreen may show a warning on Windows. On macOS, run `xattr -dr com.apple.quarantine "/Applications/Bolt Explorer.app"` if it's blocked.
 
 Bug reports for Linux and macOS are especially welcome.
 
@@ -122,7 +128,7 @@ Every push is built on all three systems by the CI workflow. Releases only start
 1. Bump `version` in `Cargo.toml` and push.
 2. Go to **Actions → Release → Run workflow** and enter the same version (e.g. `0.2.0`).
 
-The workflow builds all three versions plus the Windows installers, tests that both installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads.
+The workflow builds every download, installs and starts the Linux and macOS packages to test them (Linux on clean distro containers), checks that the Windows installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads.
 
 ## 🗺️ Project layout
 
@@ -138,6 +144,7 @@ src/
   theme.rs                colours, icons and logo
 policy/                   ADMX / ADML templates
 installer/                setup.exe (Inno Setup) and MSI (WiX) definitions
+  linux/, macos/          AppImage, deb, rpm, Arch, dmg and pkg packaging and tests
 ```
 
 ---

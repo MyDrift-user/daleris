@@ -77,23 +77,29 @@ jobs:
 
       - uses: actions/upload-artifact@v7
         with:
-          name: windows
+          name: release-windows
           path: dist/*
           if-no-files-found: error
 
-  unix:
+  linux:
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - { os: ubuntu-latest, name: linux-x64 }
-          - { os: macos-latest, name: macos-arm64 }
+          # The oldest supported Ubuntu, because a program only runs on systems with at least the glibc it was built on.
+          - { os: ubuntu-22.04, name: linux-x64 }
+          - { os: ubuntu-22.04-arm, name: linux-arm64 }
     runs-on: ${{ matrix.os }}
+    env:
+      NAME: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v7
 
-      - name: Install Linux libraries
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libgl1-mesa-dev libwayland-dev libx11-dev
+      - name: Install libraries and packaging tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libgl1-mesa-dev libwayland-dev libx11-dev \
+            libxkbcommon-x11-0 libxcb-xkb1 libxcursor1 libxi6 libxrender1 libxfixes3 patchelf
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -102,22 +108,72 @@ jobs:
         run: cargo build --release --locked
 
       - name: Package
-        env:
-          NAME: ${{ matrix.name }}
+        run: bash installer/linux/package.sh
+
+      - name: Test packages on clean systems
         run: |
-          base="bolt-explorer-v$VERSION-$NAME"
-          mkdir dist
-          cp target/release/bolt-explorer "dist/$base"
-          tar czf "dist/$base.tar.gz" -C target/release bolt-explorer
+          base="dist/bolt-explorer-v$VERSION-$NAME"
+          check() { docker run --rm -v "$PWD:/w" -w /w "$1" sh installer/linux/test-package.sh "$2" "$3"; }
+          check debian:stable "$base.deb" "$NAME-debian-deb"
+          check fedora:latest "$base.rpm" "$NAME-fedora-rpm"
+          check debian:stable "$base.AppImage" "$NAME-debian-appimage"
+          check fedora:latest "$base.AppImage" "$NAME-fedora-appimage"
+          if [ "$NAME" = linux-x64 ]; then
+            check ubuntu:22.04 "$base.deb" "$NAME-ubuntu-deb"
+            check opensuse/tumbleweed "$base.rpm" "$NAME-opensuse-rpm"
+            check archlinux:latest "$base.pkg.tar.zst" "$NAME-arch-pkg"
+          fi
 
       - uses: actions/upload-artifact@v7
         with:
-          name: ${{ matrix.name }}
+          name: release-${{ matrix.name }}
           path: dist/*
           if-no-files-found: error
 
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screens-${{ matrix.name }}
+          path: screens/*
+
+  macos:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: macos-latest, name: macos-arm64 }
+          - { os: macos-15-intel, name: macos-x64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      NAME: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build
+        run: cargo build --release --locked
+
+      - name: Package
+        run: bash installer/macos/package.sh
+
+      - name: Test packages
+        run: bash installer/macos/test-package.sh
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-${{ matrix.name }}
+          path: dist/*
+          if-no-files-found: error
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: screens-${{ matrix.name }}
+          path: screens/*
+
   release:
-    needs: [windows, unix]
+    needs: [windows, linux, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -125,6 +181,7 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           path: dist
+          pattern: release-*
           merge-multiple: true
 
       - name: Create release
