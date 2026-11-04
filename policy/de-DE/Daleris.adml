@@ -43,8 +43,8 @@
       <string id="Accent5">Green</string>
       <string id="Accent6">Red</string>
       <string id="IconPack">Symbolpaket</string>
-      <string id="IconPackExplain_ExplainFixed">system, flat oder der Name eines Symbolpaket-Ordners Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
-      <string id="IconPackExplain_ExplainRecommended">system, flat oder der Name eines Symbolpaket-Ordners Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
+      <string id="IconPackExplain_ExplainFixed">system, flat, phosphor oder der Name eines Symbolpaket-Ordners Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
+      <string id="IconPackExplain_ExplainRecommended">system, flat, phosphor oder der Name eines Symbolpaket-Ordners Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="RibbonLeft">Menüband: linke Seite</string>
       <string id="RibbonLeftExplain_ExplainFixed">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="RibbonLeftExplain_ExplainRecommended">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>

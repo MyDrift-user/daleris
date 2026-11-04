@@ -18,6 +18,7 @@ use crate::util::*;
 mod actions;
 mod chrome;
 mod file_icons;
+mod phosphor_icons;
 mod list;
 mod menu;
 mod props;
@@ -361,7 +362,7 @@ pub struct Settings {
     theme: u8,
     /// index into ACCENTS; ACCENTS.len() = Windows accent colour
     accent: usize,
-    /// "system", "flat", or the name of a folder in the icon packs folder
+    /// "system", "flat" (the Daleris pack), "phosphor", or the name of a folder in the icon packs folder
     icon_pack: String,
     /// 0 compact, 1 normal, 2 comfortable
     density: u8,
@@ -1446,8 +1447,8 @@ impl App {
 
     /// An icon of the built-in pack. Pictures are drawn once per size and kept, so they stay sharp and cheap.
     fn draw_builtin(&mut self, ui: &Ui, rect: Rect, target: &IconFor) {
-        let art = file_icons::resolve(target);
-        let Art::Svg { id, svg } = &art else {
+        let art = if self.settings.icon_pack == "phosphor" { phosphor_icons::resolve(target) } else { file_icons::resolve(target) };
+        let Art::Svg { id, svg, label } = &art else {
             file_icons::paint_font_art(ui.painter(), rect, &art, target.dim);
             return;
         };
@@ -1467,6 +1468,9 @@ impl App {
         if let Some(Slot::Ready(tex)) = self.icons.get(&key) {
             let tint = if target.dim { Color32::from_white_alpha(130) } else { Color32::WHITE };
             ui.painter().image(tex.id(), rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), tint);
+            if let Some(label) = label {
+                file_icons::paint_label(ui.painter(), rect, label, target.dim);
+            }
         } else {
             file_icons::paint_font_art(ui.painter(), rect, &Art::Page { color: Color32::GRAY, label: None }, target.dim);
         }
@@ -1491,7 +1495,7 @@ impl App {
 
         match self.settings.icon_pack.clone().as_str() {
             "system" => {}
-            "flat" => {
+            "flat" | "phosphor" => {
                 self.draw_builtin(ui, rect, &target);
                 return;
             }

@@ -43,8 +43,8 @@
       <string id="Accent5">Green</string>
       <string id="Accent6">Red</string>
       <string id="IconPack">Icon pack</string>
-      <string id="IconPackExplain_ExplainFixed">system, flat, or the name of an icon pack folder This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
-      <string id="IconPackExplain_ExplainRecommended">system, flat, or the name of an icon pack folder This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="IconPackExplain_ExplainFixed">system, flat, phosphor, or the name of an icon pack folder This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="IconPackExplain_ExplainRecommended">system, flat, phosphor, or the name of an icon pack folder This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
       <string id="RibbonLeft">Ribbon bar: left side</string>
       <string id="RibbonLeftExplain_ExplainFixed">Items separated by the pipe character. Anything not listed on either side is not shown. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
       <string id="RibbonLeftExplain_ExplainRecommended">Items separated by the pipe character. Anything not listed on either side is not shown. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>

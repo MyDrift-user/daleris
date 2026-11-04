@@ -307,7 +307,7 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
-            let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris (built-in)".into())];
+            let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris".into()), ("phosphor".into(), "Phosphor".into())];
             if !prefers_bundled_icons() {
                 packs.insert(0, ("system".into(), "Windows (system icons)".into()));
             }

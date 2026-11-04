@@ -37,7 +37,7 @@ VALUES
   DefaultView               DWORD   0 details, 1 large icons
   Theme                     DWORD   0 follow Windows, 1 dark, 2 light
   AccentColor               DWORD   7 Windows accent colour, 0 to 6 the colours in Settings, left to right
-  IconPack                  SZ      system, flat, or the name of a folder in %APPDATA%\Daleris\icon packs
+  IconPack                  SZ      system, flat, phosphor, or the name of a folder in %APPDATA%\Daleris\icon packs
   RowHeight                 DWORD   0 compact, 1 normal, 2 comfortable
   CustomTitleBar            DWORD   0 standard Windows title bar, 1 Daleris title bar
   TitleBarLogo              DWORD   0 off, 1 on
