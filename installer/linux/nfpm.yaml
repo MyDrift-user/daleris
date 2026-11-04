@@ -20,6 +20,8 @@ contents:
     dst: /usr/share/icons/hicolor/256x256/apps/daleris.png
   - src: LICENSE
     dst: /usr/share/licenses/daleris/LICENSE
+  - src: THIRD-PARTY-NOTICES.txt
+    dst: /usr/share/licenses/daleris/THIRD-PARTY-NOTICES.txt
 overrides:
   deb:
     depends: [libc6, libgcc-s1, libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, libwayland-client0, libwayland-cursor0, libwayland-egl1]

@@ -25,7 +25,7 @@ mod settings_page;
 mod sidebar;
 
 use actions::*;
-use file_icons::{flat_icon, IconFor};
+use file_icons::{Art, IconFor};
 
 // ====================================================================== model
 
@@ -821,6 +821,8 @@ pub struct App {
     editing_address: Option<String>,
     focus_address: bool,
     shot: Option<Shot>,
+    /// The title the window has, as sending one also asks for another frame.
+    window_title: String,
     #[cfg_attr(not(windows), allow(dead_code))]
     ctrl_v_down: bool,
     acts: Vec<Act>,
@@ -895,6 +897,7 @@ impl App {
             editing_address: None,
             focus_address: false,
             shot: screenshot.map(|path| Shot { path, frames: 0, requested: false }),
+            window_title: String::new(),
             ctrl_v_down: false,
             acts: Vec::new(),
             started: Instant::now(),
@@ -1441,7 +1444,36 @@ impl App {
         id
     }
 
+    /// An icon of the built-in pack. Pictures are drawn once per size and kept, so they stay sharp and cheap.
+    fn draw_builtin(&mut self, ui: &Ui, rect: Rect, target: &IconFor) {
+        let art = file_icons::resolve(target, pal().dark);
+        let Art::Svg { id, svg } = &art else {
+            file_icons::paint_font_art(ui.painter(), rect, &art, target.dim);
+            return;
+        };
+        let wanted = (rect.height() * ui.ctx().pixels_per_point()).ceil() as u32;
+        let side = [16, 20, 24, 32, 40, 48, 64, 96, 128, 192, 256].into_iter().find(|&s| s >= wanted).unwrap_or(256);
+        let key = format!("svg:{id}:{side}");
+        if !self.icons.contains_key(&key) {
+            let slot = match file_icons::render_svg(&file_icons::svg_bytes(svg), side) {
+                Some(img) => Slot::Ready(self.ctx.load_texture(&key, img, egui::TextureOptions::LINEAR)),
+                None => {
+                    log::warn!("couldn't draw the icon {id}");
+                    Slot::Failed
+                }
+            };
+            self.icons.insert(key.clone(), slot);
+        }
+        if let Some(Slot::Ready(tex)) = self.icons.get(&key) {
+            let tint = if target.dim { Color32::from_white_alpha(130) } else { Color32::WHITE };
+            ui.painter().image(tex.id(), rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), tint);
+        } else {
+            file_icons::paint_font_art(ui.painter(), rect, &Art::Page { color: Color32::GRAY, label: None }, target.dim);
+        }
+    }
+
     fn draw_icon(&mut self, ui: &Ui, rect: Rect, path: &Path, ext: &str, is_dir: bool, attrs: u32) {
+
         let dim = attrs & fsx::A_HIDDEN != 0;
         let tint = if dim { Color32::from_white_alpha(130) } else { Color32::WHITE };
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
@@ -1454,13 +1486,13 @@ impl App {
         let place_name = place.as_ref().map(|p| p.0.clone());
 
         let kind = kind_of(ext, is_dir);
-        let flat = |p: &egui::Painter| flat_icon(p, rect, &IconFor { kind, ext, name: &name, place: place_name.as_deref(), drive, is_root, cloud: cloud.as_deref(), dim });
+        let target = IconFor { kind, ext, name: &name, place: place_name.as_deref(), drive, is_root, is_system: is_dir && is_system_root(path), cloud: cloud.as_deref(), dim };
 
 
         match self.settings.icon_pack.clone().as_str() {
             "system" => {}
             "flat" => {
-                flat(ui.painter());
+                self.draw_builtin(ui, rect, &target);
                 return;
             }
             pack => {
@@ -1490,7 +1522,7 @@ impl App {
         }
         // Only Windows has system icons to ask for; a custom pack's gaps get the built-in ones.
         if prefers_bundled_icons() {
-            flat(ui.painter());
+            self.draw_builtin(ui, rect, &target);
             return;
         }
         // Known folders use the icon Explorer shows (their shell identity), not the disk folder's.
@@ -1504,7 +1536,7 @@ impl App {
         if let Some(id) = self.tex(&key, || req) {
             ui.painter().image(id, rect, uv, tint);
         } else {
-            flat(ui.painter());
+            self.draw_builtin(ui, rect, &target);
         }
     }
 
@@ -1534,7 +1566,9 @@ impl App {
                 ui.painter().image(id, r, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
             }
             None => {
-                let r = Rect::from_center_size(rect.center(), vec2(1.0, 1.0) * rect.width().min(rect.height()) * 0.6);
+                // the same size as icons that never ask for a preview, when a pack draws both
+                let scale = if own_icons { 0.8 } else { 0.6 };
+                let r = Rect::from_center_size(rect.center(), vec2(1.0, 1.0) * rect.width().min(rect.height()) * scale);
                 self.draw_icon(ui, r, path, row_ext, is_dir, attrs);
             }
         }
@@ -1727,8 +1761,14 @@ impl eframe::App for App {
             self.active = self.tabs.len() - 1;
         }
         let title = format!("{} · Daleris", self.tabs[self.active].loc.title());
-        ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
+        if title != self.window_title {
+            ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
+            self.window_title = title;
+        }
+
         self.screenshot(ctx);
+        // Theme, accent and drive changes are looked for while drawing, so look now and then when nothing happens.
+        ctx.request_repaint_after(Duration::from_secs(2));
     }
 
     /// Test hook for screenshot runs: DALERIS_TEST_CLICK="right:x,y;move:x,y;click:x,y;double:x,y;wheel:x,y" (logical

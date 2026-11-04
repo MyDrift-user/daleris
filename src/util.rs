@@ -22,6 +22,19 @@ pub fn config_dir() -> Option<PathBuf> {
     return env_dir("XDG_CONFIG_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".config"))).map(|d| d.join("daleris"));
 }
 
+/// Is this the top of the drive the system runs from?
+pub fn is_system_root(path: &std::path::Path) -> bool {
+    #[cfg(windows)]
+    {
+        let drive = std::env::var("SystemDrive").unwrap_or_else(|_| "C:".into());
+        path.to_str().is_some_and(|p| p.trim_end_matches('\\').eq_ignore_ascii_case(&drive))
+    }
+    #[cfg(not(windows))]
+    {
+        path == std::path::Path::new("/")
+    }
+}
+
 /// Brings along the settings from when the app was called Bolt Explorer. Only Windows saved any then.
 pub fn adopt_old_settings() {
     #[cfg(windows)]

@@ -5,13 +5,13 @@ set -euo pipefail
 base="daleris-v$VERSION-$NAME"
 mkdir -p dist
 cp target/release/daleris "dist/$base"
-tar czf "dist/$base.tar.gz" -C target/release daleris -C "$PWD" LICENSE
+tar czf "dist/$base.tar.gz" -C target/release daleris -C "$PWD" LICENSE THIRD-PARTY-NOTICES.txt
 
 work=$(mktemp -d)
 app="$work/root/Daleris.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp target/release/daleris "$app/Contents/MacOS/"
-cp LICENSE "$app/Contents/Resources/"
+cp LICENSE THIRD-PARTY-NOTICES.txt "$app/Contents/Resources/"
 sed "s/__VERSION__/$VERSION/g" installer/macos/Info.plist > "$app/Contents/Info.plist"
 
 set_dir="$work/icon.iconset"

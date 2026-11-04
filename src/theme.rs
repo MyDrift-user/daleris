@@ -21,7 +21,6 @@ pub struct Palette {
     pub line: Color32,
     pub green: Color32,
     pub cloud: Color32,
-    pub folder: Color32,
     pub warn: Color32,
     pub code_bg: Color32,
 }
@@ -62,7 +61,6 @@ impl Palette {
                 line: Color32::from_rgb(0x33, 0x34, 0x39),
                 green: Color32::from_rgb(0x3f, 0xc1, 0x6b),
                 cloud: Color32::from_rgb(0x6c, 0xb4, 0xff),
-                folder: Color32::from_rgb(0xf2, 0xc2, 0x4e),
                 warn: Color32::from_rgb(0xe8, 0x6a, 0x5a),
                 code_bg: Color32::from_rgb(0x16, 0x16, 0x18),
             }
@@ -84,7 +82,6 @@ impl Palette {
                 line: Color32::from_rgb(0xd9, 0xda, 0xde),
                 green: Color32::from_rgb(0x1e, 0x8e, 0x45),
                 cloud: Color32::from_rgb(0x1f, 0x74, 0xd1),
-                folder: Color32::from_rgb(0xe8, 0xb3, 0x30),
                 warn: Color32::from_rgb(0xc4, 0x41, 0x3a),
                 code_bg: Color32::from_rgb(0xee, 0xef, 0xf2),
             }
@@ -106,7 +103,7 @@ macro_rules! colour_fns {
     };
 }
 colour_fns!(BG => bg, PANEL => panel, CHROME => chrome, RAISED => raised, HOVER => hover, SEL => sel, SEL_STRONG => sel_strong,
-    ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, FOLDER => folder, WARN => warn);
+    ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, WARN => warn);
 
 /// Is Windows itself in dark mode (apps setting)?
 #[cfg(windows)]

@@ -23,6 +23,7 @@
         </Shortcut>
       </File>
       <File Source="LICENSE" Name="LICENSE.txt" />
+      <File Source="THIRD-PARTY-NOTICES.txt" />
     </Component>
   </Package>
 </Wix>

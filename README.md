@@ -55,7 +55,7 @@ The real Windows icons, thumbnails and right-click menu, so your shell extension
 
 ### 🎨 Make it yours
 - Dark, light or follow Windows, with a choice of accent colours
-- Bundled icons on every system, the real Windows icons on Windows, or your own pack made from PNG files
+- A built-in icon pack that knows thousands of file types, names and folders, the real Windows icons on Windows, or your own pack made from PNG files
 - A sidebar and ribbon bar you can rearrange
 - A custom title bar, or the standard one
 
@@ -170,7 +170,7 @@ installer/                setup.exe (Inno Setup) and MSI (WiX) definitions
 
 ## 📄 License
 
-Copyright (C) 2026 MyDrift. Daleris is free software, released under the [GNU General Public License v3.0](LICENSE).
+Copyright (C) 2026 MyDrift. Daleris is free software, released under the [GNU General Public License v3.0](LICENSE). The built-in icons come partly from [Material Icon Theme](https://github.com/material-extensions/vscode-material-icon-theme) and [Phosphor](https://phosphoricons.com), both MIT licensed: see [the notices](THIRD-PARTY-NOTICES.txt).
 
 ---
 
