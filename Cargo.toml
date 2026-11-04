@@ -5,6 +5,8 @@ edition = "2021"
 
 [dependencies]
 eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow"] }
+egui-phosphor = { version = "0.9", default-features = false, features = ["regular", "fill"] }
+log = "0.4"
 png = "0.18"
 regex = "1.11"
 

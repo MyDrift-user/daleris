@@ -68,7 +68,9 @@ impl App {
             }
             Act::CloseTab(i) => {
                 self.tabs[ai] = t;
-                if self.tabs.len() > 1 {
+                if i >= self.tabs.len() {
+                    // a second close in the same frame, from when the list was longer
+                } else if self.tabs.len() > 1 {
                     self.tabs.remove(i);
                     if self.active > i || self.active >= self.tabs.len() {
                         self.active = self.active.saturating_sub(1);
@@ -99,7 +101,7 @@ impl App {
             Act::Paste => {
                 if let (Some(dir), false) = (t.dir().map(|d| d.to_path_buf()), t.searching()) {
                     if let Some((files, cut)) = shell::clipboard_get_files().filter(|(f, _)| !f.is_empty()) {
-                        self.run_op(if cut { Op::Move } else { Op::Copy }, files, Some(dir));
+                        self.paste_files(files, cut, dir);
                     }
                 }
             }
@@ -183,7 +185,7 @@ impl App {
             Act::TerminalAt(d) => shell::open_terminal(&d),
             Act::PasteInto(dest) => {
                 if let Some((files, cut)) = shell::clipboard_get_files().filter(|(f, _)| !f.is_empty()) {
-                    self.run_op(if cut { Op::Move } else { Op::Copy }, files, Some(dest));
+                    self.paste_files(files, cut, dest);
                 }
             }
             Act::SetView(_) if policy::is_fixed("view") => {}
@@ -337,6 +339,15 @@ impl App {
         if self.started.elapsed() > Duration::from_secs(1) {
             self.save_settings();
         }
+    }
+
+    /// A folder can't go into itself: copying it there would keep copying the copy until paths get too long.
+    fn paste_files(&mut self, files: Vec<PathBuf>, cut: bool, dest: PathBuf) {
+        if files.iter().any(|f| fsx::same_path(f, &dest) || fsx::is_under(&dest, f)) {
+            self.toast("A folder can't be pasted into itself", true);
+            return;
+        }
+        self.run_op(if cut { Op::Move } else { Op::Copy }, files, Some(dest));
     }
 
     fn run_op(&self, op: Op, files: Vec<PathBuf>, dest: Option<PathBuf>) {

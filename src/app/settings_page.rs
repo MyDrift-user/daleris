@@ -21,10 +21,11 @@ const PAGES: [(Page, &str, &str); 5] = [
     (Page::Files, I_FOLDER, "Files & folders"),
 ];
 
-/// `%APPDATA%\BoltExplorer\icon packs`: each sub-folder is an icon pack of PNGs.
+/// `icon packs` in the settings folder: each sub-folder is an icon pack of PNGs.
 pub fn icon_pack_dir() -> PathBuf {
-    std::env::var_os("APPDATA").map(PathBuf::from).unwrap_or_default().join("BoltExplorer").join("icon packs")
+    config_dir().unwrap_or_default().join("icon packs")
 }
+
 
 pub fn list_icon_packs() -> Vec<String> {
     let mut v: Vec<String> = std::fs::read_dir(icon_pack_dir())
@@ -209,7 +210,12 @@ impl App {
                             self.menu_editor(ui);
                         });
                     }
-                    Page::Files => self.page_files(ui),
+                    Page::Files => {
+                        self.page_files(ui);
+                        ui.add_space(14.0);
+                        self.storage_card(ui);
+                    }
+
                 }
                 ui.add_space(20.0);
             });
@@ -225,7 +231,7 @@ impl App {
             ui.add_enabled_ui(!policy::is_fixed("theme"), |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
                 let accent = self.settings.palette().accent;
-                for (i, name) in [(0u8, "Follow Windows"), (1, "Dark"), (2, "Light")] {
+                for (i, name) in [(0u8, if cfg!(windows) { "Follow Windows" } else { "Follow system" }), (1, "Dark"), (2, "Light")] {
                     let dark = match i {
                         0 => system_dark(),
                         1 => true,
@@ -243,7 +249,7 @@ impl App {
                 ui.spacing_mut().item_spacing = vec2(10.0, 10.0);
                 let dark = pal().dark;
                 // Windows' own accent first: it's the default
-                let mut opts: Vec<(usize, String, Color32)> = vec![(ACCENTS.len(), "Windows accent colour (follows your Windows settings)".into(), system_accent().unwrap_or(ACCENTS[0].1))];
+                let mut opts: Vec<(usize, String, Color32)> = vec![(ACCENTS.len(), if cfg!(windows) { "Windows accent colour (follows your Windows settings)" } else { "System accent colour" }.into(), system_accent().unwrap_or(ACCENTS[0].1))];
                 opts.extend(ACCENTS.iter().enumerate().map(|(i, a)| (i, a.0.to_string(), if dark { a.1 } else { a.2 })));
                 for (n, (i, name, c)) in opts.into_iter().enumerate() {
                     let (r, resp) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::click());
@@ -282,7 +288,7 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             heading(ui, "Title bar", "The bar with the tabs at the top of the window.");
-            if managed_toggle(ui, &mut self.settings.title_custom, "title_custom", "Use the Bolt Explorer title bar (off = standard Windows title bar)") {
+            if managed_toggle(ui, &mut self.settings.title_custom, "title_custom", if cfg!(windows) { "Use the Bolt Explorer title bar (off = standard Windows title bar)" } else { "Use the Bolt Explorer title bar (off = the system's own title bar)" }) {
                 self.set_titlebar();
                 self.save_settings();
             }
@@ -301,7 +307,11 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
-            let mut packs: Vec<(String, String)> = vec![("system".into(), "Windows (system icons)".into()), ("flat".into(), "Flat (built-in)".into())];
+            let mut packs: Vec<(String, String)> = vec![("flat".into(), "Bolt (built-in)".into())];
+            if !prefers_bundled_icons() {
+                packs.insert(0, ("system".into(), "Windows (system icons)".into()));
+            }
+
             packs.extend(list_icon_packs().into_iter().map(|p| (p.clone(), p)));
             let pack_free = !policy::is_fixed("iconpack");
             for (id, name) in packs {
@@ -336,7 +346,7 @@ impl App {
                 egui::RichText::new(
                     "Add your own pack: make a folder in the icon packs folder and put PNG files in it named folder.png, file.png, drive.png, \
                      desktop.png, documents.png, downloads.png…, or by file type (pdf.png, jpg.png) or kind (image.png, video.png, audio.png, code.png, archive.png). \
-                     Anything missing falls back to the Windows icon.",
+                     Anything missing falls back to the standard icon.",
                 )
                 .color(DIM()),
             );
@@ -386,7 +396,7 @@ impl App {
         let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone());
         let desk = self.places.iter().find(|p| p.name == "Desktop").map(|p| p.path.clone());
         let mut samples: Vec<(PathBuf, String, bool)> = Vec::new();
-        samples.push((PathBuf::from(r"C:\"), String::new(), true));
+        samples.push((PathBuf::from(if cfg!(windows) { r"C:\" } else { "/" }), String::new(), true));
         if let Some(d) = desk {
             samples.push((d, String::new(), true));
         }
@@ -668,7 +678,32 @@ impl App {
 
     // ------------------------------------------------------------------ files
 
+    /// Where the settings file and the log are, for editing by hand or troubleshooting.
+    fn storage_card(&mut self, ui: &mut Ui) {
+        let settings = config_dir().map(|d| d.join("settings.txt"));
+        let log = crate::logging::path().cloned();
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Settings file & log", "Settings are a plain text file. If Bolt Explorer crashes, the details are in the log.");
+            for (label, file, button) in [("Settings", settings, "Open settings folder"), ("Log", log, "Open log folder")] {
+                ui.horizontal(|ui| {
+                    ui.add_sized(vec2(60.0, 24.0), egui::Label::new(label));
+                    let shown = file.as_ref().map_or("Not available".to_string(), |f| f.display().to_string());
+                    ui.add(egui::Label::new(egui::RichText::new(shown).monospace().color(DIM())).truncate());
+                });
+                if let Some(dir) = file.as_ref().and_then(|f| f.parent()) {
+                    if ui.button(egui::RichText::new(format!("{}  {button}", ic(I_FOLDER))).font(icon_font(13.0))).clicked() {
+                        let _ = std::fs::create_dir_all(dir);
+                        self.acts.push(Act::NavigateNewTab(Loc::Dir(dir.to_path_buf())));
+                    }
+                }
+                ui.add_space(6.0);
+            }
+        });
+    }
+
     fn page_files(&mut self, ui: &mut Ui) {
+
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             heading(ui, "Files & folders", "");

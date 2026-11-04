@@ -54,7 +54,7 @@ The real Windows icons, thumbnails and right-click menu, so your shell extension
 
 ### 🎨 Make it yours
 - Dark, light or follow Windows, with a choice of accent colours
-- Icon packs, including your own made from PNG files
+- Bundled icons on every system, the real Windows icons on Windows, or your own pack made from PNG files
 - A sidebar and ribbon bar you can rearrange
 - A custom title bar, or the standard one
 
@@ -104,6 +104,18 @@ Windows is the main platform. The Linux and macOS packages are tested automatica
 Nothing is signed by a known publisher, so SmartScreen may show a warning on Windows. On macOS, run `xattr -dr com.apple.quarantine "/Applications/Bolt Explorer.app"` if it's blocked.
 
 Bug reports for Linux and macOS are especially welcome.
+
+## ⚙️ Settings file and logs
+
+Settings are a plain text file with one `name=value` per line, also shown under **Settings → Files & folders**. Open windows read it again when they get focus.
+
+| System | Settings and `icon packs` | Log |
+|---|---|---|
+| Linux | `~/.config/bolt-explorer/` | `~/.local/state/bolt-explorer/bolt-explorer.log` |
+| macOS | `~/Library/Application Support/Bolt Explorer/` | `~/Library/Logs/Bolt Explorer/bolt-explorer.log` |
+| Windows | `%APPDATA%\BoltExplorer\` | `%LOCALAPPDATA%\BoltExplorer\logs\bolt-explorer.log` |
+
+The log records the system, graphics driver, errors and crashes with a backtrace. Set `BOLT_LOG=debug` for more detail. **When reporting a crash, please attach this file.**
 
 ## 🛠️ Build from source
 

@@ -8,6 +8,7 @@ mod fsx;
 #[cfg(not(windows))]
 #[path = "fsx_unix.rs"]
 mod fsx;
+mod logging;
 mod policy;
 mod search;
 #[cfg(windows)]
@@ -21,6 +22,7 @@ mod util;
 use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
+    logging::init();
     let mut screenshot: Option<PathBuf> = None;
     let mut start: Option<PathBuf> = None;
     let mut query: Option<String> = None;
@@ -56,5 +58,10 @@ fn main() -> eframe::Result<()> {
         vsync: true,
         ..Default::default()
     };
-    eframe::run_native("Bolt Explorer", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, start, query, screenshot)))))
+    let result = eframe::run_native("Bolt Explorer", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, start, query, screenshot)))));
+    match &result {
+        Ok(()) => log::info!("exited"),
+        Err(e) => log::error!("exited with an error: {e}"),
+    }
+    result
 }

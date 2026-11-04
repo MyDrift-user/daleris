@@ -415,7 +415,11 @@ fn test_real_settings() -> bool {
     std::env::var_os("BOLT_TEST_SETTINGS").is_some()
 }
 
+/// Top of the settings file. Holds no equals sign, as lines without one are skipped when reading.
+const SETTINGS_HEADER: &str = "# Bolt Explorer settings. Open windows read this file again when they get focus.\n";
+
 /// How a This PC tab is written in the settings file.
+
 const THIS_PC_TAB: &str = "::thispc";
 
 /// Should the window start without the Windows frame (our own title bar)?
@@ -444,7 +448,7 @@ impl Settings {
             custom: Vec::new(),
             theme: 1,
             accent: ACCENTS.len(),
-            icon_pack: "system".into(),
+            icon_pack: if prefers_bundled_icons() { "flat" } else { "system" }.into(),
             density: 1,
             title_custom: true,
             title_logo: true,
@@ -539,7 +543,7 @@ impl Settings {
         self.sections.iter().any(|s| s.pins.iter().any(|x| fsx::same_path(x, p)))
     }
     fn file() -> Option<PathBuf> {
-        std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("BoltExplorer").join("settings.txt"))
+        config_dir().map(|d| d.join("settings.txt"))
     }
     /// Set one simple value from its text in the settings file; false if `k` is not one of them.
     fn set_value(&mut self, k: &str, v: &str) -> bool {
@@ -559,7 +563,7 @@ impl Settings {
             "rleft" => self.ribbon_left = list().collect(),
             "rright" => self.ribbon_right = list().collect(),
             "rhide" => self.ribbon_hidden = list().collect(),
-            "iconpack" => self.icon_pack = v.to_string(),
+            "iconpack" => self.icon_pack = if v == "system" && prefers_bundled_icons() { "flat".to_string() } else { v.to_string() },
             "density" => self.density = v.parse().unwrap_or(1),
             "title_custom" => self.title_custom = on,
             "title_logo" => self.title_logo = on,
@@ -728,11 +732,15 @@ impl Settings {
     fn save(&self, tabs: &[PathBuf]) {
         let Some(f) = Self::file() else { return };
         let _ = std::fs::create_dir_all(f.parent().unwrap());
-        let mut out = self.body();
+        let mut out = String::from(SETTINGS_HEADER);
+        out += &self.body();
         for p in tabs {
             out += &format!("tab={}\n", p.display());
         }
-        let _ = std::fs::write(f, out);
+        if let Err(e) = std::fs::write(&f, out) {
+            log::warn!("couldn't save {}: {e}", f.display());
+        }
+
     }
 
     /// Everything but the tab list, always in the same order, so two copies can be compared.
@@ -842,6 +850,12 @@ const PER_FILE_ICON: [&str; 11] = ["exe", "lnk", "ico", "url", "cur", "ani", "sc
 impl App {
     pub fn new(cc: &eframe::CreationContext, start: Option<PathBuf>, query: Option<String>, screenshot: Option<PathBuf>) -> App {
         shell::init_com();
+        if let Some(gl) = &cc.gl {
+            use eframe::glow::{self, HasContext};
+            // SAFETY: only reads two strings from the context eframe just made current.
+            let (renderer, version) = unsafe { (gl.get_parameter_string(glow::RENDERER), gl.get_parameter_string(glow::VERSION)) };
+            log::info!("graphics: {renderer}, OpenGL {version}");
+        }
         install(&cc.egui_ctx);
         let ctx = cc.egui_ctx.clone();
         let (tx, rx) = channel();
@@ -1189,7 +1203,12 @@ impl App {
     }
 
     fn toast(&mut self, s: impl Into<String>, err: bool) {
-        self.toast = Some((s.into(), Instant::now(), err));
+        let s = s.into();
+        if err {
+            log::warn!("{s}");
+        }
+        self.toast = Some((s, Instant::now(), err));
+
     }
 
     fn type_name(&self, ext: &str, is_dir: bool) -> String {
@@ -1425,12 +1444,13 @@ impl App {
         let tint = if dim { Color32::from_white_alpha(130) } else { Color32::WHITE };
         let uv = Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0));
         let place = if is_dir { self.place_of(path).map(|p| (p.name.clone(), p.kf)) } else { None };
-        let is_root = is_dir && path.parent().is_none();
+        let is_drive = is_dir && (path.parent().is_none() || self.drives.iter().any(|d| fsx::same_path(&d.root, path)));
         let kind = kind_of(ext, is_dir);
+
         match self.settings.icon_pack.clone().as_str() {
             "system" => {}
             "flat" => {
-                flat_icon(ui.painter(), rect, kind, place.as_ref().map(|p| p.0.as_str()), is_root);
+                flat_icon(ui.painter(), rect, kind, ext, place.as_ref().map(|p| p.0.as_str()), is_drive, dim);
                 return;
             }
             pack => {
@@ -1438,7 +1458,7 @@ impl App {
                 if let Some((n, _)) = &place {
                     names.push(n.to_lowercase());
                 }
-                if is_root {
+                if is_drive {
                     names.push("drive".into());
                 }
                 if is_dir {
@@ -1458,6 +1478,12 @@ impl App {
                 }
             }
         }
+        // Only Windows has system icons to ask for; a custom pack's gaps get the built-in ones.
+        if prefers_bundled_icons() {
+            flat_icon(ui.painter(), rect, kind, ext, place.as_ref().map(|p| p.0.as_str()), is_drive, dim);
+            return;
+        }
+        let place_name = place.as_ref().map(|p| p.0.clone());
         // Known folders use the icon Explorer shows (their shell identity), not the disk folder's.
         let (key, req) = match place {
             Some((name, kf)) => {
@@ -1469,7 +1495,7 @@ impl App {
         if let Some(id) = self.tex(&key, || req) {
             ui.painter().image(id, rect, uv, tint);
         } else {
-            fallback_icon(ui.painter(), rect, kind);
+            flat_icon(ui.painter(), rect, kind, ext, place_name.as_deref(), is_drive, dim);
         }
     }
 
@@ -1513,54 +1539,48 @@ fn fit_rect(area: Rect, img: egui::Vec2) -> Rect {
     Rect::from_center_size(area.center(), img * s)
 }
 
-/// The built-in "Flat" icon pack: simple coloured shapes, known folders get a glyph.
-fn flat_icon(p: &egui::Painter, r: Rect, kind: Kind, place: Option<&str>, is_root: bool) {
-    if is_root {
-        let body = Rect::from_center_size(r.center(), vec2(r.width() * 0.86, r.height() * 0.46));
-        p.rect_filled(body, CornerRadius::same((r.width() * 0.12) as u8), Color32::from_rgb(0x8a, 0x93, 0xa6));
-        p.circle_filled(pos2(body.right() - body.width() * 0.16, body.center().y), r.width() * 0.06, Color32::from_rgb(0x5f, 0xd0, 0x7a));
-        return;
-    }
-    fallback_icon(p, r, kind);
-    if let Some(name) = place {
-        let g = match name {
-            "Desktop" => I_PC,
-            "Downloads" => "\u{E896}",
-            "Documents" => "\u{E8A5}",
-            "Pictures" => I_PICTURE,
-            "Music" => "\u{E8D6}",
-            "Videos" => "\u{E714}",
-            "Home" => I_HOME,
-            _ => return,
-        };
-        let c = r.center() + vec2(0.0, r.height() * 0.1);
-        p.text(c, Align2::CENTER_CENTER, ic(g), icon_font(r.height() * 0.42), Color32::from_rgb(0x6b, 0x4a, 0x00));
-    }
-}
-
-fn fallback_icon(p: &egui::Painter, r: Rect, kind: Kind) {
-    let r = r.shrink(r.width() * 0.08);
-    if kind == Kind::Folder {
-        let tab = Rect::from_min_size(r.min + vec2(0.0, r.height() * 0.12), vec2(r.width() * 0.45, r.height() * 0.2));
-        p.rect_filled(tab, CornerRadius::same(2), Color32::from_rgb(0xd9, 0xa6, 0x32));
-        let body = Rect::from_min_max(pos2(r.min.x, r.min.y + r.height() * 0.24), r.max - vec2(0.0, r.height() * 0.08));
-        p.rect_filled(body, CornerRadius::same(2), FOLDER());
-        return;
-    }
-    let page = Rect::from_center_size(r.center(), vec2(r.width() * 0.72, r.height() * 0.92));
-    p.rect_filled(page, CornerRadius::same(2), Color32::from_rgb(0xee, 0xee, 0xf0));
-    let c = match kind {
-        Kind::Image => Color32::from_rgb(0x3d, 0xb3, 0x8a),
-        Kind::Video => Color32::from_rgb(0xc9, 0x4b, 0xd6),
-        Kind::Audio => Color32::from_rgb(0xff, 0x8a, 0x3d),
-        Kind::Document => Color32::from_rgb(0x3d, 0x7d, 0xe0),
-        Kind::Code => Color32::from_rgb(0x8a, 0x6c, 0xff),
-        Kind::Archive => Color32::from_rgb(0xc9, 0xa2, 0x27),
-        Kind::App => Color32::from_rgb(0x4a, 0x9e, 0xd8),
-        _ => Color32::from_rgb(0x9a, 0x9c, 0xa4),
+/// The built-in icons: solid glyphs in a colour per type, drawn from a font so they stay sharp at any size.
+fn flat_icon(p: &egui::Painter, r: Rect, kind: Kind, ext: &str, place: Option<&str>, is_drive: bool, dim: bool) {
+    use egui_phosphor::fill as g;
+    const BLUE: Color32 = Color32::from_rgb(0x4a, 0x90, 0xe2);
+    const RED: Color32 = Color32::from_rgb(0xe0, 0x56, 0x4f);
+    const LIME: Color32 = Color32::from_rgb(0x3f, 0xb3, 0x76);
+    const ORANGE: Color32 = Color32::from_rgb(0xf0, 0x8c, 0x3a);
+    const PURPLE: Color32 = Color32::from_rgb(0x9b, 0x72, 0xe8);
+    const TEAL: Color32 = Color32::from_rgb(0x2f, 0xb5, 0xb0);
+    const GOLD: Color32 = Color32::from_rgb(0xc9, 0xa2, 0x27);
+    const GRAY: Color32 = Color32::from_rgb(0x8d, 0x93, 0xa1);
+    let known = match place {
+        Some("Home") => Some((g::HOUSE, BLUE)),
+        Some("Desktop") => Some((g::DESKTOP, BLUE)),
+        Some("Downloads") => Some((g::DOWNLOAD_SIMPLE, TEAL)),
+        Some("Documents") => Some((g::FILE_TEXT, BLUE)),
+        Some("Pictures") => Some((g::IMAGE, LIME)),
+        Some("Music") => Some((g::MUSIC_NOTES, ORANGE)),
+        Some("Videos") => Some((g::FILM_STRIP, PURPLE)),
+        _ => None,
     };
-    let band = Rect::from_min_max(pos2(page.min.x, page.max.y - page.height() * 0.32), page.max);
-    p.rect_filled(band, CornerRadius::same(2), c);
+    let (glyph, color) = known.unwrap_or(match kind {
+        _ if is_drive => (g::HARD_DRIVE, GRAY),
+        Kind::Folder => (g::FOLDER, FOLDER()),
+        Kind::Image => (g::FILE_IMAGE, LIME),
+        Kind::Video => (g::FILE_VIDEO, PURPLE),
+        Kind::Audio => (g::FILE_AUDIO, ORANGE),
+        Kind::Code => (g::FILE_CODE, TEAL),
+        Kind::Archive => (g::FILE_ZIP, GOLD),
+        Kind::App => (g::APP_WINDOW, BLUE),
+        Kind::Document => match ext {
+            "pdf" => (g::FILE_PDF, RED),
+            "doc" | "docx" | "odt" | "rtf" => (g::FILE_DOC, BLUE),
+            "xls" | "xlsx" | "ods" => (g::FILE_XLS, LIME),
+            "csv" => (g::FILE_CSV, LIME),
+            "ppt" | "pptx" => (g::FILE_PPT, ORANGE),
+            _ => (g::FILE_TEXT, GRAY),
+        },
+        Kind::Other => (g::FILE, GRAY),
+    });
+    let color = if dim { color.gamma_multiply(0.5) } else { color };
+    p.text(r.center(), Align2::CENTER_CENTER, glyph, file_icon_font(r.height()), color);
 }
 
 /// Cloud status glyphs as Explorer shows them: cloud = online-only,
@@ -1933,6 +1953,8 @@ impl App {
                 egui::Event::Cut if !typing => self.acts.push(Act::Cut),
                 egui::Event::Text(s) if !typing && !mods.command && n > 0 && !t.searching() => {
                     // type-ahead: jump to the next name starting with what was typed
+                    // (an Esc earlier in this frame can have ended a search with more rows than the folder)
+                    let n = n.min(t.view.len());
                     let (buf, at) = &mut t.typeahead;
                     if at.elapsed() > Duration::from_millis(900) {
                         buf.clear();

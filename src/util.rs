@@ -3,6 +3,35 @@ use std::cmp::Ordering;
 use std::ffi::OsStr;
 #[cfg(windows)]
 use std::os::windows::ffi::OsStrExt;
+use std::path::PathBuf;
+
+/// A folder from the environment, ignored when empty or relative as the XDG rules ask.
+#[cfg(not(windows))]
+fn env_dir(var: &str) -> Option<PathBuf> {
+    std::env::var_os(var).map(PathBuf::from).filter(|p| p.is_absolute())
+}
+
+/// Where the settings file and icon packs live:
+/// `%APPDATA%\BoltExplorer`, `~/Library/Application Support/Bolt Explorer` or `~/.config/bolt-explorer`.
+pub fn config_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    return std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("BoltExplorer"));
+    #[cfg(target_os = "macos")]
+    return env_dir("HOME").map(|h| h.join("Library/Application Support/Bolt Explorer"));
+    #[cfg(not(any(windows, target_os = "macos")))]
+    return env_dir("XDG_CONFIG_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".config"))).map(|d| d.join("bolt-explorer"));
+}
+
+/// Where the log goes:
+/// `%LOCALAPPDATA%\BoltExplorer\logs`, `~/Library/Logs/Bolt Explorer` or `~/.local/state/bolt-explorer`.
+pub fn log_dir() -> Option<PathBuf> {
+    #[cfg(windows)]
+    return std::env::var_os("LOCALAPPDATA").map(|a| PathBuf::from(a).join("BoltExplorer").join("logs"));
+    #[cfg(target_os = "macos")]
+    return env_dir("HOME").map(|h| h.join("Library/Logs/Bolt Explorer"));
+    #[cfg(not(any(windows, target_os = "macos")))]
+    return env_dir("XDG_STATE_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".local/state"))).map(|d| d.join("bolt-explorer"));
+}
 
 /// Null-terminated UTF-16 for Win32 calls.
 #[cfg(windows)]

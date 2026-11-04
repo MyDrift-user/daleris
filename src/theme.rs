@@ -249,71 +249,79 @@ pub fn apply(ctx: &egui::Context, p: Palette) {
     ctx.set_style(style);
 }
 
-static ICON_FONT: AtomicBool = AtomicBool::new(false);
+static BUNDLED_ICONS: AtomicBool = AtomicBool::new(false);
+
+/// Everywhere but Windows, and on a Windows without its icon font, the app draws with the icons it
+/// brings along. Test hook: BOLT_TEST_BUNDLED_ICONS=1 shows them on Windows.
+pub fn prefers_bundled_icons() -> bool {
+    !cfg!(windows) || std::env::var_os("BOLT_TEST_BUNDLED_ICONS").is_some()
+}
 
 pub fn icon_family() -> FontFamily {
     FontFamily::Name("icons".into())
 }
 
 pub fn icon_font(size: f32) -> FontId {
-    if ICON_FONT.load(Ordering::Relaxed) {
-        FontId::new(size, icon_family())
-    } else {
-        FontId::proportional(size)
-    }
+    FontId::new(size, icon_family())
 }
 
-/// Segoe Fluent / MDL2 glyph, or a plain fallback when that font is missing.
+/// The solid icons that files and folders are drawn with.
+pub fn file_icon_font(size: f32) -> FontId {
+    FontId::new(size, FontFamily::Name("file-icons".into()))
+}
+
+/// The glyph to draw: a Segoe Fluent / MDL2 one on Windows, its counterpart from the bundled set elsewhere.
 pub fn ic(glyph: &'static str) -> &'static str {
-    if ICON_FONT.load(Ordering::Relaxed) {
+    use egui_phosphor::regular as ph;
+    if !BUNDLED_ICONS.load(Ordering::Relaxed) {
         return glyph;
     }
     match glyph {
-        I_LOCK => "🔒",
-        I_BACK => "←",
-        I_FWD => "→",
-        I_UP => "↑",
-        I_REFRESH => "⟳",
-        I_SEARCH => "🔍",
-        I_ADD => "+",
-        I_CLOSE => "×",
-        I_COPY => "⧉",
-        I_CUT => "✂",
-        I_PASTE => "📋",
-        I_RENAME => "✎",
-        I_DELETE => "🗑",
-        I_NEWFOLDER => "📁",
-        I_SORT => "⇅",
-        I_LIST => "☰",
-        I_GRID => "▦",
-        I_EYE => "👁",
-        I_PANE => "▣",
-        I_CLOUD => "☁",
-        I_DRIVE => "🖴",
-        I_NETDRIVE => "🖧",
-        I_HOME => "⌂",
-        I_PIN => "📌",
-        I_MORE => "…",
-        I_CHEV_R => "›",
-        I_CHEV_D => "⌄",
-        I_PC => "🖥",
-        I_TERMINAL => ">_",
-        I_INFO => "ⓘ",
-        I_FILTER => "⚲",
-        I_SETTINGS => "⚙",
-        I_CHECK => "✔",
-        I_GRIP => "⠿",
-        I_CHEV_U => "⌃",
-        I_HIDE => "⊘",
-        I_MIN => "_",
-        I_MAX => "□",
-        I_RESTORE => "❐",
-        I_WCLOSE => "✕",
-        I_PALETTE => "🎨",
-        I_PICTURE => "🖼",
-        I_NAVPANE => "☰",
-        I_FOLDER => "📁",
-        _ => "•",
+        I_LOCK => ph::LOCK_SIMPLE,
+        I_BACK => ph::ARROW_LEFT,
+        I_FWD => ph::ARROW_RIGHT,
+        I_UP => ph::ARROW_UP,
+        I_REFRESH => ph::ARROW_CLOCKWISE,
+        I_SEARCH => ph::MAGNIFYING_GLASS,
+        I_ADD => ph::PLUS,
+        I_CLOSE => ph::X,
+        I_COPY => ph::COPY,
+        I_CUT => ph::SCISSORS,
+        I_PASTE => ph::CLIPBOARD,
+        I_RENAME => ph::PENCIL_SIMPLE,
+        I_DELETE => ph::TRASH,
+        I_NEWFOLDER => ph::FOLDER_PLUS,
+        I_SORT => ph::ARROWS_DOWN_UP,
+        I_LIST => ph::LIST_BULLETS,
+        I_GRID => ph::SQUARES_FOUR,
+        I_EYE => ph::EYE,
+        I_PANE => ph::SIDEBAR_SIMPLE,
+        I_CLOUD => ph::CLOUD,
+        I_DRIVE => ph::HARD_DRIVE,
+        I_NETDRIVE => ph::HARD_DRIVES,
+        I_HOME => ph::HOUSE,
+        I_PIN => ph::PUSH_PIN,
+        I_MORE => ph::DOTS_THREE,
+        I_CHEV_R => ph::CARET_RIGHT,
+        I_CHEV_D => ph::CARET_DOWN,
+        I_PC => ph::DESKTOP,
+        I_TERMINAL => ph::TERMINAL_WINDOW,
+        I_INFO => ph::INFO,
+        I_FILTER => ph::FUNNEL,
+        I_SETTINGS => ph::GEAR_SIX,
+        I_CHECK => ph::CHECK,
+        I_GRIP => ph::DOTS_SIX_VERTICAL,
+        I_CHEV_U => ph::CARET_UP,
+        I_HIDE => ph::EYE_SLASH,
+        I_MIN => ph::MINUS,
+        I_MAX => ph::SQUARE,
+        I_RESTORE => ph::COPY_SIMPLE,
+        I_WCLOSE => ph::X,
+        I_PALETTE => ph::PALETTE,
+        I_PICTURE => ph::IMAGE,
+        I_NAVPANE => ph::SIDEBAR,
+        I_FOLDER => ph::FOLDER,
+        other => other,
     }
 }
 
@@ -414,13 +422,20 @@ pub fn install(ctx: &egui::Context) {
         fonts.font_data.insert("segsym".into(), Arc::new(FontData::from_owned(b)));
         fonts.families.entry(FontFamily::Proportional).or_default().push("segsym".into());
     }
-    if let Some(b) = load(&["SegoeIcons.ttf", "segmdl2.ttf"]).filter(|_| cfg!(windows)) {
-        fonts.font_data.insert("icons".into(), Arc::new(FontData::from_owned(b)));
-        let mut fam = vec!["icons".to_string()];
-        fam.extend(fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default());
-        fonts.families.insert(icon_family(), fam);
-        ICON_FONT.store(true, Ordering::Relaxed);
-    }
+    let segoe = if prefers_bundled_icons() { None } else { load(&["SegoeIcons.ttf", "segmdl2.ttf"]) };
+    let bundled = segoe.is_none();
+    BUNDLED_ICONS.store(bundled, Ordering::Relaxed);
+    let icons = segoe.map(FontData::from_owned).unwrap_or_else(|| egui_phosphor::Variant::Regular.font_data());
+    fonts.font_data.insert("icons".into(), Arc::new(icons));
+    fonts.font_data.insert("file-icons".into(), Arc::new(egui_phosphor::Variant::Fill.font_data()));
+    let mut fam = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
+    // The bundled fonts have blank lowercase letters that would hide the text next to an icon, so they
+    // go after the text fonts, but before the emoji fonts that use the same private character codes.
+    let at = if bundled { fam.iter().position(|f| f == "NotoEmoji-Regular").unwrap_or(fam.len()) } else { 0 };
+    fam.insert(at, "icons".to_string());
+    fonts.families.insert(icon_family(), fam.clone());
+    fam[at] = "file-icons".to_string();
+    fonts.families.insert(FontFamily::Name("file-icons".into()), fam);
     ctx.set_fonts(fonts);
 
     let mut style = (*ctx.style()).clone();
