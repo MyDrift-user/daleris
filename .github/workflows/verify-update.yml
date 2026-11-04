@@ -61,7 +61,6 @@ jobs:
           Start-Process msiexec -ArgumentList '/i',"`"$base.msi`"",'/qn','/norestart','ALLUSERS=2','MSIINSTALLPERUSER=1' -Wait
           Start-Process $exe '--update-now' -Wait
           Wait-Version $exe
-          Start-Process msiexec -ArgumentList '/x','{}'.Replace('{}',(Get-ItemProperty 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object DisplayName -eq 'Daleris').PSChildName),'/qn','/norestart' -Wait
           Write-Host '=== Portable'
           $exe = "$env:TEMP\portable\daleris.exe"
           New-Item -ItemType Directory (Split-Path $exe) | Out-Null
