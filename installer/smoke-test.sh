@@ -46,6 +46,7 @@ shots=(
   "home|--path $HOME"
   "settings-appearance|--settings appearance --path $demo"
   "settings-files|--settings files --path $demo"
+  "settings-about|--settings about --path $demo"
   "system-folder|--path /usr/lib --query lib"
   "root|--path /"
 )
@@ -73,7 +74,7 @@ grep -q '^density=2' "$config" || fail "a setting edited by hand was lost"
 policy="$HOME/policy.conf"
 printf 'density=0\n' >> "$config"
 printf 'RowHeight=2\nDisableUpdates=1\nAutomaticUpdates=0\n[Recommended]\nIconPack=phosphor\n' > "$policy"
-DALERIS_TEST_POLICY_FILE="$policy" DALERIS_TEST_SETTINGS=1 run --screenshot "$out/settings-managed.png" --settings files --path "$demo" || fail "the policy run exited with $?"
+DALERIS_TEST_POLICY_FILE="$policy" DALERIS_TEST_SETTINGS=1 run --screenshot "$out/settings-managed.png" --settings about --path "$demo" || fail "the policy run exited with $?"
 grep -q '^density=0' "$config" || fail "a fixed setting overwrote the person's own choice"
 DALERIS_TEST_POLICY_FILE="$policy" run --update-now | grep -q 'managed by the administrator' || fail "DisableUpdates didn't stop an update check"
 

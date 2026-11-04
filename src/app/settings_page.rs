@@ -1,5 +1,5 @@
 //! The Settings page (opens as its own tab): appearance (theme, accent, icon pack,
-//! density, title bar), the sidebar and ribbon bar editors, the right-click menu editor, and file options.
+//! density, title bar), the sidebar and ribbon bar editors, the right-click menu editor, file options, and About & updates.
 
 use super::sidebar::side_key;
 use super::*;
@@ -11,14 +11,16 @@ pub enum Page {
     Ribbon,
     ContextMenu,
     Files,
+    About,
 }
 
-const PAGES: [(Page, &str, &str); 5] = [
+const PAGES: [(Page, &str, &str); 6] = [
     (Page::Appearance, I_PALETTE, "Appearance"),
     (Page::Sidebar, I_NAVPANE, "Sidebar"),
     (Page::Ribbon, I_GRID, "Ribbon bar"),
     (Page::ContextMenu, I_MORE, "Right-click menu"),
     (Page::Files, I_FOLDER, "Files & folders"),
+    (Page::About, I_INFO, "About & updates"),
 ];
 
 /// `icon packs` in the settings folder: each sub-folder is an icon pack of PNGs.
@@ -210,14 +212,14 @@ impl App {
                             self.menu_editor(ui);
                         });
                     }
-                    Page::Files => {
-                        self.page_files(ui);
-                        ui.add_space(14.0);
-                        self.storage_card(ui);
+                    Page::Files => self.page_files(ui),
+                    Page::About => {
+                        self.about_card(ui);
                         ui.add_space(14.0);
                         self.updates_card(ui);
+                        ui.add_space(14.0);
+                        self.storage_card(ui);
                     }
-
                 }
                 ui.add_space(20.0);
             });
@@ -680,7 +682,37 @@ impl App {
 
     // ------------------------------------------------------------------ files
 
-    /// The version, whether there's a newer one, and whether to install it without asking.
+    /// What this is, which version, and where it comes from.
+    fn about_card(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal(|ui| {
+                let (r, _) = ui.allocate_exact_size(vec2(56.0, 56.0), Sense::hover());
+                paint_logo(ui.painter(), r, ACCENT());
+                ui.add_space(8.0);
+                ui.vertical(|ui| {
+                    ui.label(egui::RichText::new("Daleris").size(20.0).strong());
+                    ui.label(format!("Version {}", crate::update::CURRENT));
+                    ui.label(egui::RichText::new("A file explorer built for speed. Free software under the GPL-3.0 licence.").color(DIM()));
+                });
+            });
+            ui.add_space(10.0);
+            ui.horizontal_wrapped(|ui| {
+                for (label, url) in [
+                    ("Project", crate::update::PROJECT.to_string()),
+                    ("What's new", crate::update::RELEASES.to_string()),
+                    ("Report a problem", format!("{}/issues", crate::update::PROJECT)),
+                    ("Licence", format!("{}/blob/main/LICENSE", crate::update::PROJECT)),
+                ] {
+                    if ui.button(label).on_hover_text(&url).clicked() {
+                        shell::open_url(&url);
+                    }
+                }
+            });
+        });
+    }
+
+    /// Whether there's a newer version, and whether to install it without asking.
     fn updates_card(&mut self, ui: &mut Ui) {
         use crate::update::{Install, Status};
         let status = self.updater.as_ref().map_or(Status::Idle, |u| u.status());
@@ -696,7 +728,7 @@ impl App {
         }
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Updates", &format!("Daleris {}", crate::update::CURRENT));
+            heading(ui, "Updates", "");
             if policy::current().no_updates {
                 ui.label(egui::RichText::new("Your organization installs new versions of Daleris, so it doesn't look for updates itself.").color(DIM()));
                 ui.add_space(4.0);

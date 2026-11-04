@@ -132,6 +132,11 @@ fn thumbnail(path: &Path, size: u32) -> Option<RawImg> {
 // ---------------------------------------------------------------- simple verbs
 
 /// Open with the default app (xdg-open / open).
+/// Opens a web page in the default browser.
+pub fn open_url(url: &str) {
+    open(Path::new(url));
+}
+
 pub fn open(path: &Path) {
     let tool = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
     spawn_detached(Command::new(tool).arg(path));

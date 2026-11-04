@@ -120,7 +120,7 @@ Bug reports for Linux and macOS are especially welcome.
 
 ## ⚙️ Settings file and logs
 
-Settings are a plain text file with one `name=value` per line, also shown under **Settings → Files & folders**. Open windows read it again when they get focus.
+Settings are a plain text file with one `name=value` per line, also shown under **Settings → About & updates**. Open windows read it again when they get focus.
 
 | System | Settings and `icon packs` | Log |
 |---|---|---|
@@ -132,7 +132,7 @@ The log records the system, graphics driver, errors and crashes with a backtrace
 
 ## 🔄 Updates
 
-Daleris looks for a new release at startup and every 6 hours, and installs it by itself unless you turn that off under **Settings → Files & folders → Updates**. How depends on how it's installed:
+Daleris looks for a new release at startup and every 6 hours, and installs it by itself unless you turn that off under **Settings → About & updates**. How depends on how it's installed:
 
 | Installed as | How updates land |
 |---|---|

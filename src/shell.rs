@@ -300,6 +300,14 @@ unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool)
 
 // ---------------------------------------------------------------- simple verbs
 
+/// Opens a web page in the default browser.
+pub fn open_url(url: &str) {
+    let u = wide(url);
+    unsafe {
+        ShellExecuteW(main_hwnd(), PCWSTR::null(), PCWSTR(u.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
+    }
+}
+
 pub fn open(path: &Path) {
     let p = wide(path.as_os_str());
     let dir = path.parent().map(|d| wide(d.as_os_str()));

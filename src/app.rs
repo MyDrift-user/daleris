@@ -960,13 +960,14 @@ impl App {
                 app.open_props(vec![PathBuf::from(p)]);
             }
         }
-        // test hook: DALERIS_PAGE=appearance|sidebar|menu|files opens Settings on that page
+        // test hook: DALERIS_PAGE=appearance|sidebar|menu|files|about opens Settings on that page
         if let Ok(p) = std::env::var("DALERIS_PAGE") {
             app.settings_page = match p.as_str() {
                 "sidebar" => settings_page::Page::Sidebar,
                 "ribbon" => settings_page::Page::Ribbon,
                 "menu" => settings_page::Page::ContextMenu,
                 "files" => settings_page::Page::Files,
+                "about" => settings_page::Page::About,
                 _ => settings_page::Page::Appearance,
             };
             if !p.is_empty() {

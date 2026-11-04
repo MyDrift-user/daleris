@@ -18,7 +18,8 @@ use ed25519_dalek::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
-const RELEASES: &str = "https://github.com/MyDrift-user/daleris/releases";
+pub const PROJECT: &str = "https://github.com/MyDrift-user/daleris";
+pub const RELEASES: &str = "https://github.com/MyDrift-user/daleris/releases";
 const CHECK_EVERY: Duration = Duration::from_secs(6 * 3600);
 /// Long enough that a check doesn't compete with starting up.
 const FIRST_CHECK_AFTER: Duration = Duration::from_secs(20);
