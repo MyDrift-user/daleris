@@ -45,14 +45,14 @@ Type: filesandordirs; Name: "{app}\updates"
 [Code]
 // For a PC-wide install: a task installs updates as SYSTEM, so nobody gets an admin prompt. See src/update.rs.
 // It runs this folder's program as SYSTEM, so only admins may change it, wherever it was installed.
-// There's no task if that can't be done.
+// There's no task if that can't be done. Only on the folder, as files inherit from it: with /T the same command\n// leaves files with no permissions.
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;
 begin
   if (CurStep = ssPostInstall) and IsAdminInstallMode then
   begin
-    if Exec(ExpandConstant('{sys}\icacls.exe'), '"' + ExpandConstant('{app}') + '" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /T /C', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then
+    if Exec(ExpandConstant('{sys}\icacls.exe'), '"' + ExpandConstant('{app}') + '" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /C', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then
       Exec(ExpandConstant('{sys}\schtasks.exe'), '/Create /F /TN "Daleris Updater" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR "\"' + ExpandConstant('{app}') + '\daleris.exe\" --update-service"', '', SW_HIDE, ewWaitUntilTerminated, Code)
     else
       Log('Could not lock the install folder, so there is no update task');

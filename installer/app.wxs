@@ -43,9 +43,10 @@
     </Component>
     <!-- For a PC-wide install: installs updates as SYSTEM, so nobody gets an admin prompt. See src/update.rs.
          The task runs this folder's program as SYSTEM, so only admins may change it, wherever it was installed.
-         The install fails rather than go on if that can't be done. -->
+         The install fails rather than go on if that can't be done.
+         Only on the folder, as files inherit from it: with /T the same command leaves files with no permissions. -->
     <CustomAction Id="LockInstallFolder" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="check"
-                  ExeCommand='"[SystemFolder]icacls.exe" "[APPLICATIONFOLDER]." /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /T /C' />
+                  ExeCommand='"[SystemFolder]icacls.exe" "[APPLICATIONFOLDER]." /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /C' />
     <CustomAction Id="CreateUpdateTask" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
                   ExeCommand='"[SystemFolder]schtasks.exe" /Create /F /TN "Daleris Updater" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR "\"[APPLICATIONFOLDER]daleris.exe\" --update-service"' />
     <CustomAction Id="DeleteUpdateTask" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
