@@ -128,7 +128,7 @@ Every push is built on all three systems by the CI workflow. Releases only start
 1. Bump `version` in `Cargo.toml` and push.
 2. Go to **Actions → Release → Run workflow** and enter the same version (e.g. `0.2.0`).
 
-The workflow builds every download, installs and starts the Linux and macOS packages to test them (Linux on clean distro containers), checks that the Windows installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads.
+The workflow builds every download, installs and starts the Linux and macOS packages to test them (Linux on clean distro containers), checks that the Windows installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads. Running it again for a version that's already out adds and replaces that release's files.
 
 ## 🗺️ Project layout
 

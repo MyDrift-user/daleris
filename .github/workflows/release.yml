@@ -184,11 +184,15 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
-      - name: Create release
+      - name: Create release, or update the files of an existing one
         env:
           GH_TOKEN: ${{ github.token }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
+          if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release upload "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --clobber
+            exit 0
+          fi
           flags=()
           [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
           gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Bolt Explorer v$VERSION" --generate-notes "${flags[@]}"
