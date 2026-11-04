@@ -13,6 +13,7 @@ OutputDir=..\dist
 OutputBaseFilename={#OutputName}
 SetupIconFile=..\assets\icon.ico
 UninstallDisplayIcon={app}\daleris.exe
+UninstallDisplayName=Daleris
 Compression=lzma2/max
 SolidCompression=yes
 ArchitecturesAllowed=x64compatible
