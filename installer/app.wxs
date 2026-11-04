@@ -20,9 +20,7 @@
     <!-- Offers this PC or just this account, and works on the folder called APPLICATIONFOLDER below. -->
     <ui:WixUI Id="WixUI_Advanced" />
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="APPLICATIONFOLDER" Name="Daleris">
-        <Directory Id="UPDATESFOLDER" Name="updates" />
-      </Directory>
+      <Directory Id="APPLICATIONFOLDER" Name="Daleris" />
     </StandardDirectory>
     <Component Directory="APPLICATIONFOLDER">
       <File Source="target\release\daleris.exe" KeyPath="yes">
@@ -34,8 +32,6 @@
       </File>
       <File Source="LICENSE" Name="LICENSE.txt" />
       <File Source="THIRD-PARTY-NOTICES.txt" />
-      <RemoveFile Id="RemoveUpdates" Directory="UPDATESFOLDER" Name="*" On="uninstall" />
-      <RemoveFolder Id="RemoveUpdatesFolder" Directory="UPDATESFOLDER" On="uninstall" />
     </Component>
     <!-- Marks a PC-wide install. See src/update.rs. -->
     <Component Directory="APPLICATIONFOLDER" Condition="ALLUSERS=1">
@@ -51,7 +47,11 @@
                   ExeCommand='"[SystemFolder]schtasks.exe" /Create /F /TN "Daleris Updater" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR "\"[APPLICATIONFOLDER]daleris.exe\" --update-service"' />
     <CustomAction Id="DeleteUpdateTask" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
                   ExeCommand='"[SystemFolder]schtasks.exe" /Delete /F /TN "Daleris Updater"' />
+    <!-- Only when really uninstalling: an upgrade first removes the old version, and the installer running it is in this folder. -->
+    <CustomAction Id="DeleteUpdates" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand='"[SystemFolder]cmd.exe" /c rmdir /s /q "[APPLICATIONFOLDER]updates"' />
     <InstallExecuteSequence>
+      <Custom Action="DeleteUpdates" Before="RemoveFiles" Condition='ALLUSERS=1 AND REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE' />
       <Custom Action="DeleteUpdateTask" Before="RemoveFiles" Condition='ALLUSERS=1 AND REMOVE="ALL"' />
       <Custom Action="LockInstallFolder" After="InstallFiles" Condition='ALLUSERS=1 AND NOT REMOVE="ALL"' />
       <Custom Action="CreateUpdateTask" Before="InstallFinalize" Condition='ALLUSERS=1 AND NOT REMOVE="ALL"' />
