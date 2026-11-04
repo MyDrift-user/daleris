@@ -14,7 +14,8 @@
     <WixVariable Id="WixUILicenseRtf" Value="target\license.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="assets\installer-banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="assets\installer-dialog.bmp" />
-    <ui:WixUI Id="WixUI_Advanced" InstallDirectory="APPLICATIONFOLDER" />
+    <!-- Offers this PC or just this account, and works on the folder called APPLICATIONFOLDER below. -->
+    <ui:WixUI Id="WixUI_Advanced" />
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="APPLICATIONFOLDER" Name="Daleris">
         <Directory Id="UPDATESFOLDER" Name="updates" />
