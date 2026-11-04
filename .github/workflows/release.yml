@@ -89,10 +89,22 @@ jobs:
         run: |
           $base = "daleris-v$env:VERSION-windows-x64"
           $exe = "$env:ProgramFiles\Daleris\daleris.exe"
+          # Only admins and SYSTEM may change a folder whose program the update task runs as SYSTEM.
+          function Assert-Locked($folder) {
+            foreach ($path in @($folder) + @(Get-ChildItem $folder -Recurse | ForEach-Object FullName)) {
+              foreach ($rule in (Get-Acl $path).Access) {
+                $who = $rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
+                $writes = $rule.FileSystemRights.value__ -band ([int][Security.AccessControl.FileSystemRights]::Write -bor [int][Security.AccessControl.FileSystemRights]::Delete -bor [int][Security.AccessControl.FileSystemRights]::ChangePermissions -bor [int][Security.AccessControl.FileSystemRights]::TakeOwnership)
+                if ($rule.AccessControlType -eq 'Allow' -and $writes -and $who -notin 'S-1-5-18', 'S-1-5-32-544') { throw "$($rule.IdentityReference) can change $path" }
+              }
+            }
+          }
           $p = Start-Process "dist\$base-setup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ALLUSERS' -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path $exe)) { throw "setup.exe did not install" }
           schtasks /Query /TN 'Daleris Updater' 2>$null
           if ($LASTEXITCODE) { throw "setup.exe didn't add the update task" }
+          Assert-Locked "$env:ProgramFiles\Daleris"
+          if (-not (Test-Path "$env:ProgramFiles\Daleris\machine-install.txt")) { throw "setup.exe didn't mark a PC-wide install" }
           $p = Start-Process "$env:ProgramFiles\Daleris\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           Start-Sleep -Seconds 5
           if ($p.ExitCode -or (Test-Path $exe)) { throw "setup.exe did not uninstall" }
@@ -125,6 +137,7 @@ jobs:
           $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart','ALLUSERS=2','MSIINSTALLPERUSER=1' -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path $own)) { throw "MSI did not install for one account: $($p.ExitCode)" }
           if (Task) { throw "A per-user MSI added the update task" }
+          if (Test-Path "$env:LOCALAPPDATA\Programs\Daleris\machine-install.txt") { throw "A per-user MSI was marked as PC-wide" }
           $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart','ALLUSERS=2','MSIINSTALLPERUSER=1' -Wait -PassThru
           if ($p.ExitCode -or (Test-Path $own)) { throw "MSI did not uninstall for one account: $($p.ExitCode)" }
 
@@ -132,6 +145,8 @@ jobs:
           $dir = 'C:\Apps\Daleris Test'
           $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart',"ALLUSERS=1","APPLICATIONFOLDER=`"$dir`"" -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path "$dir\daleris.exe")) { throw "MSI did not install into a chosen folder: $($p.ExitCode)" }
+          Assert-Locked $dir
+          if (-not (Test-Path "$dir\machine-install.txt")) { throw "The MSI didn't mark a PC-wide install in a chosen folder" }
           $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
           if ($p.ExitCode -or (Test-Path "$dir\daleris.exe")) { throw "MSI did not uninstall from a chosen folder: $($p.ExitCode)" }
 
@@ -252,8 +267,11 @@ jobs:
           path: screens/*
 
   release:
+    if: inputs.publish
     needs: [version, windows, linux, macos]
     runs-on: ubuntu-latest
+    # Holds the signing key, and waits for an approval on GitHub before it runs.
+    environment: release
     permissions:
       contents: write
     env:
@@ -289,7 +307,6 @@ jobs:
           fi
 
       - name: Create release
-        if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
           PRERELEASE: ${{ inputs.prerelease }}

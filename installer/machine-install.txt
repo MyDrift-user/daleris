@@ -1,0 +1,1 @@
+Daleris was installed for everyone on this PC. Updates come from the "Daleris Updater" scheduled task.

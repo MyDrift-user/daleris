@@ -27,14 +27,13 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "..\target\release\daleris.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
+Source: "machine-install.txt"; DestDir: "{app}"; Flags: ignoreversion; Check: IsAdminInstallMode
 
 [Icons]
 Name: "{autoprograms}\Daleris"; Filename: "{app}\daleris.exe"; AppUserModelID: "MyDrift.Daleris"
 Name: "{autodesktop}\Daleris"; Filename: "{app}\daleris.exe"; AppUserModelID: "MyDrift.Daleris"; Tasks: desktopicon
 
 [Run]
-; For a PC-wide install: installs updates as SYSTEM, so nobody gets an admin prompt. See src/update.rs.
-Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""Daleris Updater"" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR ""\""{app}\daleris.exe\"" --update-service"""; Flags: runhidden; Check: IsAdminInstallMode
 Filename: "{app}\daleris.exe"; Description: "{cm:LaunchProgram,Daleris}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
@@ -42,3 +41,20 @@ Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN ""Daleris Updater"""
 
 [UninstallDelete]
 Type: filesandordirs; Name: "{app}\updates"
+
+[Code]
+// For a PC-wide install: a task installs updates as SYSTEM, so nobody gets an admin prompt. See src/update.rs.
+// It runs this folder's program as SYSTEM, so only admins may change it, wherever it was installed.
+// There's no task if that can't be done.
+procedure CurStepChanged(CurStep: TSetupStep);
+var
+  Code: Integer;
+begin
+  if (CurStep = ssPostInstall) and IsAdminInstallMode then
+  begin
+    if Exec(ExpandConstant('{sys}\icacls.exe'), '"' + ExpandConstant('{app}') + '" /inheritance:r /grant:r *S-1-5-18:(OI)(CI)F *S-1-5-32-544:(OI)(CI)F *S-1-5-32-545:(OI)(CI)RX /T /C', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then
+      Exec(ExpandConstant('{sys}\schtasks.exe'), '/Create /F /TN "Daleris Updater" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR "\"' + ExpandConstant('{app}') + '\daleris.exe\" --update-service"', '', SW_HIDE, ewWaitUntilTerminated, Code)
+    else
+      Log('Could not lock the install folder, so there is no update task');
+  end;
+end;

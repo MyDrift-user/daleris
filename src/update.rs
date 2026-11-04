@@ -24,6 +24,9 @@ const CHECK_EVERY: Duration = Duration::from_secs(6 * 3600);
 const FIRST_CHECK_AFTER: Duration = Duration::from_secs(20);
 /// The public half of the key that signs releases. The private half is a GitHub secret.
 const PUBLIC_KEY: [u8; 32] = [0x9c, 0x15, 0x85, 0x04, 0x5a, 0x56, 0x53, 0xf1, 0x50, 0x60, 0xd8, 0x08, 0x7b, 0xdf, 0xa5, 0x9b, 0xc6, 0x92, 0x77, 0x13, 0x17, 0x62, 0x04, 0x65, 0x5c, 0x95, 0x08, 0xd9, 0x18, 0x3a, 0xc8, 0x2b];
+/// A second key, kept offline and never used, so a leaked main key can be replaced: a release signed with this one
+/// can still reach every copy, and leave the leaked key out from then on.
+const BACKUP_PUBLIC_KEY: [u8; 32] = [0xfe, 0x59, 0xb6, 0xe3, 0x3e, 0x36, 0xa4, 0x88, 0xc6, 0x46, 0xd6, 0x66, 0xfa, 0xd4, 0xf7, 0xc7, 0x60, 0x75, 0x84, 0x1c, 0xcc, 0x9b, 0xd3, 0x8d, 0x0e, 0x44, 0x29, 0x0f, 0xb7, 0xe4, 0x0e, 0x04];
 
 // ---------------------------------------------------------------- versions and the signed list
 
@@ -69,7 +72,7 @@ fn signature_ok(key: &[u8; 32], text: &[u8], sig: &[u8]) -> bool {
 }
 
 fn verified_manifest(text: &[u8], sig: &[u8]) -> Result<Manifest, String> {
-    if !signature_ok(&PUBLIC_KEY, text, sig) {
+    if ![PUBLIC_KEY, BACKUP_PUBLIC_KEY].iter().any(|key| signature_ok(key, text, sig)) {
         return Err("The update's signature doesn't match, so it was ignored".into());
     }
     std::str::from_utf8(text).ok().and_then(parse_manifest).ok_or_else(|| "The update's file list couldn't be read".to_string())
@@ -122,9 +125,9 @@ pub fn detect() -> Install {
         // the installers add the licence as LICENSE.txt, which the portable program doesn't have next to it
         if dir.join("LICENSE.txt").exists() {
             let msi = !dir.join("unins000.exe").exists();
-            // an admin can write to Program Files, and that doesn't make it their own copy
-            let shared = ["ProgramFiles", "ProgramW6432", "ProgramFiles(x86)"].iter().filter_map(std::env::var_os).any(|p| dir.starts_with(p));
-            return if !shared && folder_writable(&dir) { Install::PerUser { msi } } else { Install::Machine { msi } };
+            // PC-wide installs are marked: being able to write to the folder says nothing, as admins and SYSTEM can
+            let machine = dir.join("machine-install.txt").exists() || !folder_writable(&dir);
+            return if machine { Install::Machine { msi } } else { Install::PerUser { msi } };
         }
         return if folder_writable(&dir) { Install::Portable(exe) } else { Install::Unmanaged };
     }
@@ -662,6 +665,8 @@ mod tests {
     #[test]
     fn the_real_key_is_a_valid_key() {
         assert!(VerifyingKey::from_bytes(&PUBLIC_KEY).is_ok());
+        assert!(VerifyingKey::from_bytes(&BACKUP_PUBLIC_KEY).is_ok());
+        assert_ne!(PUBLIC_KEY, BACKUP_PUBLIC_KEY);
     }
 
     #[test]

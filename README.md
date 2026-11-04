@@ -137,7 +137,7 @@ Daleris looks for a new release at startup and every 6 hours, and installs it by
 | Installed as | How updates land |
 |---|---|
 | For one account (MSI or `setup.exe`) | Installed silently when you close Daleris |
-| For this PC (MSI or `setup.exe`) | A scheduled task, `Daleris Updater`, installs it as SYSTEM once Daleris is closed, within about an hour. No admin prompts |
+| For this PC (MSI or `setup.exe`) | A scheduled task, `Daleris Updater`, installs it as SYSTEM once Daleris is closed, within about an hour. No admin prompts. The install folder is locked so only administrators can change it |
 | Portable, AppImage, macOS app | Replaces itself, in use from the next start |
 | `.deb`, `.rpm`, Arch package | Tells you, then asks for your password when you choose to install |
 
@@ -166,7 +166,7 @@ Every push is built on all three systems by the CI workflow. Releases only start
 1. Raise `version` in `Cargo.toml` and push. A version can't change once it's released, because updates go by the number.
 2. Go to **Actions → Release → Run workflow**. Turning off **Publish** only builds and tests, leaving the files on the run.
 
-Signing needs the private key in the `DALERIS_UPDATE_KEY` repository secret. If it's ever lost, existing copies can't update any more, so keep a backup.
+Publishing waits for an approval on GitHub, as the signing key is a secret of the protected `release` environment. If that key is lost or leaks, a release signed with the offline backup key can still reach every copy, and replace it.
 
 The workflow builds every download, installs and starts the Linux and macOS packages to test them (Linux on clean distro containers), checks that the Windows installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads. 
 
