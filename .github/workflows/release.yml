@@ -92,6 +92,8 @@ jobs:
           $menu = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs"
           $target = (New-Object -ComObject WScript.Shell).CreateShortcut("$menu\Daleris.lnk").TargetPath
           if ($target -ne $exe) { throw "The shortcut points to '$target'" }
+          $iconPath = (New-Object -ComObject WScript.Shell).CreateShortcut("$menu\Daleris.lnk").IconLocation
+          if ($iconPath -match 'Installer') { throw "The shortcut's icon is in a folder upgrades delete: $iconPath" }
           $id = (New-Object -ComObject Shell.Application).NameSpace($menu).ParseName('Daleris.lnk').ExtendedProperty('System.AppUserModel.ID')
           if ($id -ne 'MyDrift.Daleris') { throw "The shortcut's app ID is '$id'" }
           function Listed { @(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object DisplayName -eq 'Daleris') }

@@ -17,8 +17,9 @@
     </StandardDirectory>
     <Component Directory="INSTALLFOLDER">
       <File Source="target\release\daleris.exe" KeyPath="yes">
-        <!-- A plain shortcut: an advertised one isn't a real link to the program. The ID matches main.rs. -->
-        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="INSTALLFOLDER" Icon="app.ico" Advertise="no">
+        <!-- A plain shortcut: an advertised one isn't a real link to the program. The ID matches main.rs.
+             It has no Icon of its own, as that's kept in a folder each upgrade deletes, and pins keep pointing there. -->
+        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="INSTALLFOLDER" Advertise="no">
           <ShortcutProperty Key="System.AppUserModel.ID" Value="MyDrift.Daleris" />
         </Shortcut>
       </File>
