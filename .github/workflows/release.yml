@@ -11,6 +11,10 @@ on:
         description: "Mark as pre-release"
         type: boolean
         default: false
+      publish:
+        description: "Publish the release (off: only build and test, files stay on the run)"
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -41,6 +45,9 @@ jobs:
         run: |
           choco install innosetup -y --no-progress
           dotnet tool install --global wix --version 5.0.2
+          $env:DOTNET_ROLL_FORWARD = 'Major'
+          & "$env:USERPROFILE\.dotnet\tools\wix.exe" extension add --global WixToolset.UI.wixext/5.0.2
+          if ($LASTEXITCODE) { throw "wix extension failed" }
           "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
       - name: Build installers and portable files
@@ -52,7 +59,10 @@ jobs:
           New-Item -ItemType Directory -Force dist | Out-Null
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$env:VERSION" "/DOutputName=$base-setup" installer\setup.iss
           if ($LASTEXITCODE) { throw "ISCC failed" }
-          wix build -arch x64 -d "Version=$env:VERSION" -o "dist\$base.msi" installer\app.wxs
+          # The wizard shows the licence as RTF, which is plain text with its special characters escaped.
+          $lines = (Get-Content LICENSE) -replace '\\', '\\' -replace '\{', '\{' -replace '\}', '\}'
+          Set-Content target\license.rtf ('{\rtf1\ansi\deff0{\fonttbl{\f0 Consolas;}}\f0\fs15 ' + ($lines -join "\par`n") + '}') -Encoding ascii
+          wix build -arch x64 -ext WixToolset.UI.wixext -d "Version=$env:VERSION" -o "dist\$base.msi" installer\app.wxs
           if ($LASTEXITCODE) { throw "wix failed" }
           Remove-Item dist/*.wixpdb
           Copy-Item target\release\daleris.exe "dist\$base-portable.exe"
@@ -62,6 +72,8 @@ jobs:
 
       - name: Test installers
         shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           $base = "daleris-v$env:VERSION-windows-x64"
           $exe = "$env:ProgramFiles\Daleris\daleris.exe"
@@ -73,8 +85,41 @@ jobs:
           $msi = (Resolve-Path "dist\$base.msi").Path
           $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path $exe)) { throw "MSI did not install: $($p.ExitCode)" }
+          if (-not (Test-Path "$env:ProgramFiles\Daleris\LICENSE.txt")) { throw "MSI did not install the licence" }
+
+          # The Start menu shortcut has to be a normal link, with the app's ID, and Windows has to list the app.
+          $menu = "$env:ProgramData\Microsoft\Windows\Start Menu\Programs"
+          $target = (New-Object -ComObject WScript.Shell).CreateShortcut("$menu\Daleris.lnk").TargetPath
+          if ($target -ne $exe) { throw "The shortcut points to '$target'" }
+          $id = (New-Object -ComObject Shell.Application).NameSpace($menu).ParseName('Daleris.lnk').ExtendedProperty('System.AppUserModel.ID')
+          if ($id -ne 'MyDrift.Daleris') { throw "The shortcut's app ID is '$id'" }
+          function Listed { @(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object DisplayName -eq 'Daleris') }
+          if ((Listed).Count -ne 1) { throw "Windows lists Daleris $((Listed).Count) times" }
+
           $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
-          if ($p.ExitCode -or (Test-Path $exe)) { throw "MSI did not uninstall: $($p.ExitCode)" }
+          if ($p.ExitCode -or (Test-Path $exe) -or (Test-Path "$menu\Daleris.lnk")) { throw "MSI did not uninstall: $($p.ExitCode)" }
+
+          # A chosen folder, without any screens.
+          $dir = 'C:\Apps\Daleris Test'
+          $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart',"INSTALLFOLDER=`"$dir`"" -Wait -PassThru
+          if ($p.ExitCode -or -not (Test-Path "$dir\daleris.exe")) { throw "MSI did not install into a chosen folder: $($p.ExitCode)" }
+          $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+          if ($p.ExitCode -or (Test-Path "$dir\daleris.exe")) { throw "MSI did not uninstall from a chosen folder: $($p.ExitCode)" }
+
+          # Installing over the published release has to replace it, even with the same version number.
+          New-Item -ItemType Directory old | Out-Null
+          gh release download --repo "$env:GITHUB_REPOSITORY" --pattern 'daleris-*.msi' --dir old
+          $previous = Get-ChildItem old -Filter *.msi | Select-Object -First 1
+          if ($previous) {
+            $p = Start-Process msiexec -ArgumentList '/i',"`"$($previous.FullName)`"",'/qn','/norestart' -Wait -PassThru
+            if ($p.ExitCode) { throw "The published MSI did not install: $($p.ExitCode)" }
+            $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+            if ($p.ExitCode) { throw "MSI did not upgrade: $($p.ExitCode)" }
+            if ((Listed).Count -ne 1) { throw "After upgrading, Windows lists Daleris $((Listed).Count) times" }
+            $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+            if ($p.ExitCode -or (Test-Path $exe)) { throw "MSI did not uninstall after upgrading: $($p.ExitCode)" }
+          }
+          $global:LASTEXITCODE = 0
 
       - uses: actions/upload-artifact@v7
         with:
@@ -174,6 +219,7 @@ jobs:
           path: screens/*
 
   release:
+    if: inputs.publish
     needs: [windows, linux, macos]
     runs-on: ubuntu-latest
     permissions:

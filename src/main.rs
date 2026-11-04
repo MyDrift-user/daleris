@@ -24,6 +24,11 @@ use std::path::PathBuf;
 fn main() -> eframe::Result<()> {
     logging::init();
     util::adopt_old_settings();
+    // The same ID as the installers' shortcuts, so the taskbar treats the window and shortcut as one app.
+    #[cfg(windows)]
+    unsafe {
+        let _ = windows::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(windows::core::w!("MyDrift.Daleris"));
+    }
     let mut screenshot: Option<PathBuf> = None;
     let mut start: Option<PathBuf> = None;
     let mut query: Option<String> = None;

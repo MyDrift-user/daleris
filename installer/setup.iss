@@ -28,8 +28,8 @@ Source: "..\target\release\daleris.exe"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Daleris"; Filename: "{app}\daleris.exe"
-Name: "{autodesktop}\Daleris"; Filename: "{app}\daleris.exe"; Tasks: desktopicon
+Name: "{autoprograms}\Daleris"; Filename: "{app}\daleris.exe"; AppUserModelID: "MyDrift.Daleris"
+Name: "{autodesktop}\Daleris"; Filename: "{app}\daleris.exe"; AppUserModelID: "MyDrift.Daleris"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\daleris.exe"; Description: "{cm:LaunchProgram,Daleris}"; Flags: nowait postinstall skipifsilent

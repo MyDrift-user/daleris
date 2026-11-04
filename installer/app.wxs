@@ -1,17 +1,26 @@
-<!-- Built by the Release workflow: wix build -arch x64 -d Version=x.y.z -o name.msi installer\app.wxs -->
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<!-- Built by the Release workflow: wix build -arch x64 -ext WixToolset.UI.wixext -d Version=x.y.z -o name.msi installer\app.wxs
+     Silent install: msiexec /i name.msi /qn [INSTALLFOLDER="D:\Apps\Daleris"] -->
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
   <Package Name="Daleris" Manufacturer="MyDrift" Version="$(var.Version)" UpgradeCode="A87468C2-85E0-4FB0-9878-BF6064FC3D7F" Scope="perMachine">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Daleris is already installed." />
+    <!-- Same version too: a rebuilt release must replace the old one, not install next to it. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Daleris is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="app.ico" SourceFile="assets\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="app.ico" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/MyDrift-user/daleris" />
+    <WixVariable Id="WixUILicenseRtf" Value="target\license.rtf" />
+    <WixVariable Id="WixUIBannerBmp" Value="assets\installer-banner.bmp" />
+    <WixVariable Id="WixUIDialogBmp" Value="assets\installer-dialog.bmp" />
+    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
     <StandardDirectory Id="ProgramFiles6432Folder">
       <Directory Id="INSTALLFOLDER" Name="Daleris" />
     </StandardDirectory>
     <Component Directory="INSTALLFOLDER">
       <File Source="target\release\daleris.exe" KeyPath="yes">
-        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="INSTALLFOLDER" Icon="app.ico" Advertise="yes" />
+        <!-- A plain shortcut: an advertised one isn't a real link to the program. The ID matches main.rs. -->
+        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="INSTALLFOLDER" Icon="app.ico" Advertise="no">
+          <ShortcutProperty Key="System.AppUserModel.ID" Value="MyDrift.Daleris" />
+        </Shortcut>
       </File>
       <File Source="LICENSE" Name="LICENSE.txt" />
     </Component>

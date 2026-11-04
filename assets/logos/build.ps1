@@ -64,6 +64,26 @@ foreach ($img in $images) { $w.Write($img) }
 $w.Flush()
 [IO.File]::WriteAllBytes((Join-Path $assets 'icon.ico'), $out.ToArray())
 
+# The MSI wizard's pictures: its first and last page have a panel on the left, the others a strip at the top.
+function InstallerPicture($width, $height, $fileName, $panel, $logoSize, $logoX, $logoY) {
+    $bmp = [Drawing.Bitmap]::new($width, $height, [Drawing.Imaging.PixelFormat]::Format24bppRgb)
+    $g = [Drawing.Graphics]::FromImage($bmp)
+    $g.Clear([Drawing.Color]::White)
+    if ($panel) {
+        $brush = [Drawing.Drawing2D.LinearGradientBrush]::new([Drawing.Rectangle]::new(0, 0, $panel, $height), [Drawing.Color]::FromArgb(0x5a, 0x8d, 0xff), [Drawing.Color]::FromArgb(0x3a, 0x57, 0xe8), 60)
+        $g.FillRectangle($brush, 0, 0, $panel, $height)
+        $brush.Dispose()
+    }
+    $g.InterpolationMode = 'HighQualityBicubic'
+    $g.PixelOffsetMode = 'HighQuality'
+    $g.DrawImage($(if ($panel) { $mark } else { $full }), $logoX, $logoY, $logoSize, $logoSize)
+    $g.Dispose()
+    $bmp.Save((Join-Path $assets $fileName), [Drawing.Imaging.ImageFormat]::Bmp)
+    $bmp.Dispose()
+}
+InstallerPicture 493 312 'installer-dialog.bmp' 164 120 22 96
+InstallerPicture 493 58 'installer-banner.bmp' 0 42 441 8
+
 $full.Dispose(); $mark.Dispose()
 Remove-Item -Recurse -Force $work -ErrorAction SilentlyContinue
 "Built the icons from $Name.svg"

@@ -87,7 +87,7 @@ Download what you need from **[Releases](../../releases)**:
 | System | File | What it is |
 |---|---|---|
 | Windows 10 / 11 (x64) | `...-windows-x64-setup.exe` | Installer, for this PC or just your account |
-| | `...-windows-x64.msi` | MSI installer, for managed deployment |
+| | `...-windows-x64.msi` | MSI installer with a setup wizard, or silent for managed deployment |
 | | `...-windows-x64-portable.exe` | Portable, runs without installing |
 | | `...-windows-x64.zip` | The same portable program, zipped |
 | | `...-policy-definitions.zip` | Group Policy templates |
@@ -99,6 +99,13 @@ Download what you need from **[Releases](../../releases)**:
 | macOS 11+ (Apple Silicon `arm64` or Intel `x64`) | `...-macos-*.dmg` | Disk image, drag to Applications |
 | | `...-macos-*.pkg` | Installer, for managed deployment |
 | | `...-macos-*`, `...-macos-*.tar.gz` | Program, or the same in an archive |
+
+To install on Windows without any screens, from an administrator prompt (the folder is optional):
+
+```bat
+msiexec /i daleris-v0.0.1-windows-x64.msi /qn INSTALLFOLDER="D:\Apps\Daleris"
+daleris-v0.0.1-windows-x64-setup.exe /VERYSILENT /ALLUSERS /DIR="D:\Apps\Daleris"
+```
 
 Windows is the main platform. The Linux and macOS packages are tested automatically when they're built, but aren't yet tested in daily use. After downloading an AppImage or plain program, make it runnable with `chmod +x`.
 
