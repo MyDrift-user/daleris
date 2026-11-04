@@ -1,5 +1,6 @@
-//! The Daleris icon pack: all drawn here, as a coloured page or folder with a white picture on it. To add a file
-//! type, add its extension to a list in `by_extension`. The Phosphor pack is separate, in `phosphor_icons.rs`.
+//! The Daleris icon pack, all drawn here. Files look like what they are, so their outlines differ at a glance: a box,
+//! a crate, a film strip, a bare symbol or a tile. Folders are folders with a picture on them. To add a file type,
+//! add its extension to a list in `by_extension`. The Phosphor pack is separate, in `phosphor_icons.rs`.
 
 use eframe::egui::{self, vec2, Align2, Color32, FontId, Rect};
 
@@ -38,7 +39,7 @@ pub(super) enum SvgSource {
 
 pub(super) fn svg_bytes(source: &SvgSource) -> Vec<u8> {
     match source {
-        SvgSource::Page(family) => family.page_svg().into_bytes(),
+        SvgSource::Page(family) => family.file_svg().into_bytes(),
         SvgSource::Folder(family) => family.folder_svg().into_bytes(),
         SvgSource::Fixed(svg) => svg.clone().into_bytes(),
     }
@@ -64,7 +65,6 @@ const BOX: Picture = Picture::Art("<path fill='#fff' d='M16 12l7 3.500V23l-7 3.5
 const CUBE: Picture = Picture::Line("M16 12l7 3.500V23l-7 3.500L9 23v-7.500zM9 15.500l7 3.500 7-3.500M16 19v7.500");
 const DISC: Picture = Picture::Art("<circle cx='16' cy='19' r='7.200' fill='#fff'/><circle cx='16' cy='19' r='2' fill='{C}'/>");
 const LINES: Picture = Picture::Line("M10.500 14.500h11M10.500 19h11M10.500 23.500h7");
-const WINDOW: Picture = Picture::Art("<rect x='9' y='12.500' width='14' height='13' rx='2' fill='#fff'/><rect x='9' y='12.500' width='14' height='3.500' rx='1.500' fill='{S}'/><circle cx='11.500' cy='14.300' r='.800' fill='#fff'/><circle cx='14' cy='14.300' r='.800' fill='#fff'/>");
 const CODE: Picture = Picture::Line("M13 13.500L9.500 17l3.500 3.500M19 13.500l3.500 3.500-3.500 3.500");
 const BRACES: Picture = Picture::Line("M14 12.500c-2 0-2.500 1-2.500 2.500v1.500c0 1.200-1 2.500-2 2.500 1 0 2 1.300 2 2.500V23c0 1.500.5 2.500 2.500 2.500M18 12.500c2 0 2.500 1 2.500 2.500v1.500c0 1.200 1 2.500 2 2.500-1 0-2 1.300-2 2.500V23c0 1.500-.5 2.500-2.500 2.500");
 const ANGLES: Picture = Picture::Line("M13 14.500L9 19l4 4.500M19 14.500l4 4.500-4 4.500M17.500 13l-3 12");
@@ -106,9 +106,29 @@ const HOUSE: Picture = Picture::Art("<path fill='#fff' d='M16 12.500l7.500 6.500
 const SCREEN: Picture = Picture::Art("<rect x='9' y='13' width='14' height='9.500' rx='1.500' fill='#fff'/><path fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' d='M13 25.500h6M16 22.500v3'/>");
 const STAR: Picture = Picture::Art("<path fill='#fff' d='M16 12.500l2.100 4.400 4.900.6-3.600 3.400.9 4.800-4.300-2.400-4.300 2.400.9-4.800L9 17.500l4.900-.6z'/>");
 
+/// The outline of a file's icon.
+#[derive(Clone, Copy, Debug)]
+enum Frame {
+    /// A page, only for documents of plain text and for unknown types.
+    Page,
+    /// The picture alone, large and in the colour.
+    Bare,
+    /// A rounded square with the picture on it in white.
+    Tile,
+    /// A crate with a lid.
+    Crate,
+    /// A film strip.
+    Film,
+    /// A picture frame.
+    Photo,
+    /// A program window.
+    App,
+}
+
 /// A kind of file or folder with its own colours, as SVG colours.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct Family {
+    frame: Frame,
     picture: Picture,
     color: &'static str,
     shade: &'static str,
@@ -124,13 +144,33 @@ impl Family {
         }
     }
 
-    fn page_svg(&self) -> String {
-        format!(
-            "<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path fill='{}' d='M8 1.500h11.500L27 9v19.500a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-25a2 2 0 0 1 2-2z'/><path fill='{}' d='M19.500 1.500L27 9h-5.500a2 2 0 0 1-2-2z'/>{}</svg>",
-            self.color,
-            self.shade,
-            self.picture_svg()
-        )
+    /// The picture in white, moved to the middle and scaled up from its usual place.
+    fn scaled(&self, scale: f32) -> String {
+        format!("<g transform='translate(16 16) scale({scale}) translate(-16 -19)'>{}</g>", self.picture_svg())
+    }
+
+    /// The picture alone in the colour: what's white becomes the colour, and its details become white.
+    fn bare(&self) -> String {
+        let shapes = match self.picture {
+            Picture::Blank => String::new(),
+            Picture::Line(path) => format!("<path fill='none' stroke='{}' stroke-width='2.400' stroke-linecap='round' stroke-linejoin='round' d='{path}'/>", self.color),
+            Picture::Art(shapes) => shapes.replace("#fff", self.color).replace("{C}", "#fff").replace("{S}", "#fff"),
+        };
+        format!("<g transform='translate(16 16) scale(1.95) translate(-16 -19)'>{shapes}</g>")
+    }
+
+    fn file_svg(&self) -> String {
+        let (c, s) = (self.color, self.shade);
+        let inner = match self.frame {
+            Frame::Page => format!("<path fill='{c}' d='M8 1.500h11.500L27 9v19.500a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-25a2 2 0 0 1 2-2z'/><path fill='{s}' d='M19.500 1.500L27 9h-5.500a2 2 0 0 1-2-2z'/>{}", self.picture_svg()),
+            Frame::Bare => self.bare(),
+            Frame::Tile => format!("<rect x='2.500' y='2.500' width='27' height='27' rx='6' fill='{c}'/>{}", self.scaled(1.5)),
+            Frame::Crate => format!("<rect x='4.500' y='10' width='23' height='19' rx='2.500' fill='{c}'/><rect x='2.500' y='4' width='27' height='8' rx='2' fill='{s}'/><g fill='#fff'><rect x='14' y='4' width='4' height='2'/><rect x='14' y='8' width='4' height='2'/><rect x='14' y='12' width='4' height='2.500'/><rect x='14' y='17' width='4' height='2.500'/><rect x='12.500' y='21' width='7' height='6' rx='1.500'/></g><rect x='14.700' y='23' width='2.600' height='2.200' fill='{s}'/>"),
+            Frame::Film => format!("<rect x='2' y='5' width='28' height='22' rx='3' fill='{c}'/><g fill='{s}'><rect x='4' y='7' width='3' height='3' rx='.7'/><rect x='4' y='14.500' width='3' height='3' rx='.7'/><rect x='4' y='22' width='3' height='3' rx='.7'/><rect x='25' y='7' width='3' height='3' rx='.7'/><rect x='25' y='14.500' width='3' height='3' rx='.7'/><rect x='25' y='22' width='3' height='3' rx='.7'/></g><path fill='#fff' d='M12.500 10.500L22 16l-9.500 5.500z'/>"),
+            Frame::Photo => format!("<rect x='2' y='5' width='28' height='22' rx='3' fill='{c}'/><circle cx='10' cy='12' r='2.700' fill='#fff'/><path fill='#fff' d='M4.500 24.500l7-8 5 5.500 3.500-3.500 7.500 6z'/>"),
+            Frame::App => format!("<rect x='2' y='5' width='28' height='22' rx='3.500' fill='{c}'/><path fill='{s}' d='M2 8.500A3.500 3.500 0 0 1 5.500 5h21A3.500 3.500 0 0 1 30 8.500V11H2z'/><g fill='#fff'><circle cx='6' cy='8' r='1.200'/><circle cx='10' cy='8' r='1.200'/><rect x='6' y='15' width='14' height='2.200' rx='1'/><rect x='6' y='20' width='9' height='2.200' rx='1'/></g>"),
+        };
+        format!("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>{inner}</svg>")
     }
 
     fn folder_svg(&self) -> String {
@@ -141,15 +181,6 @@ impl Family {
             self.picture_svg()
         )
     }
-}
-
-const fn fam(picture: Picture, color: &'static str, shade: &'static str) -> Family {
-    Family { picture, color, shade, labelled: false }
-}
-
-/// A page that also shows its extension, so types that share a colour can be told apart.
-const fn code(color: &'static str, shade: &'static str) -> Family {
-    Family { picture: CODE, color, shade, labelled: true }
 }
 
 // The colours, each with its darker shade.
@@ -171,12 +202,33 @@ const TEAL: (&str, &str) = ("#26a69a", "#1a7d74");
 const SLATE: (&str, &str) = ("#5f7a96", "#46596e");
 const GRAY: (&str, &str) = ("#8a8f9c", "#646975");
 
-const fn with(picture: Picture, c: (&'static str, &'static str)) -> Family {
-    fam(picture, c.0, c.1)
+const fn make(frame: Frame, picture: Picture, c: (&'static str, &'static str), labelled: bool) -> Family {
+    Family { frame, picture, color: c.0, shade: c.1, labelled }
 }
 
+const fn with(picture: Picture, c: (&'static str, &'static str)) -> Family {
+    make(Frame::Page, picture, c, false)
+}
+
+const fn bare(picture: Picture, c: (&'static str, &'static str)) -> Family {
+    make(Frame::Bare, picture, c, false)
+}
+
+const fn tile(picture: Picture, c: (&'static str, &'static str)) -> Family {
+    make(Frame::Tile, picture, c, false)
+}
+
+const fn crate_of(c: (&'static str, &'static str)) -> Family {
+    make(Frame::Crate, Picture::Blank, c, false)
+}
+
+const fn film(c: (&'static str, &'static str)) -> Family {
+    make(Frame::Film, Picture::Blank, c, false)
+}
+
+/// A tile of code that also shows its extension, as languages can share a colour.
 const fn lang(c: (&'static str, &'static str)) -> Family {
-    code(c.0, c.1)
+    make(Frame::Tile, CODE, c, true)
 }
 
 // ---------------------------------------------------------------- what gets what
@@ -185,19 +237,19 @@ const fn lang(c: (&'static str, &'static str)) -> Family {
 fn by_file_name(name: &str) -> Option<Family> {
     let stem = name.split('.').next().unwrap_or(name);
     Some(match name {
-        "dockerfile" | "containerfile" | ".dockerignore" | "docker-compose.yml" | "docker-compose.yaml" | "compose.yml" | "compose.yaml" => with(DOCKER, SKY),
-        "makefile" | "gnumakefile" | "justfile" | "cmakelists.txt" | "meson.build" | "rakefile" | "build.rs" => with(HAMMER, ORANGE),
-        ".gitignore" | ".gitattributes" | ".gitmodules" | ".gitconfig" | ".mailmap" => with(BRANCH, ORANGE),
-        "package.json" | "cargo.toml" | "pyproject.toml" | "requirements.txt" | "go.mod" | "gemfile" | "pom.xml" | "build.gradle" | "build.gradle.kts" | "composer.json" => with(BOX, GREEN),
-        "cargo.lock" | "package-lock.json" | "yarn.lock" | "pnpm-lock.yaml" | "gemfile.lock" | "poetry.lock" | "go.sum" | "composer.lock" | "flake.lock" => with(LOCK, GRAY),
-        ".env" | ".envrc" | ".npmrc" | ".netrc" | "id_rsa" | "id_ed25519" | "authorized_keys" | "known_hosts" => with(KEY, AMBER),
-        ".editorconfig" | ".prettierrc" | ".eslintrc" | ".clang-format" | ".rustfmt.toml" | "rustfmt.toml" | "tsconfig.json" => with(GEAR, GRAY),
-        ".bashrc" | ".bash_profile" | ".zshrc" | ".profile" | ".bash_history" | ".zsh_history" => with(TERMINAL, GREEN),
-        _ if name.starts_with(".env.") => with(KEY, AMBER),
-        _ if name.ends_with(".pkg.tar.zst") || name.ends_with(".pkg.tar.xz") => with(BOX, ORANGE),
+        "dockerfile" | "containerfile" | ".dockerignore" | "docker-compose.yml" | "docker-compose.yaml" | "compose.yml" | "compose.yaml" => tile(DOCKER, SKY),
+        "makefile" | "gnumakefile" | "justfile" | "cmakelists.txt" | "meson.build" | "rakefile" | "build.rs" => bare(HAMMER, ORANGE),
+        ".gitignore" | ".gitattributes" | ".gitmodules" | ".gitconfig" | ".mailmap" => bare(BRANCH, ORANGE),
+        "package.json" | "cargo.toml" | "pyproject.toml" | "requirements.txt" | "go.mod" | "gemfile" | "pom.xml" | "build.gradle" | "build.gradle.kts" | "composer.json" => bare(BOX, GREEN),
+        "cargo.lock" | "package-lock.json" | "yarn.lock" | "pnpm-lock.yaml" | "gemfile.lock" | "poetry.lock" | "go.sum" | "composer.lock" | "flake.lock" => bare(LOCK, GRAY),
+        ".env" | ".envrc" | ".npmrc" | ".netrc" | "id_rsa" | "id_ed25519" | "authorized_keys" | "known_hosts" => bare(KEY, AMBER),
+        ".editorconfig" | ".prettierrc" | ".eslintrc" | ".clang-format" | ".rustfmt.toml" | "rustfmt.toml" | "tsconfig.json" => bare(GEAR, GRAY),
+        ".bashrc" | ".bash_profile" | ".zshrc" | ".profile" | ".bash_history" | ".zsh_history" => tile(TERMINAL, GREEN),
+        _ if name.starts_with(".env.") => bare(KEY, AMBER),
+        _ if name.ends_with(".pkg.tar.zst") || name.ends_with(".pkg.tar.xz") => bare(BOX, ORANGE),
         _ => match stem {
-            "readme" => with(BOOK, BLUE),
-            "license" | "licence" | "copying" | "notice" => with(SEAL, AMBER),
+            "readme" => bare(BOOK, BLUE),
+            "license" | "licence" | "copying" | "notice" => bare(SEAL, AMBER),
             "changelog" | "changes" | "history" => with(LINES, BLUE),
             _ => return None,
         },
@@ -207,57 +259,57 @@ fn by_file_name(name: &str) -> Option<Family> {
 fn by_extension(ext: &str) -> Option<Family> {
     Some(match ext {
         // programs and installers, by system
-        "exe" | "com" | "scr" | "app" => with(WINDOW, NAVY),
-        "msi" | "msix" | "msixbundle" | "appx" | "appxbundle" | "appinstaller" | "msp" | "msu" | "mst" | "application" => with(BOX, BLUE),
-        "deb" | "rpm" | "snap" | "flatpak" | "flatpakref" | "appimage" | "pacman" | "apkg" => with(BOX, ORANGE),
-        "dmg" | "pkg" | "mpkg" | "ipa" => with(BOX, GRAY),
-        "apk" | "aab" | "xapk" | "apks" | "apkm" => with(BOX, GREEN),
-        "nupkg" | "snupkg" | "vsix" | "vsixpackage" | "crx" | "xpi" | "whl" | "gem" | "crate" | "jar" | "war" | "ear" | "unitypackage" => with(BOX, TEAL),
+        "exe" | "com" | "scr" | "app" => make(Frame::App, Picture::Blank, NAVY, false),
+        "msi" | "msix" | "msixbundle" | "appx" | "appxbundle" | "appinstaller" | "msp" | "msu" | "mst" | "application" => bare(BOX, BLUE),
+        "deb" | "rpm" | "snap" | "flatpak" | "flatpakref" | "appimage" | "pacman" | "apkg" => bare(BOX, ORANGE),
+        "dmg" | "pkg" | "mpkg" | "ipa" => bare(BOX, GRAY),
+        "apk" | "aab" | "xapk" | "apks" | "apkm" => bare(BOX, GREEN),
+        "nupkg" | "snupkg" | "vsix" | "vsixpackage" | "crx" | "xpi" | "whl" | "gem" | "crate" | "jar" | "war" | "ear" | "unitypackage" => bare(BOX, TEAL),
         // archives
-        "zip" | "zipx" => with(ZIPPER, AMBER),
-        "7z" => with(ZIPPER, TEAL),
-        "rar" | "r00" | "r01" => with(ZIPPER, PURPLE),
-        "tar" | "cpio" | "shar" => with(ZIPPER, BROWN),
-        "gz" | "gzip" | "tgz" | "z" => with(ZIPPER, ORANGE),
-        "bz" | "bz2" | "tbz" | "tbz2" | "xz" | "txz" | "lzma" | "lz" | "lz4" | "lzo" | "zst" | "zstd" | "br" => with(ZIPPER, RED),
-        "cab" | "arc" | "ace" | "arj" | "sit" | "sitx" | "wim" | "swm" | "esd" | "lha" | "lzh" | "ar" => with(ZIPPER, SLATE),
+        "zip" | "zipx" => crate_of(AMBER),
+        "7z" => crate_of(TEAL),
+        "rar" | "r00" | "r01" => crate_of(PURPLE),
+        "tar" | "cpio" | "shar" => crate_of(BROWN),
+        "gz" | "gzip" | "tgz" | "z" => crate_of(ORANGE),
+        "bz" | "bz2" | "tbz" | "tbz2" | "xz" | "txz" | "lzma" | "lz" | "lz4" | "lzo" | "zst" | "zstd" | "br" => crate_of(RED),
+        "cab" | "arc" | "ace" | "arj" | "sit" | "sitx" | "wim" | "swm" | "esd" | "lha" | "lzh" | "ar" => crate_of(SLATE),
         // disk images
-        "iso" | "img" | "nrg" | "mdf" | "mds" | "toast" | "ccd" => with(DISC, INDIGO),
-        "vhd" | "vhdx" | "vmdk" | "vdi" | "qcow" | "qcow2" | "ova" | "ovf" => with(DISC, SLATE),
+        "iso" | "img" | "nrg" | "mdf" | "mds" | "toast" | "ccd" => bare(DISC, INDIGO),
+        "vhd" | "vhdx" | "vmdk" | "vdi" | "qcow" | "qcow2" | "ova" | "ovf" => bare(DISC, SLATE),
         // audio
-        "mp3" | "aac" | "m4a" | "m4b" | "ogg" | "oga" | "opus" | "wma" | "amr" | "ra" | "mka" | "3ga" => with(NOTE, PINK),
-        "flac" | "wav" | "wave" | "aiff" | "aif" | "alac" | "ape" | "wv" | "dsf" | "dff" | "pcm" | "au" => with(NOTE, PURPLE),
-        "mid" | "midi" | "kar" | "mscz" | "musicxml" => with(NOTE, ORANGE),
+        "mp3" | "aac" | "m4a" | "m4b" | "ogg" | "oga" | "opus" | "wma" | "amr" | "ra" | "mka" | "3ga" => bare(NOTE, PINK),
+        "flac" | "wav" | "wave" | "aiff" | "aif" | "alac" | "ape" | "wv" | "dsf" | "dff" | "pcm" | "au" => bare(NOTE, PURPLE),
+        "mid" | "midi" | "kar" | "mscz" | "musicxml" => bare(NOTE, ORANGE),
         "m3u" | "m3u8" | "pls" | "cue" | "wpl" | "xspf" | "asx" => with(LINES, PINK),
         // video and subtitles
-        "mp4" | "m4v" | "mov" | "qt" => with(PLAY, RED),
-        "mkv" | "webm" | "ogv" => with(PLAY, VIOLET),
-        "avi" | "wmv" | "asf" | "divx" | "xvid" | "flv" | "f4v" | "rm" | "rmvb" => with(PLAY, ORANGE),
-        "mpg" | "mpeg" | "mpe" | "m2v" | "mts" | "m2ts" | "vob" | "3gp" | "3g2" => with(PLAY, TEAL),
-        "srt" | "vtt" | "ass" | "ssa" | "sub" => with(CAPTIONS, VIOLET),
+        "mp4" | "m4v" | "mov" | "qt" => film(RED),
+        "mkv" | "webm" | "ogv" => film(VIOLET),
+        "avi" | "wmv" | "asf" | "divx" | "xvid" | "flv" | "f4v" | "rm" | "rmvb" => film(ORANGE),
+        "mpg" | "mpeg" | "mpe" | "m2v" | "mts" | "m2ts" | "vob" | "3gp" | "3g2" => film(TEAL),
+        "srt" | "vtt" | "ass" | "ssa" | "sub" => tile(CAPTIONS, VIOLET),
         // office, each app by its first letter
-        "doc" | "docx" | "docm" | "dot" | "dotx" | "dotm" | "rtf" | "odt" | "ott" | "wps" | "pages" | "wpd" | "hwp" => with(Picture::Line("M10 13.500l2.500 11L16 16l3.500 8.500L22 13.500"), NAVY),
-        "xls" | "xlsx" | "xlsm" | "xlsb" | "xlt" | "xltx" | "xltm" | "ods" | "ots" | "numbers" | "et" => with(Picture::Line("M11 13.500l10 11M21 13.500l-10 11"), GREEN),
-        "csv" | "tsv" => with(GRID, GREEN),
-        "ppt" | "pptx" | "pptm" | "pps" | "ppsx" | "pot" | "potx" | "odp" | "otp" | "dps" => with(Picture::Line("M12 25V13.500h5a3.800 3.800 0 0 1 0 7.600h-5"), ORANGE),
-        "mdb" | "accdb" | "accde" | "accdr" | "odb" => with(Picture::Line("M10.500 25L16 13.500 21.500 25M12.500 21h7"), CRIMSON),
-        "one" | "onetoc2" | "onepkg" => with(Picture::Line("M11 25V13.500l10 11.500V13.500"), PURPLE),
-        "vsd" | "vsdx" | "vsdm" | "vssx" | "vstx" => with(Picture::Line("M10.500 13.500L16 25l5.500-11.500"), INDIGO),
-        "pst" | "ost" | "oft" | "msg" | "eml" | "emlx" | "mbox" => with(MAIL, BLUE),
+        "doc" | "docx" | "docm" | "dot" | "dotx" | "dotm" | "rtf" | "odt" | "ott" | "wps" | "pages" | "wpd" | "hwp" => tile(Picture::Line("M10 13.500l2.500 11L16 16l3.500 8.500L22 13.500"), NAVY),
+        "xls" | "xlsx" | "xlsm" | "xlsb" | "xlt" | "xltx" | "xltm" | "ods" | "ots" | "numbers" | "et" => tile(Picture::Line("M11 13.500l10 11M21 13.500l-10 11"), GREEN),
+        "csv" | "tsv" => tile(GRID, GREEN),
+        "ppt" | "pptx" | "pptm" | "pps" | "ppsx" | "pot" | "potx" | "odp" | "otp" | "dps" => tile(Picture::Line("M12 25V13.500h5a3.800 3.800 0 0 1 0 7.600h-5"), ORANGE),
+        "mdb" | "accdb" | "accde" | "accdr" | "odb" => tile(Picture::Line("M10.500 25L16 13.500 21.500 25M12.500 21h7"), CRIMSON),
+        "one" | "onetoc2" | "onepkg" => tile(Picture::Line("M11 25V13.500l10 11.500V13.500"), PURPLE),
+        "vsd" | "vsdx" | "vsdm" | "vssx" | "vstx" => tile(Picture::Line("M10.500 13.500L16 25l5.500-11.500"), INDIGO),
+        "pst" | "ost" | "oft" | "msg" | "eml" | "emlx" | "mbox" => bare(MAIL, BLUE),
         "pdf" => with(PDF, RED),
         // text and books
         "txt" | "text" => with(LINES, GRAY),
         "log" | "out" => with(LINES, SLATE),
-        "md" | "markdown" | "mdx" | "rst" | "adoc" | "org" => with(MARKDOWN, BLUE),
+        "md" | "markdown" | "mdx" | "rst" | "adoc" | "org" => tile(MARKDOWN, BLUE),
         "tex" | "latex" | "bib" => with(LINES, TEAL),
-        "epub" | "mobi" | "azw" | "azw3" | "fb2" | "djvu" | "cbz" | "cbr" => with(BOOK, TEAL),
-        "ipynb" => with(BOOK, ORANGE),
-        "ics" => with(CALENDAR, RED),
-        "vcf" => with(PERSON, BLUE),
+        "epub" | "mobi" | "azw" | "azw3" | "fb2" | "djvu" | "cbz" | "cbr" => bare(BOOK, TEAL),
+        "ipynb" => bare(BOOK, ORANGE),
+        "ics" => tile(CALENDAR, RED),
+        "vcf" => bare(PERSON, BLUE),
         // pictures and design
-        "png" | "jpg" | "jpeg" | "jfif" | "jpe" | "gif" | "webp" | "bmp" | "ico" | "icns" | "cur" | "tif" | "tiff" | "heic" | "heif" | "avif" | "jxl" | "raw" | "cr2" | "cr3" | "nef" | "arw" | "dng" | "orf" | "rw2" | "tga" | "dds" | "exr" | "hdr" | "qoi" | "pbm" | "pgm" | "ppm" => with(PHOTO, GREEN),
-        "svg" | "svgz" => with(VECTOR, ORANGE),
-        "psd" | "psb" | "ai" | "xd" | "fig" | "sketch" | "indd" | "afdesign" | "afphoto" | "afpub" | "kra" | "xcf" | "clip" | "cdr" | "procreate" | "ase" | "aco" | "gpl" => with(PALETTE, VIOLET),
+        "png" | "jpg" | "jpeg" | "jfif" | "jpe" | "gif" | "webp" | "bmp" | "ico" | "icns" | "cur" | "tif" | "tiff" | "heic" | "heif" | "avif" | "jxl" | "raw" | "cr2" | "cr3" | "nef" | "arw" | "dng" | "orf" | "rw2" | "tga" | "dds" | "exr" | "hdr" | "qoi" | "pbm" | "pgm" | "ppm" => make(Frame::Photo, Picture::Blank, GREEN, false),
+        "svg" | "svgz" => tile(VECTOR, ORANGE),
+        "psd" | "psb" | "ai" | "xd" | "fig" | "sketch" | "indd" | "afdesign" | "afphoto" | "afpub" | "kra" | "xcf" | "clip" | "cdr" | "procreate" | "ase" | "aco" | "gpl" => bare(PALETTE, VIOLET),
         // code, with its extension on it
         "rs" => lang(ORANGE),
         "py" | "pyw" | "pyi" => lang(SKY),
@@ -274,33 +326,33 @@ fn by_extension(ext: &str) -> Option<Family> {
         "php" | "pl" | "pm" | "hs" | "ml" => lang(INDIGO),
         "lua" | "luau" | "r" | "jl" | "f90" | "nim" | "zig" | "asm" | "sol" => lang(SLATE),
         "glsl" | "hlsl" | "wgsl" | "shader" => lang(VIOLET),
-        "sql" => with(DATABASE, AMBER),
-        "sh" | "bash" | "zsh" | "fish" | "ps1" | "psm1" | "psd1" | "bat" | "cmd" | "nu" => with(TERMINAL, GREEN),
-        "patch" | "diff" => with(BRANCH, ORANGE),
+        "sql" => bare(DATABASE, AMBER),
+        "sh" | "bash" | "zsh" | "fish" | "ps1" | "psm1" | "psd1" | "bat" | "cmd" | "nu" => tile(TERMINAL, GREEN),
+        "patch" | "diff" => bare(BRANCH, ORANGE),
         // data and settings
-        "json" | "jsonc" | "json5" | "jsonl" | "ndjson" | "geojson" => with(BRACES, AMBER),
-        "xml" | "xsd" | "xsl" | "xslt" | "plist" | "wxs" | "resx" | "xaml" => with(ANGLES, ORANGE),
-        "yaml" | "yml" | "toml" | "ini" | "cfg" | "conf" | "config" | "env" | "properties" | "editorconfig" | "reg" | "inf" | "policy" | "admx" | "adml" => with(GEAR, GRAY),
-        "lock" => with(LOCK, GRAY),
-        "db" | "sqlite" | "sqlite3" | "db3" | "dbf" | "parquet" | "avro" | "orc" | "feather" => with(DATABASE, AMBER),
+        "json" | "jsonc" | "json5" | "jsonl" | "ndjson" | "geojson" => bare(BRACES, AMBER),
+        "xml" | "xsd" | "xsl" | "xslt" | "plist" | "wxs" | "resx" | "xaml" => bare(ANGLES, ORANGE),
+        "yaml" | "yml" | "toml" | "ini" | "cfg" | "conf" | "config" | "env" | "properties" | "editorconfig" | "reg" | "inf" | "policy" | "admx" | "adml" => bare(GEAR, GRAY),
+        "lock" => bare(LOCK, GRAY),
+        "db" | "sqlite" | "sqlite3" | "db3" | "dbf" | "parquet" | "avro" | "orc" | "feather" => bare(DATABASE, AMBER),
         // libraries and binaries
-        "dll" | "so" | "dylib" | "sys" | "lib" | "a" | "o" | "ocx" | "drv" | "ko" | "ino" | "kicad_pcb" | "gbr" => with(CHIP, SLATE),
-        "wasm" | "bin" | "dat" | "hex" | "elf" | "pyc" | "class" => with(BINARY, GRAY),
-        "torrent" | "crdownload" | "part" | "partial" | "download" => with(DOWNLOAD, TEAL),
+        "dll" | "so" | "dylib" | "sys" | "lib" | "a" | "o" | "ocx" | "drv" | "ko" | "ino" | "kicad_pcb" | "gbr" => bare(CHIP, SLATE),
+        "wasm" | "bin" | "dat" | "hex" | "elf" | "pyc" | "class" => tile(BINARY, GRAY),
+        "torrent" | "crdownload" | "part" | "partial" | "download" => bare(DOWNLOAD, TEAL),
         // keys and certificates
-        "key" | "pem" | "pub" | "ppk" | "kdbx" => with(KEY, AMBER),
-        "crt" | "cer" | "der" | "p12" | "pfx" | "csr" => with(SEAL, AMBER),
-        "gpg" | "pgp" | "asc" | "sig" | "age" | "enc" => with(LOCK, AMBER),
+        "key" | "pem" | "pub" | "ppk" | "kdbx" => bare(KEY, AMBER),
+        "crt" | "cer" | "der" | "p12" | "pfx" | "csr" => bare(SEAL, AMBER),
+        "gpg" | "pgp" | "asc" | "sig" | "age" | "enc" => bare(LOCK, AMBER),
         // the rest
-        "ttf" | "otf" | "ttc" | "woff" | "woff2" | "eot" | "fnt" => with(LETTERS, PINK),
-        "obj" | "stl" | "fbx" | "blend" | "gltf" | "glb" | "dae" | "3ds" | "ply" | "usd" | "usdz" | "3mf" => with(CUBE, PURPLE),
-        "dwg" | "dxf" | "step" | "stp" | "iges" | "skp" => with(RULER, TEAL),
-        "url" | "webloc" | "desktop" | "lnk" | "website" => with(LINK, BLUE),
-        "gpx" | "kml" | "kmz" | "shp" => with(PIN, GREEN),
-        "nes" | "sfc" | "gba" | "gb" | "nds" | "sav" | "rom" | "pak" => with(PAD, VIOLET),
-        "gguf" | "safetensors" | "onnx" | "pth" | "ckpt" | "tflite" => with(ROBOT, TEAL),
+        "ttf" | "otf" | "ttc" | "woff" | "woff2" | "eot" | "fnt" => tile(LETTERS, PINK),
+        "obj" | "stl" | "fbx" | "blend" | "gltf" | "glb" | "dae" | "3ds" | "ply" | "usd" | "usdz" | "3mf" => bare(CUBE, PURPLE),
+        "dwg" | "dxf" | "step" | "stp" | "iges" | "skp" => bare(RULER, TEAL),
+        "url" | "webloc" | "desktop" | "lnk" | "website" => bare(LINK, BLUE),
+        "gpx" | "kml" | "kmz" | "shp" => bare(PIN, GREEN),
+        "nes" | "sfc" | "gba" | "gb" | "nds" | "sav" | "rom" | "pak" => bare(PAD, VIOLET),
+        "gguf" | "safetensors" | "onnx" | "pth" | "ckpt" | "tflite" => bare(ROBOT, TEAL),
         "bak" | "old" | "orig" | "tmp" | "temp" | "swp" | "swo" | "cache" => with(TEMP, GRAY),
-        "dmp" | "mdmp" | "core" | "crash" => with(BUG, RED),
+        "dmp" | "mdmp" | "core" | "crash" => bare(BUG, RED),
         _ => return None,
     })
 }
