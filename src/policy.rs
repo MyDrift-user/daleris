@@ -1,6 +1,6 @@
-//! Group Policy (GPO and GPP) for the Windows build.
+//! What administrators manage. On Windows, Group Policy (GPO and GPP); on Linux and macOS, a file only they can change.
 //!
-//! Fixed settings: `Software\Policies\Daleris`, machine first, then user. They always win
+//! Windows' fixed settings: `Software\Policies\Daleris`, machine first, then user. They always win
 //! and are grayed out in the app. Default settings: the `Recommended` subkey below that, then
 //! `Software\Daleris\Defaults` (for preferences). They apply until the person picks their
 //! own value. Values use the names in `VALUES`; `policy/README.txt` lists them for admins.
@@ -9,7 +9,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
 
 #[derive(Clone, Copy)]
-#[cfg_attr(not(windows), allow(dead_code))]
 enum Kind {
     Bool,
     /// a number from 0 up to this
@@ -20,7 +19,6 @@ enum Kind {
 }
 
 /// Registry value name, settings file key, what it holds.
-#[cfg_attr(not(windows), allow(dead_code))]
 const VALUES: [(&str, &str, Kind); 22] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("ShowPreviewPane", "preview", Kind::Bool),
@@ -58,6 +56,8 @@ pub struct Policy {
     pub lock_sidebar: bool,
     pub lock_menu: bool,
     pub no_custom_commands: bool,
+    /// no looking for updates at all: the administrator deploys new versions
+    pub no_updates: bool,
 }
 
 impl Policy {
@@ -72,7 +72,17 @@ impl Policy {
 
     /// Is anything in the app managed?
     pub fn any_fixed(&self) -> bool {
-        !self.fixed.is_empty() || self.lock_ribbon || self.lock_sidebar || self.lock_menu || self.no_custom_commands
+        !self.fixed.is_empty() || self.lock_ribbon || self.lock_sidebar || self.lock_menu || self.no_custom_commands || self.no_updates
+    }
+
+    /// The value a policy fixes for this settings file key.
+    pub fn fixed_value(&self, key: &str) -> Option<&str> {
+        self.fixed.iter().find(|(k, _)| *k == key).map(|(_, v)| v.as_str())
+    }
+
+    /// The default a policy sets for this settings file key.
+    pub fn recommended_value(&self, key: &str) -> Option<&str> {
+        self.recommended.iter().find(|(k, _)| *k == key).map(|(_, v)| v.as_str())
     }
 
     pub fn ribbon_locked(&self) -> bool {
@@ -114,11 +124,8 @@ pub fn take_changed() -> bool {
     CHANGED.swap(false, Ordering::AcqRel)
 }
 
-/// Pick up `gpupdate` and new policies while running: check the registry now and then.
+/// Pick up `gpupdate` and new policies while running: check now and then.
 pub fn watch(ctx: eframe::egui::Context) {
-    if !cfg!(windows) {
-        return;
-    }
     let every = std::env::var("DALERIS_TEST_POLICY_POLL_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(30_000);
     let _ = std::thread::Builder::new().name("policy".into()).spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_millis(every));
@@ -131,9 +138,63 @@ pub fn watch(ctx: eframe::egui::Context) {
     });
 }
 
+/// Builds the policy from where it's kept: what's fixed under a value name, and what's a default.
+fn build(fixed: impl Fn(&str) -> Option<String>, default: impl Fn(&str) -> Option<String>) -> Policy {
+    let mut p = Policy::default();
+    for (name, key, kind) in VALUES {
+        if let Some(v) = fixed(name).and_then(|raw| to_setting(kind, raw)) {
+            p.fixed.push((key, v));
+        }
+        if let Some(v) = default(name).and_then(|raw| to_setting(kind, raw)) {
+            p.recommended.push((key, v));
+        }
+    }
+    let on = |name: &str| fixed(name).is_some_and(|v| v.trim() != "0" && !v.trim().is_empty());
+    p.lock_ribbon = on("LockRibbon");
+    p.lock_sidebar = on("LockSidebar");
+    p.lock_menu = on("LockContextMenu");
+    p.no_custom_commands = on("DisableCustomCommands");
+    p.no_updates = on("DisableUpdates");
+    p
+}
+
+#[cfg(not(windows))]
+const POLICY_FILE: &str = if cfg!(target_os = "macos") { "/Library/Application Support/Daleris/policy.conf" } else { "/etc/daleris/policy.conf" };
+
 #[cfg(not(windows))]
 fn read() -> Policy {
-    Policy::default()
+    let mut paths = vec![POLICY_FILE.to_string()];
+    // test hook: another file after the real one, so it can only add to a policy, never overrule it
+    paths.extend(std::env::var("DALERIS_TEST_POLICY_FILE"));
+    let files: Vec<_> = paths.iter().filter_map(|p| std::fs::read_to_string(p).ok()).map(|text| parse_file(&text)).collect();
+    let find = |list: &[(String, String)], name: &str| list.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
+    build(|name| files.iter().find_map(|(fixed, _)| find(fixed, name)), |name| files.iter().find_map(|(_, default)| find(default, name)))
+}
+
+/// `Name=value` lines, as (fixed, default). Lines after `[Recommended]` are defaults, and `[Fixed]` goes back.
+#[cfg(any(not(windows), test))]
+#[allow(clippy::type_complexity)]
+fn parse_file(text: &str) -> (Vec<(String, String)>, Vec<(String, String)>) {
+    let (mut fixed, mut default) = (Vec::new(), Vec::new());
+    let mut defaults = false;
+    for line in text.lines().map(str::trim) {
+        match line {
+            "[Fixed]" => defaults = false,
+            "[Recommended]" => defaults = true,
+            _ if line.starts_with('#') => {}
+            _ => {
+                if let Some((k, v)) = line.split_once('=') {
+                    let entry = (k.trim().to_string(), v.trim().to_string());
+                    if defaults {
+                        default.push(entry)
+                    } else {
+                        fixed.push(entry)
+                    }
+                }
+            }
+        }
+    }
+    (fixed, default)
 }
 
 #[cfg(windows)]
@@ -156,25 +217,10 @@ fn read() -> Policy {
         default_at.push((HKEY_CURRENT_USER, format!(r"{test}\Defaults")));
     }
     let first = |at: &[(HKEY, String)], name: &str| at.iter().find_map(|(root, key)| reg_value(*root, key, name));
-    let mut p = Policy::default();
-    for (name, key, kind) in VALUES {
-        if let Some(v) = first(&fixed_at, name).and_then(|raw| to_setting(kind, raw)) {
-            p.fixed.push((key, v));
-        }
-        if let Some(v) = first(&default_at, name).and_then(|raw| to_setting(kind, raw)) {
-            p.recommended.push((key, v));
-        }
-    }
-    let on = |name: &str| first(&fixed_at, name).is_some_and(|v| v.trim() != "0" && !v.trim().is_empty());
-    p.lock_ribbon = on("LockRibbon");
-    p.lock_sidebar = on("LockSidebar");
-    p.lock_menu = on("LockContextMenu");
-    p.no_custom_commands = on("DisableCustomCommands");
-    p
+    build(|name| first(&fixed_at, name), |name| first(&default_at, name))
 }
 
-/// A registry value as the text the settings file would hold, if it is valid.
-#[cfg(windows)]
+/// A policy's text as the text the settings file would hold, if it is valid.
 fn to_setting(kind: Kind, raw: String) -> Option<String> {
     let num = || raw.trim().parse::<u32>().ok();
     match kind {
@@ -208,4 +254,65 @@ fn reg_value(root: windows::Win32::System::Registry::HKEY, key: &str, name: &str
     }
     let chars = (len as usize / 2).min(buf.len());
     Some(String::from_utf16_lossy(&buf[..chars]).trim_end_matches('\0').to_string())
+}
+
+/// Is this settings file key one a policy can set?
+#[cfg(test)]
+pub fn covers(key: &str) -> bool {
+    VALUES.iter().any(|(_, k, _)| *k == key)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const ADMX: &str = include_str!("../policy/Daleris.admx");
+    const LOCKS: [&str; 5] = ["LockRibbon", "LockSidebar", "LockContextMenu", "DisableCustomCommands", "DisableUpdates"];
+
+    #[test]
+    fn the_templates_offer_every_value_as_fixed_and_as_default() {
+        for (name, _, _) in VALUES {
+            assert!(ADMX.contains(&format!(r#"name="Fixed_{name}""#)), "no fixed policy for {name}");
+            assert!(ADMX.contains(&format!(r#"name="Rec_{name}""#)), "no default policy for {name}");
+        }
+        for name in LOCKS {
+            assert!(ADMX.contains(&format!(r#"<policy name="{name}""#)), "no policy for {name}");
+        }
+    }
+
+    #[test]
+    fn the_templates_name_everything_they_use_in_every_language() {
+        let en = include_str!("../policy/en-US/Daleris.adml");
+        let de = include_str!("../policy/de-DE/Daleris.adml");
+        for (from, to) in [("$(string.", r#"<string id=""#), ("$(presentation.", r#"<presentation id=""#)] {
+            for used in ADMX.split(from).skip(1).map(|s| &s[..s.find(')').unwrap()]) {
+                for (language, text) in [("en-US", en), ("de-DE", de)] {
+                    assert!(text.contains(&format!(r#"{to}{used}""#)), "{language} has no {used}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn the_admin_guide_lists_every_value() {
+        let guide = include_str!("../policy/README.txt");
+        for name in VALUES.iter().map(|(name, _, _)| *name).chain(LOCKS) {
+            assert!(guide.contains(name), "policy/README.txt doesn't mention {name}");
+        }
+    }
+
+    #[test]
+    fn a_policy_file_is_read() {
+        let (fixed, default) = parse_file("# a comment\nAutomaticUpdates = 0\nnonsense\n[Recommended]\nTheme=2\n[Fixed]\nDisableUpdates=1\n");
+        assert_eq!(fixed, [("AutomaticUpdates".to_string(), "0".to_string()), ("DisableUpdates".to_string(), "1".to_string())]);
+        assert_eq!(default, [("Theme".to_string(), "2".to_string())]);
+    }
+
+    #[test]
+    fn values_that_make_no_sense_are_ignored() {
+        let p = build(|name| ["Theme", "RowHeight", "AutomaticUpdates"].contains(&name).then(|| "9".to_string()), |_| None);
+        assert_eq!(p.fixed_value("theme"), None);
+        assert_eq!(p.fixed_value("density"), None);
+        assert_eq!(p.fixed_value("auto_update"), Some("1"));
+    }
 }

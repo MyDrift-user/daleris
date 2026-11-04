@@ -45,7 +45,8 @@ Type: filesandordirs; Name: "{app}\updates"
 [Code]
 // For a PC-wide install: a task installs updates as SYSTEM, so nobody gets an admin prompt. See src/update.rs.
 // It runs this folder's program as SYSTEM, so only admins may change it, wherever it was installed.
-// There's no task if that can't be done. Only on the folder, as files inherit from it: with /T the same command\n// leaves files with no permissions.
+// There's no task if that can't be done. Only on the folder, as files inherit from it: with /T the same command
+// leaves files with no permissions.
 procedure CurStepChanged(CurStep: TSetupStep);
 var
   Code: Integer;

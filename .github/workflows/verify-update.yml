@@ -1,0 +1,111 @@
+name: Verify update
+
+# Started by hand once two versions are out: installs the older published version and checks that it updates itself to
+# the newest one, from GitHub, signed with the real key. The release workflow tests everything else with a test key.
+on:
+  workflow_dispatch:
+    inputs:
+      from:
+        description: "Published version to start from, such as 0.0.2"
+        required: true
+      to:
+        description: "The newest published version, such as 0.0.3"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    env:
+      FROM: ${{ inputs.from }}
+      TO: ${{ inputs.to }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Update each kind of install
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          . installer\windows\test-lib.ps1
+          New-Item -ItemType Directory old | Out-Null
+          gh release download "v$env:FROM" --repo "$env:GITHUB_REPOSITORY" --pattern '*windows-x64*' --dir old
+          $base = (Resolve-Path old).Path + "\daleris-v$env:FROM-windows-x64"
+          function Version($exe) { $o = New-TemporaryFile; Start-Process $exe '--version' -Wait -RedirectStandardOutput $o.FullName; (Get-Content -Raw $o.FullName).Trim() }
+          function Wait-Version($exe) {
+            foreach ($i in 1..60) {
+              Start-Sleep 5
+              if (Get-CimInstance Win32_Process | Where-Object CommandLine -match "daleris-v$env:TO") { continue }
+              try { if ((Version $exe) -eq "Daleris $env:TO") { return } } catch {}
+            }
+            Get-Content -Tail 40 "$env:windir\System32\config\systemprofile\AppData\Local\Daleris\logs\daleris.log" -ErrorAction SilentlyContinue
+            Get-Content -Tail 40 "$env:LOCALAPPDATA\Daleris\logs\daleris.log" -ErrorAction SilentlyContinue
+            throw "$exe didn't reach $env:TO"
+          }
+          Write-Host '=== PC-wide MSI, by the SYSTEM task'
+          $exe = "$env:ProgramFiles\Daleris\daleris.exe"
+          Start-Process msiexec -ArgumentList '/i',"`"$base.msi`"",'/qn','/norestart','ALLUSERS=1' -Wait
+          schtasks /Run /TN 'Daleris Updater'
+          Wait-Version $exe
+          Assert-Locked "$env:ProgramFiles\Daleris"
+          Start-Process msiexec -ArgumentList '/x','{}'.Replace('{}',(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object DisplayName -eq 'Daleris').PSChildName),'/qn','/norestart' -Wait
+          Write-Host '=== PC-wide setup.exe, by the SYSTEM task'
+          Start-Process "$base-setup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ALLUSERS' -Wait
+          schtasks /Run /TN 'Daleris Updater'
+          Wait-Version $exe
+          Start-Process "$env:ProgramFiles\Daleris\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait
+          Start-Sleep 5
+          Write-Host '=== For one account, MSI'
+          $exe = "$env:LOCALAPPDATA\Programs\Daleris\daleris.exe"
+          Start-Process msiexec -ArgumentList '/i',"`"$base.msi`"",'/qn','/norestart','ALLUSERS=2','MSIINSTALLPERUSER=1' -Wait
+          Start-Process $exe '--update-now' -Wait
+          Wait-Version $exe
+          Start-Process msiexec -ArgumentList '/x','{}'.Replace('{}',(Get-ItemProperty 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' | Where-Object DisplayName -eq 'Daleris').PSChildName),'/qn','/norestart' -Wait
+          Write-Host '=== Portable'
+          $exe = "$env:TEMP\portable\daleris.exe"
+          New-Item -ItemType Directory (Split-Path $exe) | Out-Null
+          Copy-Item "$base-portable.exe" $exe
+          Start-Process $exe '--update-now' -Wait
+          Wait-Version $exe
+          $global:LASTEXITCODE = 0
+
+  linux:
+    runs-on: ubuntu-latest
+    env:
+      FROM: ${{ inputs.from }}
+      TO: ${{ inputs.to }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Update the single file and the AppImage
+        run: |
+          export HOME="$RUNNER_TEMP" APPIMAGE_EXTRACT_AND_RUN=1
+          cd "$RUNNER_TEMP"
+          gh release download "v$FROM" --repo "$GITHUB_REPOSITORY" --pattern '*linux-x64' --pattern '*linux-x64.AppImage'
+          for program in "daleris-v$FROM-linux-x64" "daleris-v$FROM-linux-x64.AppImage"; do
+            chmod +x "$program"
+            "./$program" --update-now
+            [ "$("./$program" --version)" = "Daleris $TO" ]
+          done
+
+  macos:
+    runs-on: macos-latest
+    env:
+      FROM: ${{ inputs.from }}
+      TO: ${{ inputs.to }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Update the single file and the app
+        run: |
+          cd "$RUNNER_TEMP"
+          gh release download "v$FROM" --repo "$GITHUB_REPOSITORY" --pattern '*macos-arm64' --pattern '*macos-arm64.dmg'
+          chmod +x "daleris-v$FROM-macos-arm64"
+          "./daleris-v$FROM-macos-arm64" --update-now
+          [ "$("./daleris-v$FROM-macos-arm64" --version)" = "Daleris $TO" ]
+          volume=$(hdiutil attach -nobrowse -readonly "daleris-v$FROM-macos-arm64.dmg" | grep -o '/Volumes/.*' | head -1)
+          mkdir Applications
+          cp -R "$volume/Daleris.app" Applications/
+          hdiutil detach "$volume"
+          Applications/Daleris.app/Contents/MacOS/daleris --update-now
+          [ "$(Applications/Daleris.app/Contents/MacOS/daleris --version)" = "Daleris $TO" ]
+          codesign --verify Applications/Daleris.app

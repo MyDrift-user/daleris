@@ -1,5 +1,6 @@
 # Built by installer/linux/package.sh. The program loads its display libraries at
 # runtime, so they don't show up as linked libraries and have to be listed here.
+# curl downloads updates.
 name: daleris
 version: "${VERSION}"
 arch: "${PKG_ARCH}"
@@ -24,11 +25,12 @@ contents:
     dst: /usr/share/licenses/daleris/THIRD-PARTY-NOTICES.txt
 overrides:
   deb:
-    depends: [libc6, libgcc-s1, libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, libwayland-client0, libwayland-cursor0, libwayland-egl1]
+    depends: [curl, libc6, libgcc-s1, libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, libwayland-client0, libwayland-cursor0, libwayland-egl1]
     recommends: [libglib2.0-bin, xdg-utils, zenity]
   # Library names rather than package names, which differ between Fedora and openSUSE.
   rpm:
     depends:
+      - curl
       - "libGL.so.1()(64bit)"
       - "libEGL.so.1()(64bit)"
       - "libxkbcommon.so.0()(64bit)"
@@ -42,4 +44,4 @@ overrides:
       - "libwayland-cursor.so.0()(64bit)"
       - "libwayland-egl.so.1()(64bit)"
   archlinux:
-    depends: [libglvnd, libxkbcommon, libxkbcommon-x11, libx11, libxcursor, libxi, libxrandr, wayland]
+    depends: [curl, libglvnd, libxkbcommon, libxkbcommon-x11, libx11, libxcursor, libxi, libxrandr, wayland]

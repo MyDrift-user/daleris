@@ -828,6 +828,8 @@ pub struct App {
     shot: Option<Shot>,
     updater: Option<crate::update::Updater>,
     auto_update_on: Arc<AtomicBool>,
+    /// the version whose notice the person answered with Later
+    update_notice_closed: Option<String>,
     /// The title the window has, as sending one also asks for another frame.
     window_title: String,
     #[cfg_attr(not(windows), allow(dead_code))]
@@ -909,6 +911,7 @@ impl App {
             shot: screenshot.map(|path| Shot { path, frames: 0, requested: false }),
             updater,
             auto_update_on: auto_update_on.clone(),
+            update_notice_closed: None,
             window_title: String::new(),
             ctrl_v_down: false,
             acts: Vec::new(),
@@ -1767,6 +1770,7 @@ impl eframe::App for App {
         self.props_window(ctx, &t);
         self.drag_overlay(ctx);
         self.toast_overlay(ctx);
+        self.update_notice(ctx);
 
         self.tabs[self.active] = t;
         for a in std::mem::take(&mut self.acts) {
@@ -2169,6 +2173,19 @@ impl App {
             self.acts.push(Act::ConnectServer(url.trim().to_string(), user, pass));
         } else if !cancel {
             self.connect = Some((url, user, pass));
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// Anything new in the settings file has to be something administrators can set too.
+    #[test]
+    fn a_policy_can_set_every_setting() {
+        for (key, _) in Settings::defaults().value_lines() {
+            assert!(policy::covers(key), "no policy sets {key}: add it to VALUES in policy.rs and to policy/");
         }
     }
 }

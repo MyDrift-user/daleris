@@ -66,21 +66,7 @@ jobs:
         env:
           DOTNET_ROLL_FORWARD: Major
         run: |
-          $base = "daleris-v$env:VERSION-windows-x64"
-          New-Item -ItemType Directory -Force dist | Out-Null
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$env:VERSION" "/DOutputName=$base-setup" installer\setup.iss
-          if ($LASTEXITCODE) { throw "ISCC failed" }
-          # The wizard shows the licence as RTF, which is plain text with its special characters escaped.
-          $lines = (Get-Content LICENSE) -replace '\\', '\\' -replace '\{', '\{' -replace '\}', '\}'
-          Set-Content target\license.rtf ('{\rtf1\ansi\deff0{\fonttbl{\f0 Consolas;}}\f0\fs15 ' + ($lines -join "\par`n") + '}') -Encoding ascii
-          wix build -arch x64 -ext WixToolset.UI.wixext -d "Version=$env:VERSION" -o "dist\$base.msi" installer\app.wxs
-          if ($LASTEXITCODE) { throw "wix failed" }
-          Remove-Item dist/*.wixpdb
-          Copy-Item target\release\daleris.exe "dist\$base-portable.exe"
-          Compress-Archive -Path target\release\daleris.exe, LICENSE, THIRD-PARTY-NOTICES.txt -DestinationPath "dist\$base.zip"
-          Compress-Archive -Path policy\* -DestinationPath "dist\daleris-v$env:VERSION-policy-definitions.zip"
-          Copy-Item LICENSE "dist\daleris-v$env:VERSION-LICENSE.txt"
-          Copy-Item THIRD-PARTY-NOTICES.txt "dist\daleris-v$env:VERSION-THIRD-PARTY-NOTICES.txt"
+          installer\windows\package.ps1
 
       - name: Test installers
         shell: pwsh
@@ -89,21 +75,7 @@ jobs:
         run: |
           $base = "daleris-v$env:VERSION-windows-x64"
           $exe = "$env:ProgramFiles\Daleris\daleris.exe"
-          # Only admins and SYSTEM may change a folder whose program the update task runs as SYSTEM, and it still has to run.
-          function Assert-Locked($folder) {
-            $p = Start-Process "$folder\daleris.exe" -ArgumentList '--version' -Wait -PassThru
-            if ($p.ExitCode) { throw "The program in $folder doesn't run: $($p.ExitCode)" }
-            foreach ($path in @($folder) + @(Get-ChildItem $folder -Recurse | ForEach-Object FullName)) {
-              $rules = (Get-Acl $path).Access
-              $users = $rules | Where-Object { $_.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value -eq 'S-1-5-32-545' }
-              if (-not ($users.FileSystemRights.value__ -band [int][Security.AccessControl.FileSystemRights]::ReadAndExecute)) { throw "Users can't read $path" }
-              foreach ($rule in $rules) {
-                $who = $rule.IdentityReference.Translate([Security.Principal.SecurityIdentifier]).Value
-                $writes = $rule.FileSystemRights.value__ -band ([int][Security.AccessControl.FileSystemRights]::Write -bor [int][Security.AccessControl.FileSystemRights]::Delete -bor [int][Security.AccessControl.FileSystemRights]::ChangePermissions -bor [int][Security.AccessControl.FileSystemRights]::TakeOwnership)
-                if ($rule.AccessControlType -eq 'Allow' -and $writes -and $who -notin 'S-1-5-18', 'S-1-5-32-544') { throw "$($rule.IdentityReference) can change $path" }
-              }
-            }
-          }
+          . installer\windows\test-lib.ps1
           $p = Start-Process "dist\$base-setup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ALLUSERS' -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path $exe)) { throw "setup.exe did not install" }
           schtasks /Query /TN 'Daleris Updater' 2>$null
@@ -271,9 +243,64 @@ jobs:
           name: screens-${{ matrix.name }}
           path: screens/*
 
+  # Every kind of install really updates itself, from the old version to a new one, with a throwaway key.
+  update-test:
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: windows-x64 }
+          - { os: ubuntu-22.04, name: linux-x64 }
+          - { os: macos-latest, name: macos-arm64 }
+    runs-on: ${{ matrix.os }}
+    env:
+      NAME: ${{ matrix.name }}
+      VERSION: ${{ needs.version.outputs.version }}
+      DOTNET_ROLL_FORWARD: Major
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install libraries and packaging tools
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxkbcommon-dev libgl1-mesa-dev libwayland-dev libx11-dev \
+            libxkbcommon-x11-0 libxcb-xkb1 libxcursor1 libxi6 libxrender1 libxfixes3 patchelf
+
+      - name: Install installer tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          dotnet tool install --global wix --version 5.0.2
+          & "$env:USERPROFILE\.dotnet\tools\wix.exe" extension add --global WixToolset.UI.wixext/5.0.2
+          if ($LASTEXITCODE) { throw "wix extension failed" }
+          "$env:USERPROFILE\.dotnet\tools" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Build two versions
+        shell: bash
+        run: bash installer/test/build-two-versions.sh
+
+      - name: Update (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: installer\windows\test-update.ps1
+
+      - name: Update (Linux)
+        if: runner.os == 'Linux'
+        run: bash installer/linux/test-update.sh
+
+      - name: Update (macOS)
+        if: runner.os == 'macOS'
+        run: bash installer/macos/test-update.sh
+
   release:
     if: inputs.publish
-    needs: [version, windows, linux, macos]
+    needs: [version, windows, linux, macos, update-test]
     runs-on: ubuntu-latest
     # Holds the signing key, and waits for an approval on GitHub before it runs.
     environment: release

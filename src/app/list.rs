@@ -528,6 +528,33 @@ impl App {
         ctx.request_repaint_after(Duration::from_millis(200));
     }
 
+    /// An update that's waiting for the person to choose to install it, such as one needing a package manager's password.
+    pub(super) fn update_notice(&mut self, ctx: &egui::Context) {
+        use crate::update::{Install, Status};
+        let Some(updater) = &self.updater else { return };
+        let Status::Available(version) = updater.status() else { return };
+        if matches!(updater.install, Install::Machine { .. } | Install::Unmanaged) || self.update_notice_closed.as_deref() == Some(version.as_str()) {
+            return;
+        }
+        let (mut install, mut later) = (false, false);
+        egui::Area::new(egui::Id::new("update_notice")).order(egui::Order::Foreground).anchor(Align2::RIGHT_BOTTOM, vec2(-16.0, -16.0)).show(ctx, |ui| {
+            egui::Frame::new().fill(RAISED()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(8).inner_margin(12).show(ui, |ui| {
+                ui.label(format!("Daleris {version} is available."));
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    install = ui.button("Install").clicked();
+                    later = ui.button("Later").clicked();
+                });
+            });
+        });
+        if install {
+            updater.install_now();
+        }
+        if later {
+            self.update_notice_closed = Some(version);
+        }
+    }
+
     // ------------------------------------------------------------------ preview
 
     pub(super) fn preview_panel(&mut self, ctx: &egui::Context, t: &Tab) {

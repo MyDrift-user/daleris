@@ -87,7 +87,7 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_AutomaticUpdates" class="Both" displayName="$(string.AutomaticUpdates)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="AutomaticUpdates">
+    <policy name="Fixed_AutomaticUpdates" class="Both" displayName="$(string.AutomaticUpdates)" explainText="$(string.AutomaticUpdatesExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="AutomaticUpdates">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
@@ -182,6 +182,12 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="DisableUpdates" class="Both" displayName="$(string.DisableUpdates)" explainText="$(string.DisableUpdatesExplain)" key="Software\Policies\Daleris" valueName="DisableUpdates">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Rec_ShowHiddenItems" class="Both" displayName="$(string.ShowHiddenItems)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ShowHiddenItems">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -249,6 +255,12 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_SearchRegex" class="Both" displayName="$(string.SearchRegex)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchRegex">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_AutomaticUpdates" class="Both" displayName="$(string.AutomaticUpdates)" explainText="$(string.AutomaticUpdatesExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="AutomaticUpdates">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

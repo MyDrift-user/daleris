@@ -23,10 +23,28 @@ const CHECK_EVERY: Duration = Duration::from_secs(6 * 3600);
 /// Long enough that a check doesn't compete with starting up.
 const FIRST_CHECK_AFTER: Duration = Duration::from_secs(20);
 /// The public half of the key that signs releases. The private half is a GitHub secret.
+#[cfg_attr(feature = "update-test", allow(dead_code))]
 const PUBLIC_KEY: [u8; 32] = [0x9c, 0x15, 0x85, 0x04, 0x5a, 0x56, 0x53, 0xf1, 0x50, 0x60, 0xd8, 0x08, 0x7b, 0xdf, 0xa5, 0x9b, 0xc6, 0x92, 0x77, 0x13, 0x17, 0x62, 0x04, 0x65, 0x5c, 0x95, 0x08, 0xd9, 0x18, 0x3a, 0xc8, 0x2b];
 /// A second key, kept offline and never used, so a leaked main key can be replaced: a release signed with this one
 /// can still reach every copy, and leave the leaked key out from then on.
+#[cfg_attr(feature = "update-test", allow(dead_code))]
 const BACKUP_PUBLIC_KEY: [u8; 32] = [0xfe, 0x59, 0xb6, 0xe3, 0x3e, 0x36, 0xa4, 0x88, 0xc6, 0x46, 0xd6, 0x66, 0xfa, 0xd4, 0xf7, 0xc7, 0x60, 0x75, 0x84, 0x1c, 0xcc, 0x9b, 0xd3, 0x8d, 0x0e, 0x44, 0x29, 0x0f, 0xb7, 0xe4, 0x0e, 0x04];
+
+/// The `update-test` feature is only for the release workflow's update test, which must not depend on the real key.
+/// A program built with it trusts this published key, and is never released: the release job checks that the program
+/// it publishes accepts the real signature.
+#[cfg(feature = "update-test")]
+const TEST_SEED: [u8; 32] = [7; 32];
+
+#[cfg(feature = "update-test")]
+fn trusted_keys() -> Vec<[u8; 32]> {
+    vec![ed25519_dalek::SigningKey::from_bytes(&TEST_SEED).verifying_key().to_bytes()]
+}
+
+#[cfg(not(feature = "update-test"))]
+fn trusted_keys() -> Vec<[u8; 32]> {
+    vec![PUBLIC_KEY, BACKUP_PUBLIC_KEY]
+}
 
 // ---------------------------------------------------------------- versions and the signed list
 
@@ -72,7 +90,7 @@ fn signature_ok(key: &[u8; 32], text: &[u8], sig: &[u8]) -> bool {
 }
 
 fn verified_manifest(text: &[u8], sig: &[u8]) -> Result<Manifest, String> {
-    if ![PUBLIC_KEY, BACKUP_PUBLIC_KEY].iter().any(|key| signature_ok(key, text, sig)) {
+    if !trusted_keys().iter().any(|key| signature_ok(key, text, sig)) {
         return Err("The update's signature doesn't match, so it was ignored".into());
     }
     std::str::from_utf8(text).ok().and_then(parse_manifest).ok_or_else(|| "The update's file list couldn't be read".to_string())
@@ -201,6 +219,11 @@ fn system_tool(name: &str) -> String {
 
 /// Test hook: DALERIS_TEST_UPDATE_URL points at another server. Everything must still be signed by the real key.
 fn base_url(service: bool) -> Option<String> {
+    // the update task has no environment of its own to set, so a test build reads the address from a file
+    #[cfg(feature = "update-test")]
+    if let Ok(url) = std::fs::read_to_string(if cfg!(windows) { r"C:\daleris-update-test.txt" } else { "/tmp/daleris-update-test.txt" }) {
+        return Some(url.trim().to_string());
+    }
     if service {
         return None;
     }
@@ -220,9 +243,9 @@ fn download(url: &str, to: &Path, tested: bool) -> Result<(), String> {
     }
 }
 
-fn updates_dir(install: &Install) -> Option<PathBuf> {
-    // A machine install keeps its download in its own folder: only admins can swap a file there before it's installed.
-    let dir = if matches!(install, Install::Machine { .. }) {
+fn updates_dir(service: bool) -> Option<PathBuf> {
+    // The update task keeps its download in the install folder: only admins can swap a file there before it's installed.
+    let dir = if service {
         std::env::current_exe().ok()?.parent()?.join("updates")
     } else {
         crate::util::log_dir()?.join("updates")
@@ -275,27 +298,53 @@ fn clean_dir(dir: &Path, keep: Option<&Path>) {
 
 // ---------------------------------------------------------------- installing
 
+/// What the installers need beyond their switches: an MSI goes to the default folder unless told where this copy is,
+/// and neither can show what went wrong except in a log. Quoted by hand, as msiexec doesn't read a quoted `NAME=value`.
+#[cfg(windows)]
+fn add_installer_args(c: &mut Command, msi: bool) {
+    use std::os::windows::process::CommandExt;
+    let log = crate::util::log_dir().map(|d| d.join("installer.log"));
+    if msi {
+        if let Some(dir) = std::env::current_exe().ok().and_then(|e| e.parent().map(Path::to_path_buf)) {
+            c.raw_arg(format!("APPLICATIONFOLDER=\"{}\"", dir.display()));
+        }
+        if let Some(log) = log {
+            c.arg("/l*v").arg(log);
+        }
+    } else if let Some(log) = log {
+        c.raw_arg(format!("/LOG=\"{}\"", log.display()));
+    }
+}
+
+#[cfg(not(windows))]
+fn add_installer_args(_: &mut Command, _: bool) {}
+
 fn run_installer(installer: &Path, install: &Install) -> Result<Command, String> {
     let mut c;
-    match install {
+    let msi = match install {
         Install::PerUser { msi: true } => {
             c = hidden(&system_tool("msiexec"));
             c.arg("/i").arg(installer).args(["/qn", "/norestart", "ALLUSERS=2", "MSIINSTALLPERUSER=1"]);
+            true
         }
         Install::Machine { msi: true } => {
             c = hidden(&system_tool("msiexec"));
             c.arg("/i").arg(installer).args(["/qn", "/norestart", "ALLUSERS=1"]);
+            true
         }
         Install::PerUser { msi: false } => {
             c = hidden(&installer.to_string_lossy());
             c.args(["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER"]);
+            false
         }
         Install::Machine { msi: false } => {
             c = hidden(&installer.to_string_lossy());
             c.args(["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/ALLUSERS"]);
+            false
         }
         _ => return Err("This copy isn't installed by an installer".into()),
-    }
+    };
+    add_installer_args(&mut c, msi);
     Ok(c)
 }
 
@@ -423,13 +472,28 @@ impl Updater {
 
     /// Starts a per-user installer once the window is gone, as it can't replace a running program.
     pub fn run_pending_on_exit(&self) {
-        let pending = self.shared.lock().unwrap_or_else(PoisonError::into_inner).pending_installer.take();
-        if let Some(installer) = pending {
-            match run_installer(&installer, &self.install).and_then(|mut c| c.spawn().map_err(|e| e.to_string())) {
-                Ok(_) => log::info!("update: installing {}", installer.display()),
-                Err(e) => log::error!("update: couldn't start the installer: {e}"),
-            }
-        }
+        install_pending(&self.shared, &self.install);
+    }
+
+    pub fn fail(&self, message: String) {
+        log::warn!("update: {message}");
+        self.shared.lock().unwrap_or_else(PoisonError::into_inner).status = Some(Status::Failed(message));
+    }
+}
+
+fn install_pending(shared: &Mutex<Shared>, install: &Install) {
+    let pending = shared.lock().unwrap_or_else(PoisonError::into_inner).pending_installer.take();
+    let Some(installer) = pending else { return };
+    if crate::policy::current().no_updates {
+        return log::info!("update: updates are managed by the administrator, so nothing is installed");
+    }
+    // the installer can't replace a program that's running: the last window to close installs it
+    if another_copy_running() {
+        return log::info!("update: another window is still open, so the update waits");
+    }
+    match run_installer(&installer, install).and_then(|mut c| c.spawn().map_err(|e| e.to_string())) {
+        Ok(_) => log::info!("update: installing {}", installer.display()),
+        Err(e) => log::error!("update: couldn't start the installer: {e}"),
     }
 }
 
@@ -452,8 +516,11 @@ impl Worker {
     }
 
     fn check(&mut self, auto: bool) {
+        if crate::policy::current().no_updates {
+            return self.set(Status::Idle);
+        }
         self.set(Status::Checking);
-        let Some(dir) = updates_dir(&self.install) else { return self.fail("There's no folder to download updates to".into()) };
+        let Some(dir) = updates_dir(false) else { return self.fail("There's no folder to download updates to".into()) };
         match fetch_manifest(&dir, false) {
             Err(e) => self.fail(e),
             Ok(manifest) if !is_newer(&manifest.version, CURRENT) => {
@@ -467,8 +534,8 @@ impl Worker {
                 self.manifest = Some(manifest);
                 match &self.install {
                     // the scheduled task does this without anyone here being asked
-                    Install::Machine { .. } => self.set(Status::InstallsOnClose(version)),
-                    Install::LinuxPackage(_) | Install::Unmanaged => self.set(Status::Available(version)),
+                    Install::Machine { .. } if machine_may_update(&crate::policy::current(), machine_switch()) => self.set(Status::InstallsOnClose(version)),
+                    Install::Machine { .. } | Install::LinuxPackage(_) | Install::Unmanaged => self.set(Status::Available(version)),
                     _ if auto => self.install_now(),
                     _ => self.set(Status::Available(version)),
                 }
@@ -477,9 +544,12 @@ impl Worker {
     }
 
     fn install_now(&mut self) {
+        if crate::policy::current().no_updates {
+            return self.set(Status::Idle);
+        }
         let Some(manifest) = self.manifest.take() else { return };
         let version = manifest.version.clone();
-        let Some(dir) = updates_dir(&self.install) else { return self.fail("There's no folder to download updates to".into()) };
+        let Some(dir) = updates_dir(false) else { return self.fail("There's no folder to download updates to".into()) };
         self.set(Status::Downloading(version.clone()));
         let path = match fetch_asset(&manifest, &self.install, &dir, false) {
             Ok(path) => path,
@@ -525,28 +595,45 @@ fn install_linux_package(packager: LinuxPackager, package: &Path) -> Result<(), 
 
 // ---------------------------------------------------------------- the scheduled task, and other command line runs
 
-/// A file that turns off automatic updates for a machine install, as the task can't read anyone's settings.
+/// The settings page's switch for a machine install, as the task can't read anyone's settings: 0 or 1 in this file.
 #[cfg(windows)]
-fn machine_off_flag() -> Option<PathBuf> {
-    Some(PathBuf::from(std::env::var_os("ProgramData")?).join("Daleris").join("no-auto-update"))
+fn machine_switch_file() -> Option<PathBuf> {
+    Some(PathBuf::from(std::env::var_os("ProgramData")?).join("Daleris").join("auto-update.txt"))
 }
 
 #[cfg(not(windows))]
-fn machine_off_flag() -> Option<PathBuf> {
+fn machine_switch_file() -> Option<PathBuf> {
     None
 }
 
-/// Tells the scheduled task about the settings page's switch. Creating the file needs no admin rights.
-pub fn set_machine_auto_update(on: bool) {
-    let Some(flag) = machine_off_flag() else { return };
-    if on {
-        let _ = std::fs::remove_file(&flag);
-    } else {
-        if let Some(dir) = flag.parent() {
-            let _ = std::fs::create_dir_all(dir);
-        }
-        let _ = std::fs::write(&flag, "");
+/// What the switch says, if anyone has used it.
+pub fn machine_switch() -> Option<bool> {
+    let text = std::fs::read_to_string(machine_switch_file()?).ok()?;
+    match text.trim() {
+        "0" => Some(false),
+        "1" => Some(true),
+        _ => None,
     }
+}
+
+/// Writing it needs no admin rights, but only the account that first wrote it, or an admin, can change it.
+pub fn set_machine_switch(on: bool) -> Result<(), String> {
+    let Some(file) = machine_switch_file() else { return Ok(()) };
+    if let Some(dir) = file.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    std::fs::write(&file, if on { "1" } else { "0" }).map_err(|_| "Another account set this for the whole PC. That account or an administrator can change it".to_string())
+}
+
+/// Whether the task installs updates: an administrator's policy, then the switch, then an administrator's default.
+fn machine_may_update(policy: &crate::policy::Policy, switch: Option<bool>) -> bool {
+    if policy.no_updates {
+        return false;
+    }
+    if let Some(v) = policy.fixed_value("auto_update") {
+        return v == "1";
+    }
+    switch.unwrap_or_else(|| policy.recommended_value("auto_update") != Some("0"))
 }
 
 #[cfg(windows)]
@@ -569,12 +656,11 @@ fn run_service() -> i32 {
         log::warn!("update service: this isn't a machine install");
         return 1;
     }
-    let policy_off = crate::policy::current().fixed.iter().any(|(k, v)| *k == "auto_update" && v == "0");
-    if policy_off || machine_off_flag().is_some_and(|f| f.exists()) {
+    if !machine_may_update(&crate::policy::current(), machine_switch()) {
         log::info!("update service: automatic updates are off");
         return 0;
     }
-    let Some(dir) = updates_dir(&install) else { return 1 };
+    let Some(dir) = updates_dir(true) else { return 1 };
     let manifest = match fetch_manifest(&dir, true) {
         Ok(m) => m,
         Err(e) => {
@@ -598,17 +684,34 @@ fn run_service() -> i32 {
         }
     };
     log::info!("update service: installing {}", manifest.version);
-    match run_installer(&path, &install).and_then(|mut c| c.status().map_err(|e| e.to_string())) {
-        Ok(s) if s.success() => 0,
-        Ok(s) => {
-            log::error!("update service: the installer reported {s}");
-            1
-        }
+    // Not waiting for it, as this program is one of the files it replaces. It writes installer.log next to this log.
+    match run_installer(&path, &install).and_then(|mut c| c.spawn().map_err(|e| e.to_string())) {
+        Ok(_) => 0,
         Err(e) => {
             log::error!("update service: {e}");
             1
         }
     }
+}
+
+/// `--update-now`: everything the program does about an update, without a window, for scripts. A machine install
+/// leaves the installing to the task, and asks for no rights it doesn't have.
+fn run_now() -> i32 {
+    if crate::policy::current().no_updates {
+        println!("Updates are managed by the administrator");
+        return 0;
+    }
+    let install = detect();
+    let shared: Arc<Mutex<Shared>> = Arc::default();
+    let mut worker = Worker { shared: shared.clone(), install: install.clone(), ctx: eframe::egui::Context::default(), manifest: None };
+    worker.check(true);
+    if matches!(install, Install::LinuxPackage(_)) && worker.manifest.is_some() {
+        worker.install_now();
+    }
+    let status = shared.lock().unwrap_or_else(PoisonError::into_inner).status.clone().unwrap_or(Status::Idle);
+    println!("{status:?}");
+    install_pending(&shared, &install);
+    i32::from(matches!(status, Status::Failed(_)))
 }
 
 /// Runs that do their job without a window. Returns the exit code if this was one.
@@ -621,6 +724,16 @@ pub fn handle_command_line() -> Option<i32> {
             Some(0)
         }
         Some("--update-service") => Some(run_service()),
+        Some("--update-now") => Some(run_now()),
+        // for the update test: signs a list with the test build's published key
+        #[cfg(feature = "update-test")]
+        Some("--test-sign") => {
+            use ed25519_dalek::Signer;
+            let text = std::fs::read(args.get(1)?).ok()?;
+            let signature = ed25519_dalek::SigningKey::from_bytes(&TEST_SEED).sign(&text);
+            std::fs::write(args.get(2)?, signature.to_bytes()).ok()?;
+            Some(0)
+        }
         // for the release workflow: is this list signed by the key built into this program?
         Some("--verify-manifest") => {
             let read = |i: usize| args.get(i).and_then(|p| std::fs::read(p).ok()).unwrap_or_default();
@@ -667,6 +780,30 @@ mod tests {
         assert!(VerifyingKey::from_bytes(&PUBLIC_KEY).is_ok());
         assert!(VerifyingKey::from_bytes(&BACKUP_PUBLIC_KEY).is_ok());
         assert_ne!(PUBLIC_KEY, BACKUP_PUBLIC_KEY);
+    }
+
+    #[cfg(not(feature = "update-test"))]
+    #[test]
+    fn the_real_program_refuses_the_test_builds_key() {
+        use ed25519_dalek::Signer;
+        let text = b"version 99.0.0\n";
+        let signature = ed25519_dalek::SigningKey::from_bytes(&[7; 32]).sign(text);
+        assert!(verified_manifest(text, &signature.to_bytes()).is_err());
+    }
+
+    #[test]
+    fn administrators_decide_before_the_switch_and_the_switch_before_their_default() {
+        use crate::policy::Policy;
+        let may = machine_may_update;
+        let fixed = |v: &str| Policy { fixed: vec![("auto_update", v.to_string())], ..Default::default() };
+        let default = |v: &str| Policy { recommended: vec![("auto_update", v.to_string())], ..Default::default() };
+        assert!(may(&Policy::default(), None), "on unless someone says otherwise");
+        assert!(!may(&Policy::default(), Some(false)));
+        assert!(may(&fixed("1"), Some(false)), "a fixed on beats the switch");
+        assert!(!may(&fixed("0"), Some(true)), "a fixed off beats the switch");
+        assert!(!may(&default("0"), None));
+        assert!(may(&default("0"), Some(true)), "someone's choice beats a default");
+        assert!(!may(&Policy { no_updates: true, ..fixed("1") }, Some(true)), "turned off altogether");
     }
 
     #[test]

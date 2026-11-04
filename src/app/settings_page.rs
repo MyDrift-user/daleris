@@ -687,9 +687,22 @@ impl App {
         let install = self.updater.as_ref().map_or(Install::Unmanaged, |u| u.install.clone());
         let mut clicked_check = false;
         let mut clicked_install = false;
+        let machine = matches!(install, Install::Machine { .. });
+        // the whole PC shares this one: show what it's really set to
+        if machine && !policy::is_fixed("auto_update") {
+            if let Some(on) = crate::update::machine_switch() {
+                self.settings.auto_update = on;
+            }
+        }
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             heading(ui, "Updates", &format!("Daleris {}", crate::update::CURRENT));
+            if policy::current().no_updates {
+                ui.label(egui::RichText::new("Your organization installs new versions of Daleris, so it doesn't look for updates itself.").color(DIM()));
+                ui.add_space(4.0);
+                managed_note(ui);
+                return;
+            }
             let how = match &install {
                 Install::PerUser { .. } => "Installed for this account. Updates install silently when you close Daleris.",
                 Install::Machine { .. } => "Installed for this PC. A background task installs updates once Daleris is closed, within about an hour.",
@@ -701,8 +714,13 @@ impl App {
             ui.label(egui::RichText::new(how).color(DIM()));
             ui.add_space(6.0);
             if managed_toggle(ui, &mut self.settings.auto_update, "auto_update", "Install updates automatically") {
-                if matches!(install, Install::Machine { .. }) {
-                    crate::update::set_machine_auto_update(self.settings.auto_update);
+                if machine {
+                    if let Err(e) = crate::update::set_machine_switch(self.settings.auto_update) {
+                        self.settings.auto_update = !self.settings.auto_update;
+                        if let Some(updater) = &self.updater {
+                            updater.fail(e);
+                        }
+                    }
                 }
                 self.save_settings();
             }
@@ -711,6 +729,7 @@ impl App {
                 Status::Idle => "Not checked yet.".to_string(),
                 Status::Checking => "Checking for updates…".to_string(),
                 Status::UpToDate => "Daleris is up to date.".to_string(),
+                Status::Available(v) if machine => format!("Version {v} is available. It installs when automatic updates are on."),
                 Status::Available(v) => format!("Version {v} is available."),
                 Status::Downloading(v) => format!("Downloading version {v}…"),
                 Status::InstallsOnClose(v) => format!("Version {v} installs when you close Daleris."),
@@ -722,7 +741,7 @@ impl App {
             let busy = matches!(status, Status::Checking | Status::Downloading(_));
             ui.horizontal(|ui| {
                 clicked_check = ui.add_enabled(!busy && self.updater.is_some(), egui::Button::new("Check for updates")).clicked();
-                if matches!(status, Status::Available(_)) && !matches!(install, Install::Unmanaged) {
+                if matches!(status, Status::Available(_)) && !machine && !matches!(install, Install::Unmanaged) {
                     clicked_install = ui.button("Install update").clicked();
                 }
             });

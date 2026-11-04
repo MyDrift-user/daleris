@@ -23,6 +23,8 @@
       <string id="SearchSubfolders">Search subfolders</string>
       <string id="SearchRegex">Treat searches as regular expressions</string>
       <string id="AutomaticUpdates">Install updates automatically</string>
+      <string id="AutomaticUpdatesExplain_ExplainFixed">Whether new versions install by themselves. Turned off, people can still look for an update and install it from Settings; to stop that too, use "Turn off updates". The task that updates a PC-wide install only reads Computer Configuration, so set it there for those. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="AutomaticUpdatesExplain_ExplainRecommended">Whether new versions install by themselves. The task that updates a PC-wide install only reads Computer Configuration, so set it there for those. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
       <string id="DefaultView">Default view</string>
       <string id="Details">Details</string>
       <string id="LargeIcons">Large icons</string>
@@ -44,8 +46,8 @@
       <string id="Accent5">Green</string>
       <string id="Accent6">Red</string>
       <string id="IconPack">Icon pack</string>
-      <string id="IconPackExplain_ExplainFixed">system, flat, phosphor, or the name of an icon pack folder This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
-      <string id="IconPackExplain_ExplainRecommended">system, flat, phosphor, or the name of an icon pack folder This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="IconPackExplain_ExplainFixed">system (Windows icons), flat (Daleris), phosphor, or the name of an icon pack folder. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="IconPackExplain_ExplainRecommended">system (Windows icons), flat (Daleris), phosphor, or the name of an icon pack folder. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
       <string id="RibbonLeft">Ribbon bar: left side</string>
       <string id="RibbonLeftExplain_ExplainFixed">Items separated by the pipe character. Anything not listed on either side is not shown. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
       <string id="RibbonLeftExplain_ExplainRecommended">Items separated by the pipe character. Anything not listed on either side is not shown. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
@@ -58,6 +60,8 @@
       <string id="SidebarHiddenSections">Sidebar: hidden sections</string>
       <string id="SidebarHiddenSectionsExplain_ExplainFixed">Any of quick, cloud, pc, network, separated by the pipe character. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
       <string id="SidebarHiddenSectionsExplain_ExplainRecommended">Any of quick, cloud, pc, network, separated by the pipe character. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="DisableUpdates">Turn off updates</string>
+      <string id="DisableUpdatesExplain">Daleris does not look for updates or install them, not even from Settings. Use this if you deploy new versions yourself. The task that updates a PC-wide install only reads Computer Configuration, so set it there for those.</string>
       <string id="LockRibbon">Lock the ribbon bar</string>
       <string id="LockRibbonExplain">The ribbon bar stays as defined by the policies here and cannot be customized.</string>
       <string id="LockSidebar">Lock the sidebar</string>

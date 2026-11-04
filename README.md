@@ -60,7 +60,7 @@ The real Windows icons, thumbnails and right-click menu, so your shell extension
 - A custom title bar, or the standard one
 
 ### 🏢 Ready for IT departments
-On Windows, you can manage settings through **Group Policy (ADMX/ADML in English and German)** or Group Policy Preferences, as fixed settings or defaults. Open windows pick up changes within 30 seconds. See [`policy/README.txt`](policy/README.txt).
+You can manage every setting as a fixed value or a default: on Windows through **Group Policy (ADMX/ADML in English and German)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`policy/README.txt`](policy/README.txt).
 
 ## ⌨️ Keyboard shortcuts
 
@@ -141,7 +141,7 @@ Daleris looks for a new release at startup and every 6 hours, and installs it by
 | Portable, AppImage, macOS app | Replaces itself, in use from the next start |
 | `.deb`, `.rpm`, Arch package | Tells you, then asks for your password when you choose to install |
 
-Every release lists its files' checksums in `latest.json`, signed in `latest.json.sig`. Daleris checks that signature against a key built into it, and refuses anything that doesn't match. Administrators can turn updates off with the **AutomaticUpdates** group policy.
+Every release lists its files' checksums in `latest.json`, signed in `latest.json.sig`. Daleris checks that signature against a key built into it, and refuses anything that doesn't match. Administrators can fix automatic updates on or off with the **AutomaticUpdates** policy, or stop Daleris looking for updates at all with **DisableUpdates**. `daleris --update-now` does an update check from a script.
 
 ## 🛠️ Build from source
 

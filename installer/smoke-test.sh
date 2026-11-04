@@ -69,6 +69,14 @@ printf 'density=2\nview=icons\niconpack=system\n' >> "$config"
 DALERIS_TEST_SETTINGS=1 run --screenshot "$out/settings-read.png" --path "$demo" || fail "second settings run exited with $?"
 grep -q '^density=2' "$config" || fail "a setting edited by hand was lost"
 
+# Administrators' policies: a fixed setting wins over the settings file and is grayed out, and updates can be turned off.
+policy="$HOME/policy.conf"
+printf 'density=0\n' >> "$config"
+printf 'RowHeight=2\nDisableUpdates=1\nAutomaticUpdates=0\n[Recommended]\nIconPack=phosphor\n' > "$policy"
+DALERIS_TEST_POLICY_FILE="$policy" DALERIS_TEST_SETTINGS=1 run --screenshot "$out/settings-managed.png" --settings files --path "$demo" || fail "the policy run exited with $?"
+grep -q '^density=0' "$config" || fail "a fixed setting overwrote the person's own choice"
+DALERIS_TEST_POLICY_FILE="$policy" run --update-now | grep -q 'managed by the administrator' || fail "DisableUpdates didn't stop an update check"
+
 # Crashes must reach the log.
 DALERIS_TEST_CRASH=panic run --path "$demo" && fail "the test panic didn't stop the program"
 grep -q "CRASH panic on thread 'main'" "$log" && grep -q 'test panic from DALERIS_TEST_CRASH' "$log" || fail "no panic in the log"

@@ -1,8 +1,12 @@
 [package]
 name = "daleris"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2021"
 license = "GPL-3.0-only"
+
+[features]
+# Only for the release workflow's update test: trusts a published key instead of the real ones. See src/update.rs.
+update-test = []
 
 [dependencies]
 ed25519-dalek = { version = "2", default-features = false, features = ["std"] }

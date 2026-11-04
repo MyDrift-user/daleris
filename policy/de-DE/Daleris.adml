@@ -23,6 +23,8 @@
       <string id="SearchSubfolders">Unterordner durchsuchen</string>
       <string id="SearchRegex">Suche als regulären Ausdruck behandeln</string>
       <string id="AutomaticUpdates">Updates automatisch installieren</string>
+      <string id="AutomaticUpdatesExplain_ExplainFixed">Legt fest, ob neue Versionen sich selbst installieren. Ist dies aus, können Benutzer in den Einstellungen weiterhin nach Updates suchen und sie installieren; um auch das zu verhindern, verwenden Sie „Updates deaktivieren“. Die Aufgabe, die eine PC-weite Installation aktualisiert, liest nur die Computerkonfiguration, legen Sie den Wert dafür also dort fest. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
+      <string id="AutomaticUpdatesExplain_ExplainRecommended">Legt fest, ob neue Versionen sich selbst installieren. Die Aufgabe, die eine PC-weite Installation aktualisiert, liest nur die Computerkonfiguration, legen Sie den Wert dafür also dort fest. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="DefaultView">Standardansicht</string>
       <string id="Details">Details</string>
       <string id="LargeIcons">Große Symbole</string>
@@ -44,8 +46,8 @@
       <string id="Accent5">Green</string>
       <string id="Accent6">Red</string>
       <string id="IconPack">Symbolpaket</string>
-      <string id="IconPackExplain_ExplainFixed">system, flat, phosphor oder der Name eines Symbolpaket-Ordners Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
-      <string id="IconPackExplain_ExplainRecommended">system, flat, phosphor oder der Name eines Symbolpaket-Ordners Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
+      <string id="IconPackExplain_ExplainFixed">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
+      <string id="IconPackExplain_ExplainRecommended">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="RibbonLeft">Menüband: linke Seite</string>
       <string id="RibbonLeftExplain_ExplainFixed">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="RibbonLeftExplain_ExplainRecommended">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
@@ -58,6 +60,8 @@
       <string id="SidebarHiddenSections">Seitenleiste: ausgeblendete Abschnitte</string>
       <string id="SidebarHiddenSectionsExplain_ExplainFixed">Beliebige von quick, cloud, pc, network, durch senkrechte Striche getrennt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="SidebarHiddenSectionsExplain_ExplainRecommended">Beliebige von quick, cloud, pc, network, durch senkrechte Striche getrennt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
+      <string id="DisableUpdates">Updates deaktivieren</string>
+      <string id="DisableUpdatesExplain">Daleris sucht weder nach Updates noch installiert es sie, auch nicht aus den Einstellungen. Verwenden Sie dies, wenn Sie neue Versionen selbst verteilen. Die Aufgabe, die eine PC-weite Installation aktualisiert, liest nur die Computerkonfiguration, legen Sie den Wert dafür also dort fest.</string>
       <string id="LockRibbon">Menüband sperren</string>
       <string id="LockRibbonExplain">Das Menüband bleibt wie in den Richtlinien festgelegt und kann nicht angepasst werden.</string>
       <string id="LockSidebar">Seitenleiste sperren</string>
