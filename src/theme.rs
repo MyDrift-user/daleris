@@ -214,6 +214,8 @@ pub fn system_accent() -> Option<Color32> {
 /// Apply a palette to the app and egui's widgets.
 pub fn apply(ctx: &egui::Context, p: Palette) {
     PAL.with(|c| c.set(p));
+    // Left to follow the system, egui would swap in its own stock style whenever the system's mode differs from `p`.
+    ctx.set_theme(if p.dark { egui::Theme::Dark } else { egui::Theme::Light });
     let mut style = (*ctx.style()).clone();
     let v = &mut style.visuals;
     *v = if p.dark { egui::Visuals::dark() } else { egui::Visuals::light() };

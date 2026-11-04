@@ -100,8 +100,12 @@ fn test_crash() {
     match std::env::var("BOLT_TEST_CRASH").as_deref() {
         Ok("panic") => panic!("test panic from BOLT_TEST_CRASH"),
         #[cfg(unix)]
-        Ok("signal") => unsafe {
-            libc::raise(libc::SIGSEGV);
+        // Handlers hand over to the next one and return, which ends things for a real fault as that
+        // repeats by itself. A raised signal doesn't, so keep raising it.
+        Ok("signal") => loop {
+            unsafe {
+                libc::raise(libc::SIGSEGV);
+            }
         },
         _ => {}
     }

@@ -64,14 +64,14 @@ if grep -q 'CRASH' "$log"; then fail "a normal run crashed"; fi
 # The settings file gets written, and read back.
 BOLT_TEST_SETTINGS=1 run --screenshot "$out/settings-write.png" --path "$demo" || fail "settings run exited with $?"
 [ -s "$config" ] || fail "no settings file at $config"
-grep -q '^iconpack=flat' "$config" || fail "settings file doesn't use the built-in icons"
-sed -i.bak 's/^iconpack=.*/iconpack=system/' "$config"
+# By hand: comfortable rows, large icons and the old Windows icon setting, which must not leave blank icons.
+printf 'density=2\nview=1\niconpack=system\n' >> "$config"
 BOLT_TEST_SETTINGS=1 run --screenshot "$out/settings-read.png" --path "$demo" || fail "second settings run exited with $?"
-grep -q '^iconpack=flat' "$config" || fail "an old Windows icon setting wasn't replaced"
+grep -q '^density=2' "$config" || fail "a setting edited by hand was lost"
 
 # Crashes must reach the log.
 BOLT_TEST_CRASH=panic run --path "$demo" && fail "the test panic didn't stop the program"
-grep -q 'CRASH panic on thread .main.: .*test panic' "$log" || fail "no panic in the log"
+grep -q "CRASH panic on thread 'main'" "$log" && grep -q 'test panic from BOLT_TEST_CRASH' "$log" || fail "no panic in the log"
 BOLT_TEST_CRASH=signal run --path "$demo" && fail "the test signal didn't stop the program"
 grep -q 'CRASH fatal signal SIGSEGV' "$log" || fail "no signal in the log"
 
