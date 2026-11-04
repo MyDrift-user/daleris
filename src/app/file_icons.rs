@@ -1,7 +1,6 @@
-//! The built-in icon pack: which picture each drive, folder and file gets. In order: Daleris' own art for
-//! drives, installers, archives, audio, video and office files; then Material Icon Theme's associations;
-//! then a font glyph for what that misses; and last a page in its own colour with the extension on it.
-//! To add a file type, add its extension to one of the lists in `by_family` or `by_extension`.
+//! The built-in icon pack: which picture each drive, folder and file gets. Daleris' own art for drives, installers,
+//! archives, audio, video and office files; font glyphs for the rest; and for an unknown type, a page in its own
+//! colour with the extension on it. To add a file type, add it to a list in `by_family` or `by_extension`.
 
 use std::collections::HashMap;
 use std::sync::OnceLock;
@@ -22,6 +21,7 @@ const TEAL: Color32 = Color32::from_rgb(0x2f, 0xb5, 0xb0);
 const GOLD: Color32 = Color32::from_rgb(0xc9, 0xa2, 0x27);
 const PINK: Color32 = Color32::from_rgb(0xe0, 0x6c, 0xa8);
 const GRAY: Color32 = Color32::from_rgb(0x8d, 0x93, 0xa1);
+const AMBER: Color32 = Color32::from_rgb(0xf2, 0xc2, 0x4e);
 
 /// What's being drawn. `name` is the lowercase file name.
 pub(super) struct IconFor<'a> {
@@ -47,72 +47,12 @@ pub(super) enum Art {
 }
 
 pub(super) enum SvgSource {
-    Material(&'static str),
     Page(Family),
     Fixed(&'static str),
 }
 
-// ---------------------------------------------------------------- Material Icon Theme
-
-struct Material {
-    icons: HashMap<&'static str, &'static [u8]>,
-    /// By the code letter in the manifest, then the name.
-    maps: HashMap<char, HashMap<&'static str, &'static str>>,
-}
-
-fn material() -> &'static Material {
-    static MATERIAL: OnceLock<Material> = OnceLock::new();
-    MATERIAL.get_or_init(|| {
-        let raw = miniz_oxide::inflate::decompress_to_vec(include_bytes!("../../assets/icons/material.bin")).unwrap_or_default();
-        let raw: &'static [u8] = Box::leak(raw.into_boxed_slice());
-        let mut icons = HashMap::new();
-        let mut rest = raw;
-        while let Some(end) = rest.iter().position(|&b| b == b'\n') {
-            let head = std::str::from_utf8(&rest[..end]).unwrap_or("");
-            let Some((name, len)) = head.strip_prefix('@').and_then(|h| h.rsplit_once(' ')) else { break };
-            let Ok(len) = len.parse::<usize>() else { break };
-            let Some(bytes) = rest.get(end + 1..end + 1 + len) else { break };
-            icons.insert(name, bytes);
-            rest = &rest[end + 1 + len..];
-        }
-        let mut maps: HashMap<char, HashMap<&'static str, &'static str>> = HashMap::new();
-        let manifest = icons.remove("manifest").and_then(|b| std::str::from_utf8(b).ok()).unwrap_or("");
-        for line in manifest.lines() {
-            let mut parts = line.split('\t');
-            if let (Some(code), Some(name), Some(icon)) = (parts.next().and_then(|c| c.chars().next()), parts.next(), parts.next()) {
-                maps.entry(code).or_default().insert(name, icon);
-            }
-        }
-        Material { icons, maps }
-    })
-}
-
-/// The light-theme entry if there is one, then the normal one.
-fn material_lookup(code: char, name: &str, dark: bool) -> Option<&'static str> {
-    let maps = &material().maps;
-    if !dark {
-        if let Some(icon) = maps.get(&code.to_ascii_lowercase()).and_then(|m| m.get(name)) {
-            return Some(icon);
-        }
-    }
-    maps.get(&code).and_then(|m| m.get(name)).copied()
-}
-
-fn material_for_file(name: &str, dark: bool) -> Option<&'static str> {
-    if let Some(icon) = material_lookup('N', name, dark) {
-        return Some(icon);
-    }
-    // the longest ending first, so "a.test.ts" finds "test.ts" before "ts"
-    name.match_indices('.').find_map(|(i, _)| material_lookup('E', &name[i + 1..], dark))
-}
-
-fn material_for_folder(name: &str, dark: bool) -> &'static str {
-    material_lookup('D', name, dark).or_else(|| material_lookup('F', "folder", dark)).unwrap_or("folder")
-}
-
 pub(super) fn svg_bytes(source: &SvgSource) -> Vec<u8> {
     match source {
-        SvgSource::Material(id) => material().icons.get(id).map(|b| b.to_vec()).unwrap_or_default(),
         SvgSource::Page(family) => family.svg().into_bytes(),
         SvgSource::Fixed(svg) => svg.as_bytes().to_vec(),
     }
@@ -269,27 +209,149 @@ fn by_cloud(provider: &str) -> Art {
     }
 }
 
-// ---------------------------------------------------------------- glyphs, for what the above misses
+// ---------------------------------------------------------------- glyphs
+
+fn by_place(place: &str) -> Option<(&'static str, Color32)> {
+    Some(match place {
+        "Home" => (g::HOUSE, BLUE),
+        "Desktop" => (g::DESKTOP, BLUE),
+        "Downloads" => (g::DOWNLOAD_SIMPLE, TEAL),
+        "Documents" => (g::FILE_TEXT, BLUE),
+        "Pictures" => (g::IMAGE, LIME),
+        "Music" => (g::MUSIC_NOTES, ORANGE),
+        "Videos" => (g::FILM_STRIP, PURPLE),
+        _ => return None,
+    })
+}
+
+fn by_folder_name(name: &str) -> (&'static str, Color32) {
+    match name {
+        ".git" => (g::GIT_BRANCH, ORANGE),
+        ".github" => (g::GITHUB_LOGO, GRAY),
+        ".gitlab" => (g::GITLAB_LOGO, ORANGE),
+        "node_modules" | "vendor" | "packages" => (g::PACKAGE, LIME),
+        ".trash" | "trash" | "$recycle.bin" => (g::TRASH, GRAY),
+        "src" | "source" | "sources" | "lib" | "code" => (g::FOLDER, TEAL),
+        "doc" | "docs" | "documentation" | "wiki" => (g::FOLDER, BLUE),
+        "test" | "tests" | "spec" | "specs" | "__tests__" => (g::FOLDER, LIME),
+        "build" | "dist" | "target" | "out" | "bin" | "obj" | "release" | "debug" => (g::FOLDER, GRAY),
+        "assets" | "images" | "img" | "icons" | "media" | "public" | "static" => (g::FOLDER, PURPLE),
+        "config" | "configs" | "settings" | ".config" | ".vscode" | ".idea" => (g::FOLDER, GRAY),
+        "backup" | "backups" | "archive" | "archives" => (g::FOLDER, GOLD),
+        _ => (g::FOLDER, AMBER),
+    }
+}
+
+fn by_file_name(name: &str) -> Option<(&'static str, Color32)> {
+    let stem = name.split('.').next().unwrap_or(name);
+    Some(match name {
+        "dockerfile" | "containerfile" | ".dockerignore" | "docker-compose.yml" | "docker-compose.yaml" | "compose.yml" | "compose.yaml" => (g::PACKAGE, BLUE),
+        "makefile" | "gnumakefile" | "justfile" | "cmakelists.txt" | "meson.build" | "rakefile" | "build.rs" => (g::HAMMER, ORANGE),
+        ".gitignore" | ".gitattributes" | ".gitmodules" | ".gitconfig" | ".mailmap" => (g::GIT_BRANCH, ORANGE),
+        "package.json" | "cargo.toml" | "pyproject.toml" | "requirements.txt" | "go.mod" | "gemfile" | "pom.xml" | "build.gradle" | "build.gradle.kts" | "composer.json" => (g::PACKAGE, LIME),
+        "cargo.lock" | "package-lock.json" | "yarn.lock" | "pnpm-lock.yaml" | "gemfile.lock" | "poetry.lock" | "go.sum" | "composer.lock" | "flake.lock" => (g::FILE_LOCK, GRAY),
+        ".env" | ".envrc" | ".npmrc" | ".netrc" | "id_rsa" | "id_ed25519" | "authorized_keys" | "known_hosts" => (g::KEY, GOLD),
+        ".editorconfig" | ".prettierrc" | ".eslintrc" | ".clang-format" | ".rustfmt.toml" | "rustfmt.toml" | "tsconfig.json" => (g::GEAR, GRAY),
+        ".bashrc" | ".bash_profile" | ".zshrc" | ".profile" | ".bash_history" | ".zsh_history" => (g::TERMINAL_WINDOW, LIME),
+        _ if name.starts_with(".env.") => (g::KEY, GOLD),
+        _ => match stem {
+            "readme" => (g::BOOK_OPEN, BLUE),
+            "license" | "licence" | "copying" | "notice" => (g::CERTIFICATE, GOLD),
+            "changelog" | "changes" | "history" => (g::LIST_BULLETS, BLUE),
+            _ => return None,
+        },
+    })
+}
 
 fn by_extension(ext: &str) -> Option<(&'static str, Color32)> {
     Some(match ext {
-        "heic" | "heif" | "avif" | "jxl" | "raw" | "cr2" | "cr3" | "nef" | "arw" | "dng" | "orf" | "rw2" | "tga" | "dds" | "exr" | "hdr" | "qoi" | "pbm" | "pgm" | "ppm" => (g::FILE_IMAGE, LIME),
-        "ase" | "aco" | "gpl" | "afdesign" | "afphoto" | "afpub" | "kra" | "xcf" | "clip" | "cdr" | "procreate" => (g::PALETTE, PURPLE),
+        // pictures
+        "png" => (g::FILE_PNG, LIME),
+        "jpg" | "jpeg" | "jfif" | "jpe" => (g::FILE_JPG, LIME),
+        "svg" | "svgz" => (g::FILE_SVG, ORANGE),
+        "gif" | "webp" | "bmp" | "ico" | "icns" | "cur" | "tif" | "tiff" | "heic" | "heif" | "avif" | "jxl" | "raw" | "cr2" | "cr3" | "nef" | "arw" | "dng" | "orf" | "rw2" | "tga" | "dds" | "exr" | "hdr" | "qoi" | "pbm" | "pgm" | "ppm" => (g::FILE_IMAGE, LIME),
+        // design
+        "fig" => (g::FIGMA_LOGO, PURPLE),
+        "sketch" => (g::SKETCH_LOGO, GOLD),
+        "psd" | "psb" | "ai" | "xd" | "indd" | "afdesign" | "afphoto" | "afpub" | "kra" | "xcf" | "clip" | "cdr" | "procreate" => (g::PALETTE, PURPLE),
+        "ase" | "aco" | "gpl" => (g::SWATCHES, PINK),
+        // video and subtitles
+        "mp4" | "mkv" | "mov" | "avi" | "wmv" | "webm" | "m4v" | "flv" | "mpg" | "mpeg" | "mpe" | "3gp" | "ogv" | "vob" | "mts" | "m2ts" | "asf" | "rm" | "rmvb" | "f4v" | "divx" => (g::FILE_VIDEO, PURPLE),
         "srt" | "vtt" | "ass" | "ssa" | "sub" => (g::SUBTITLES, PURPLE),
+        // sound
+        "mp3" | "wav" | "flac" | "ogg" | "oga" | "m4a" | "aac" | "wma" | "opus" | "aiff" | "aif" | "alac" | "ape" | "mka" | "amr" | "wv" | "au" => (g::FILE_AUDIO, ORANGE),
+        "mid" | "midi" | "mscz" | "musicxml" => (g::MUSIC_NOTES, ORANGE),
+        "m3u" | "m3u8" | "pls" | "cue" => (g::LIST_BULLETS, ORANGE),
+        // documents
+        "pdf" => (g::FILE_PDF, RED),
+        "doc" | "docx" | "docm" | "dot" | "dotx" | "odt" | "rtf" | "pages" | "wpd" => (g::FILE_DOC, BLUE),
+        "xls" | "xlsx" | "xlsm" | "xlsb" | "ods" | "numbers" => (g::FILE_XLS, LIME),
+        "csv" | "tsv" => (g::FILE_CSV, LIME),
+        "ppt" | "pptx" | "pptm" | "odp" => (g::FILE_PPT, ORANGE),
+        "txt" | "text" => (g::FILE_TXT, GRAY),
+        "log" | "out" => (g::SCROLL, GRAY),
+        "md" | "markdown" | "mdx" | "rst" | "adoc" | "org" => (g::FILE_MD, BLUE),
+        "tex" | "latex" | "bib" => (g::NOTE, TEAL),
         "epub" | "mobi" | "azw" | "azw3" | "fb2" | "djvu" | "cbz" | "cbr" => (g::BOOK_OPEN, TEAL),
+        "one" | "ipynb" => (g::NOTEBOOK, ORANGE),
+        "eml" | "msg" | "mbox" => (g::ENVELOPE, BLUE),
         "ics" => (g::CALENDAR, RED),
         "vcf" => (g::ADDRESS_BOOK, BLUE),
+        // code with its own icon
+        "rs" => (g::FILE_RS, ORANGE),
+        "py" | "pyw" | "pyi" => (g::FILE_PY, BLUE),
+        "js" | "mjs" | "cjs" => (g::FILE_JS, GOLD),
+        "jsx" => (g::FILE_JSX, TEAL),
+        "ts" | "cts" => (g::FILE_TS, BLUE),
+        "tsx" => (g::FILE_TSX, BLUE),
+        "html" | "htm" | "xhtml" => (g::FILE_HTML, ORANGE),
+        "css" => (g::FILE_CSS, BLUE),
+        "scss" | "sass" | "less" | "styl" => (g::FILE_CSS, PINK),
+        "sql" => (g::FILE_SQL, GOLD),
+        "vue" => (g::FILE_VUE, LIME),
+        "c" => (g::FILE_C, BLUE),
+        "cpp" | "cc" | "cxx" | "c++" => (g::FILE_CPP, BLUE),
+        "cs" => (g::FILE_C_SHARP, PURPLE),
+        // other code
+        "h" | "hh" | "hpp" | "hxx" | "go" | "java" | "kt" | "kts" | "swift" | "rb" | "php" | "lua" | "luau" | "dart" | "scala" | "r" | "pl" | "pm" | "ex" | "exs" | "erl" | "hs" | "clj" | "zig" | "nim" | "cr" | "m" | "mm" | "jl" | "f90" | "asm" | "vb" | "fs" | "svelte" | "astro" | "groovy" | "gradle" | "elm" | "ml" | "sol" | "glsl" | "hlsl" | "wgsl" | "shader" => (g::FILE_CODE, TEAL),
+        "sh" | "bash" | "zsh" | "fish" | "ps1" | "psm1" | "psd1" | "bat" | "cmd" | "nu" => (g::TERMINAL_WINDOW, LIME),
+        "patch" | "diff" => (g::GIT_DIFF, ORANGE),
+        // data and settings
+        "json" | "jsonc" | "json5" | "jsonl" | "ndjson" | "geojson" => (g::BRACKETS_CURLY, GOLD),
+        "xml" | "xsd" | "xsl" | "xslt" | "plist" | "wxs" | "resx" | "xaml" => (g::BRACKETS_ANGLE, ORANGE),
+        "yaml" | "yml" | "toml" | "ini" | "cfg" | "conf" | "config" | "env" | "properties" | "editorconfig" => (g::FILE_INI, GRAY),
+        "reg" | "inf" | "policy" | "admx" | "adml" => (g::GEAR, GRAY),
+        "lock" => (g::FILE_LOCK, GRAY),
+        "db" | "sqlite" | "sqlite3" | "db3" | "mdb" | "accdb" | "dbf" => (g::DATABASE, GOLD),
         "parquet" | "avro" | "orc" | "feather" => (g::TABLE, GOLD),
-        "so" | "dylib" | "sys" | "lib" | "a" | "o" | "ocx" | "drv" | "ko" => (g::CIRCUITRY, GRAY),
-        "bin" | "dat" | "hex" | "elf" | "class" => (g::BINARY, GRAY),
-        "torrent" | "crdownload" | "part" | "partial" | "download" => (g::FILE_ARROW_DOWN, TEAL),
+        // archives and disk images
+        "zip" => (g::FILE_ZIP, GOLD),
+        "7z" | "rar" | "tar" | "gz" | "tgz" | "bz2" | "tbz2" | "xz" | "txz" | "zst" | "lz" | "lz4" | "cab" | "sit" | "ar" => (g::FILE_ARCHIVE, GOLD),
+        "iso" | "img" | "vhd" | "vhdx" | "vmdk" | "vdi" | "qcow2" | "nrg" | "toast" => (g::DISC, GRAY),
+        // programs and packages
+        "exe" | "com" | "scr" | "appx" | "appxbundle" => (g::APP_WINDOW, BLUE),
+        "msi" | "msix" | "msixbundle" | "msp" => (g::WINDOWS_LOGO, BLUE),
+        "apk" | "aab" | "xapk" => (g::ANDROID_LOGO, LIME),
+        "dmg" | "pkg" | "app" | "ipa" => (g::APPLE_LOGO, GRAY),
+        "deb" | "rpm" | "appimage" | "snap" | "flatpak" | "flatpakref" => (g::LINUX_LOGO, GOLD),
+        "jar" | "war" | "ear" | "crate" | "whl" | "gem" | "nupkg" | "vsix" | "xpi" | "crx" => (g::PACKAGE, GOLD),
+        "dll" | "so" | "dylib" | "sys" | "lib" | "a" | "o" | "ocx" | "drv" | "ko" => (g::CIRCUITRY, GRAY),
+        "wasm" | "bin" | "dat" | "hex" | "elf" | "pyc" | "class" => (g::BINARY, GRAY),
+        "torrent" => (g::FILE_ARROW_DOWN, TEAL),
+        "crdownload" | "part" | "partial" | "download" => (g::FILE_ARROW_DOWN, GRAY),
+        // keys and certificates
+        "key" | "pem" | "pub" | "ppk" | "kdbx" => (g::KEY, GOLD),
         "crt" | "cer" | "der" | "p12" | "pfx" | "csr" => (g::CERTIFICATE, GOLD),
-        "gpg" | "pgp" | "asc" | "sig" | "age" | "enc" | "kdbx" => (g::LOCK, GOLD),
+        "gpg" | "pgp" | "asc" | "sig" | "age" | "enc" => (g::LOCK, GOLD),
+        // the rest
+        "ttf" | "otf" | "ttc" | "woff" | "woff2" | "eot" | "fnt" => (g::TEXT_AA, PINK),
+        "obj" | "stl" | "fbx" | "blend" | "gltf" | "glb" | "dae" | "3ds" | "ply" | "usd" | "usdz" | "3mf" => (g::CUBE, PURPLE),
         "dwg" | "dxf" | "step" | "stp" | "iges" | "skp" => (g::PENCIL_RULER, TEAL),
         "url" | "webloc" | "desktop" | "lnk" | "website" => (g::LINK, BLUE),
         "gpx" | "kml" | "kmz" | "shp" => (g::MAP_TRIFOLD, LIME),
-        "nes" | "sfc" | "gba" | "gb" | "nds" | "sav" | "rom" | "pak" => (g::GAME_CONTROLLER, PURPLE),
+        "nes" | "sfc" | "gba" | "gb" | "nds" | "sav" | "rom" | "pak" | "unitypackage" => (g::GAME_CONTROLLER, PURPLE),
         "gguf" | "safetensors" | "onnx" | "pth" | "ckpt" | "tflite" => (g::ROBOT, TEAL),
+        "ino" | "kicad_pcb" | "gbr" => (g::CPU, TEAL),
         "bak" | "old" | "orig" | "tmp" | "temp" | "swp" | "swo" | "cache" => (g::FILE_DASHED, GRAY),
         "dmp" | "mdmp" | "core" | "crash" => (g::BUG, RED),
         _ => return None,
@@ -305,29 +367,31 @@ fn colour_of(ext: &str) -> Color32 {
 
 // ---------------------------------------------------------------- choosing and drawing
 
-pub(super) fn resolve(t: &IconFor, dark: bool) -> Art {
-    let material_art = |id: &'static str| Art::Svg { id: format!("mat:{id}"), svg: SvgSource::Material(id) };
+pub(super) fn resolve(t: &IconFor) -> Art {
+    let glyph = |(glyph, color): (&'static str, Color32)| Art::Glyph(glyph, color);
     if let Some(kind) = t.drive {
         return by_drive(kind, t.is_system);
     }
     if t.is_root {
         return by_drive(DriveKind::Fixed, t.is_system);
     }
+    if let Some(icon) = t.place.and_then(by_place) {
+        return glyph(icon);
+    }
     if let Some(provider) = t.cloud {
         return by_cloud(provider);
     }
     if t.kind == Kind::Folder {
-        let name = t.place.map(str::to_lowercase);
-        return material_art(material_for_folder(name.as_deref().unwrap_or(t.name), dark));
+        return glyph(by_folder_name(t.name));
+    }
+    if let Some(icon) = by_file_name(t.name) {
+        return glyph(icon);
     }
     if let Some((id, family)) = by_family(t.name, t.ext) {
         return Art::Svg { id: format!("fam:{id}"), svg: SvgSource::Page(family) };
     }
-    if let Some(id) = material_for_file(t.name, dark) {
-        return material_art(id);
-    }
-    if let Some((glyph, color)) = by_extension(t.ext) {
-        return Art::Glyph(glyph, color);
+    if let Some(icon) = by_extension(t.ext) {
+        return glyph(icon);
     }
     if t.ext.is_empty() {
         return Art::Page { color: GRAY, label: None };

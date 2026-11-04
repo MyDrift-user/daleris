@@ -1446,7 +1446,7 @@ impl App {
 
     /// An icon of the built-in pack. Pictures are drawn once per size and kept, so they stay sharp and cheap.
     fn draw_builtin(&mut self, ui: &Ui, rect: Rect, target: &IconFor) {
-        let art = file_icons::resolve(target, pal().dark);
+        let art = file_icons::resolve(target);
         let Art::Svg { id, svg } = &art else {
             file_icons::paint_font_art(ui.painter(), rect, &art, target.dim);
             return;
