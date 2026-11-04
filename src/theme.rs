@@ -461,41 +461,64 @@ pub fn install(ctx: &egui::Context) {
 
 // ---------------------------------------------------------------- logo
 
-/// The bolt mark as triangles in a unit square.
-const BOLT: [[(f32, f32); 3]; 4] = [
-    [(0.62, 0.08), (0.24, 0.57), (0.52, 0.57)],
-    [(0.62, 0.08), (0.52, 0.57), (0.50, 0.43)],
-    [(0.50, 0.43), (0.78, 0.43), (0.38, 0.92)],
-    [(0.50, 0.43), (0.38, 0.92), (0.52, 0.57)],
-];
+/// The logo's white shape. `assets/logos/build.ps1` makes it from the SVG in use.
+fn logo_mark() -> &'static (usize, Vec<u8>) {
+    static MARK: std::sync::OnceLock<(usize, Vec<u8>)> = std::sync::OnceLock::new();
+    MARK.get_or_init(|| {
+        let decode = || -> Option<(usize, Vec<u8>)> {
+            let mut dec = png::Decoder::new(std::io::Cursor::new(include_bytes!("../assets/logo-mark.png").as_slice()));
+            dec.set_transformations(png::Transformations::EXPAND | png::Transformations::STRIP_16);
+            let mut reader = dec.read_info().ok()?;
+            let mut buf = vec![0; reader.output_buffer_size()?];
+            let info = reader.next_frame(&mut buf).ok()?;
+            let channels = info.color_type.samples();
+            Some((info.width as usize, buf[..info.buffer_size()].chunks_exact(channels).map(|px| px[channels - 1]).collect()))
+        };
+        decode().unwrap_or((1, vec![0]))
+    })
+}
 
-/// Paint the app logo (rounded accent square with a white bolt) into `r`.
+/// Paint the app logo (rounded accent square with the white mark) into `r`.
 pub fn paint_logo(p: &egui::Painter, r: egui::Rect, accent: Color32) {
-    p.rect_filled(r, egui::CornerRadius::same((r.width() * 0.24) as u8), accent);
-    for tri in BOLT {
-        let pts = tri.iter().map(|&(x, y)| egui::pos2(r.left() + x * r.width(), r.top() + y * r.height())).collect();
-        p.add(egui::Shape::convex_polygon(pts, Color32::WHITE, egui::Stroke::NONE));
-    }
+    p.rect_filled(r, egui::CornerRadius::same((r.width() * 0.23) as u8), accent);
+    let id = egui::Id::new("logo-mark");
+    let ctx = p.ctx();
+    let tex = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)).unwrap_or_else(|| {
+        let (side, alpha) = logo_mark();
+        let rgba: Vec<u8> = alpha.iter().flat_map(|&a| [255, 255, 255, a]).collect();
+        let options = egui::TextureOptions { mipmap_mode: Some(egui::TextureFilter::Linear), ..egui::TextureOptions::LINEAR };
+        let tex = ctx.load_texture("logo-mark", egui::ColorImage::from_rgba_unmultiplied([*side, *side], &rgba), options);
+        ctx.data_mut(|d| d.insert_temp(id, tex.clone()));
+        tex
+    });
+    let uv = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0));
+    p.image(tex.id(), r, uv, Color32::WHITE);
 }
 
 /// The logo as RGBA pixels, for the window/taskbar icon.
 pub fn logo_rgba(size: u32, accent: Color32) -> Vec<u8> {
     let s = size as f32;
-    let rad = s * 0.24;
-    let inside = |px: f32, py: f32, t: &[(f32, f32); 3]| {
-        let sign = |a: (f32, f32), b: (f32, f32), c: (f32, f32)| (a.0 - c.0) * (b.1 - c.1) - (b.0 - c.0) * (a.1 - c.1);
-        let p = (px, py);
-        let (d1, d2, d3) = (sign(p, t[0], t[1]), sign(p, t[1], t[2]), sign(p, t[2], t[0]));
-        !((d1 < 0.0 || d2 < 0.0 || d3 < 0.0) && (d1 > 0.0 || d2 > 0.0 || d3 > 0.0))
+    let rad = s * 0.23;
+    let (side, alpha) = logo_mark();
+    let n = size as usize;
+    // how much of the mark covers one output pixel: the average of the source pixels under it
+    let cover = |x: usize, y: usize| {
+        let (x0, x1) = (x * side / n, ((x + 1) * side / n).max(x * side / n + 1).min(*side));
+        let (y0, y1) = (y * side / n, ((y + 1) * side / n).max(y * side / n + 1).min(*side));
+        let mut sum = 0u32;
+        for sy in y0..y1 {
+            sum += alpha[sy * side + x0..sy * side + x1].iter().map(|&a| a as u32).sum::<u32>();
+        }
+        sum as f32 / (((x1 - x0) * (y1 - y0)) as f32 * 255.0)
     };
-    let mut out = Vec::with_capacity((size * size * 4) as usize);
-    for y in 0..size {
-        for x in 0..size {
+    let mut out = Vec::with_capacity(n * n * 4);
+    for y in 0..n {
+        for x in 0..n {
             let (fx, fy) = (x as f32 + 0.5, y as f32 + 0.5);
             let (cx, cy) = (fx.clamp(rad, s - rad), fy.clamp(rad, s - rad));
             let d = ((fx - cx).powi(2) + (fy - cy).powi(2)).sqrt();
             let a = (rad - d + 0.5).clamp(0.0, 1.0);
-            let c = if BOLT.iter().any(|t| inside(fx / s, fy / s, t)) { Color32::WHITE } else { accent };
+            let c = mix(accent, Color32::WHITE, cover(x, y));
             out.extend_from_slice(&[c.r(), c.g(), c.b(), (a * 255.0) as u8]);
         }
     }

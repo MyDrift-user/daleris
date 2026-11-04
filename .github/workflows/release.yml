@@ -56,8 +56,9 @@ jobs:
           if ($LASTEXITCODE) { throw "wix failed" }
           Remove-Item dist/*.wixpdb
           Copy-Item target\release\daleris.exe "dist\$base-portable.exe"
-          Compress-Archive -Path target\release\daleris.exe -DestinationPath "dist\$base.zip"
+          Compress-Archive -Path target\release\daleris.exe, LICENSE -DestinationPath "dist\$base.zip"
           Compress-Archive -Path policy\* -DestinationPath "dist\daleris-v$env:VERSION-policy-definitions.zip"
+          Copy-Item LICENSE "dist\daleris-v$env:VERSION-LICENSE.txt"
 
       - name: Test installers
         shell: pwsh

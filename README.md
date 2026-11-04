@@ -12,6 +12,7 @@ Native, written in Rust, with no web view and no runtime to install.
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-4CA3FF)
 ![Rust](https://img.shields.io/badge/rust-2021-CE422B?logo=rust&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-egui-4C6EF5)
+![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
 <img src="assets/screenshot.png" width="800" alt="Daleris showing a folder with the sidebar and preview pane">
 
@@ -155,9 +156,14 @@ src/
   policy.rs               Group Policy
   theme.rs                colours, icons and logo
 policy/                   ADMX / ADML templates
+assets/logos/             the logo as SVG; build.ps1 makes the app and installer icons from one
 installer/                setup.exe (Inno Setup) and MSI (WiX) definitions
   linux/, macos/          AppImage, deb, rpm, Arch, dmg and pkg packaging and tests
 ```
+
+## 📄 License
+
+Copyright (C) 2026 MyDrift. Daleris is free software, released under the [GNU General Public License v3.0](LICENSE).
 
 ---
 

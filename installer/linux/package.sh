@@ -12,7 +12,7 @@ esac
 
 mkdir -p dist
 cp target/release/daleris "dist/$base"
-tar czf "dist/$base.tar.gz" -C target/release daleris
+tar czf "dist/$base.tar.gz" -C target/release daleris -C "$PWD" LICENSE
 
 # Native packages
 tools=$(mktemp -d)
@@ -36,6 +36,7 @@ for lib in libxkbcommon.so.0 libxkbcommon-x11.so.0 libxcb-xkb.so.1 libXcursor.so
   patchelf --set-rpath '$ORIGIN' "$app/usr/lib/$lib"
 done
 cp installer/linux/daleris.desktop "$app/"
+cp LICENSE "$app/usr/"
 cp assets/logo.png "$app/daleris.png"
 ln -s usr/bin/daleris "$app/AppRun"
 curl -fsSL -o "$tools/appimagetool" "https://github.com/AppImage/appimagetool/releases/download/1.9.1/appimagetool-$machine.AppImage"

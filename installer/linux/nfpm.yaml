@@ -9,6 +9,7 @@ priority: optional
 maintainer: "MyDrift <121827219+MyDrift-user@users.noreply.github.com>"
 description: A file explorer built for speed, with everything you expect from a modern one.
 homepage: https://github.com/MyDrift-user/daleris
+license: GPL-3.0-only
 contents:
   - src: target/release/daleris
     dst: /usr/bin/daleris
@@ -17,6 +18,8 @@ contents:
     dst: /usr/share/applications/daleris.desktop
   - src: assets/logo.png
     dst: /usr/share/icons/hicolor/256x256/apps/daleris.png
+  - src: LICENSE
+    dst: /usr/share/licenses/daleris/LICENSE
 overrides:
   deb:
     depends: [libc6, libgcc-s1, libgl1, libegl1, libxkbcommon0, libxkbcommon-x11-0, libx11-6, libx11-xcb1, libxcursor1, libxi6, libxrandr2, libwayland-client0, libwayland-cursor0, libwayland-egl1]

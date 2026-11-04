@@ -13,6 +13,7 @@
       <File Source="target\release\daleris.exe" KeyPath="yes">
         <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="INSTALLFOLDER" Icon="app.ico" Advertise="yes" />
       </File>
+      <File Source="LICENSE" Name="LICENSE.txt" />
     </Component>
   </Package>
 </Wix>
