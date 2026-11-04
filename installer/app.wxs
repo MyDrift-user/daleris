@@ -11,6 +11,9 @@
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/MyDrift-user/daleris" />
     <Property Id="ApplicationFolderName" Value="Daleris" />
     <Property Id="WixAppFolder" Value="WixPerMachineFolder" />
+    <!-- The wizard's own defaults are the 32-bit Program Files, and Apps instead of the usual Programs. -->
+    <SetProperty Id="WixPerMachineFolder" Value="[ProgramFiles64Folder][ApplicationFolderName]" After="WixSetDefaultPerMachineFolder" Sequence="both" />
+    <SetProperty Id="WixPerUserFolder" Value="[LocalAppDataFolder]Programs\[ApplicationFolderName]" After="WixSetDefaultPerUserFolder" Sequence="both" />
     <WixVariable Id="WixUILicenseRtf" Value="target\license.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="assets\installer-banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="assets\installer-dialog.bmp" />
