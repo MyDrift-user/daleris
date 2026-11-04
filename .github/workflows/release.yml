@@ -97,7 +97,7 @@ jobs:
           Start-Sleep -Seconds 5
           if ($p.ExitCode -or (Test-Path $exe)) { throw "setup.exe did not uninstall" }
           $msi = (Resolve-Path "dist\$base.msi").Path
-          $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+          $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart','ALLUSERS=1' -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path $exe)) { throw "MSI did not install: $($p.ExitCode)" }
           if (-not (Test-Path "$env:ProgramFiles\Daleris\LICENSE.txt")) { throw "MSI did not install the licence" }
 
@@ -142,7 +142,7 @@ jobs:
           if ($previous) {
             $p = Start-Process msiexec -ArgumentList '/i',"`"$($previous.FullName)`"",'/qn','/norestart' -Wait -PassThru
             if ($p.ExitCode) { throw "The published MSI did not install: $($p.ExitCode)" }
-            $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
+            $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart','ALLUSERS=1' -Wait -PassThru
             if ($p.ExitCode) { throw "MSI did not upgrade: $($p.ExitCode)" }
             if ((Listed).Count -ne 1) { throw "After upgrading, Windows lists Daleris $((Listed).Count) times" }
             $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
