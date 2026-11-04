@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
-  <displayName>Bolt Explorer</displayName>
-  <description>Bolt Explorer</description>
+  <displayName>Daleris</displayName>
+  <description>Daleris</description>
   <resources>
     <stringTable>
-      <string id="SUPPORTED_ANY">Bolt Explorer on Windows</string>
-      <string id="BoltExplorer">Bolt Explorer</string>
+      <string id="SUPPORTED_ANY">Daleris on Windows</string>
+      <string id="Daleris">Daleris</string>
       <string id="CatFixed">Fixed settings (cannot be changed by users)</string>
       <string id="CatRecommended">Default settings (users can change them)</string>
       <string id="ExplainFixed">This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
@@ -13,7 +13,7 @@
       <string id="ShowHiddenItems">Show hidden and system items</string>
       <string id="ShowPreviewPane">Show the preview pane</string>
       <string id="ShowFileExtensions">Show file name extensions</string>
-      <string id="CustomTitleBar">Use the Bolt Explorer title bar</string>
+      <string id="CustomTitleBar">Use the Daleris title bar</string>
       <string id="TitleBarLogo">Show the logo in the title bar</string>
       <string id="TitleBarName">Show the app name in the title bar</string>
       <string id="TitleBarSettingsButton">Show the settings button</string>

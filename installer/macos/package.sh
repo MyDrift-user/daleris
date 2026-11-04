@@ -2,15 +2,15 @@
 # Builds the macOS release files into dist/. Needs VERSION and NAME (macos-arm64 or macos-x64).
 set -euo pipefail
 
-base="bolt-explorer-v$VERSION-$NAME"
+base="daleris-v$VERSION-$NAME"
 mkdir -p dist
-cp target/release/bolt-explorer "dist/$base"
-tar czf "dist/$base.tar.gz" -C target/release bolt-explorer
+cp target/release/daleris "dist/$base"
+tar czf "dist/$base.tar.gz" -C target/release daleris
 
 work=$(mktemp -d)
-app="$work/root/Bolt Explorer.app"
+app="$work/root/Daleris.app"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
-cp target/release/bolt-explorer "$app/Contents/MacOS/"
+cp target/release/daleris "$app/Contents/MacOS/"
 sed "s/__VERSION__/$VERSION/g" installer/macos/Info.plist > "$app/Contents/Info.plist"
 
 set_dir="$work/icon.iconset"
@@ -33,12 +33,12 @@ codesign --force --sign - "$app"
 pkgbuild --analyze --root "$work/root" "$work/component.plist"
 plutil -replace 0.BundleIsRelocatable -bool NO "$work/component.plist"
 pkgbuild --root "$work/root" --component-plist "$work/component.plist" --install-location /Applications \
-  --identifier io.github.mydrift-user.bolt-explorer --version "$VERSION" "dist/$base.pkg"
+  --identifier io.github.mydrift-user.daleris --version "$VERSION" "dist/$base.pkg"
 
 ln -s /Applications "$work/root/Applications"
 # hdiutil now and then fails on a busy CI machine with "Resource busy".
 for try in 1 2 3; do
-  hdiutil create -volname "Bolt Explorer" -srcfolder "$work/root" -format UDZO -ov "dist/$base.dmg" && exit 0
+  hdiutil create -volname "Daleris" -srcfolder "$work/root" -format UDZO -ov "dist/$base.dmg" && exit 0
   sleep 10
 done
 exit 1

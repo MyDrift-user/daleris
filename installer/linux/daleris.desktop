@@ -1,9 +1,9 @@
 [Desktop Entry]
 Type=Application
-Name=Bolt Explorer
+Name=Daleris
 Comment=A fast file explorer
-Exec=bolt-explorer %f
-Icon=bolt-explorer
+Exec=daleris %f
+Icon=daleris
 Terminal=false
 Categories=System;FileTools;FileManager;
 MimeType=inode/directory;

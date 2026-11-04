@@ -23,6 +23,7 @@ use std::path::PathBuf;
 
 fn main() -> eframe::Result<()> {
     logging::init();
+    util::adopt_old_settings();
     let mut screenshot: Option<PathBuf> = None;
     let mut start: Option<PathBuf> = None;
     let mut query: Option<String> = None;
@@ -32,10 +33,10 @@ fn main() -> eframe::Result<()> {
             "--screenshot" => screenshot = args.next().map(PathBuf::from),
             "--path" => start = args.next().map(PathBuf::from),
             "--query" => query = args.next(),
-            "--icons" => std::env::set_var("BOLT_VIEW", "icons"),
-            "--props" => std::env::set_var("BOLT_TEST_PROPS", args.next().unwrap_or_default()),
-            "--native-title" =>std::env::set_var("BOLT_TEST_NATIVE_TITLE", "1"),
-            "--settings" => std::env::set_var("BOLT_PAGE", args.next().unwrap_or_default()),
+            "--icons" => std::env::set_var("DALERIS_VIEW", "icons"),
+            "--props" => std::env::set_var("DALERIS_TEST_PROPS", args.next().unwrap_or_default()),
+            "--native-title" =>std::env::set_var("DALERIS_TEST_NATIVE_TITLE", "1"),
+            "--settings" => std::env::set_var("DALERIS_PAGE", args.next().unwrap_or_default()),
             other if !other.starts_with("--") && start.is_none() => {
                 let p = PathBuf::from(other);
                 if p.is_dir() {
@@ -47,9 +48,9 @@ fn main() -> eframe::Result<()> {
     }
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
-            .with_title("Bolt Explorer")
+            .with_title("Daleris")
             // matches the .desktop file, which is how Wayland desktops find the icon
-            .with_app_id("bolt-explorer")
+            .with_app_id("daleris")
             .with_inner_size([1280.0, 800.0])
             .with_min_inner_size([720.0, 420.0])
             .with_icon(std::sync::Arc::new(eframe::egui::IconData { rgba: theme::logo_rgba(64, theme::ACCENTS[0].1), width: 64, height: 64 }))
@@ -58,7 +59,7 @@ fn main() -> eframe::Result<()> {
         vsync: true,
         ..Default::default()
     };
-    let result = eframe::run_native("Bolt Explorer", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, start, query, screenshot)))));
+    let result = eframe::run_native("Daleris", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, start, query, screenshot)))));
     match &result {
         Ok(()) => log::info!("exited"),
         Err(e) => log::error!("exited with an error: {e}"),

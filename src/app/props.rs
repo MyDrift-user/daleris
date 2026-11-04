@@ -114,7 +114,7 @@ impl App {
             .with_icon(Arc::new(icon));
         let vid = egui::ViewportId::from_hash_of(("props", p.gen));
         let mut result = PropsResult::Keep;
-        if std::env::var("BOLT_SHOT_PROPS").is_ok() {
+        if std::env::var("DALERIS_SHOT_PROPS").is_ok() {
             // test hook: the same contents drawn inside the main window so a screenshot can show them
             egui::Window::new(title.clone()).collapsible(false).resizable(false).fixed_size(size - vec2(0.0, 40.0)).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).frame(egui::Frame::window(&ctx.style()).fill(BG()).inner_margin(0)).show(ctx, |ui| {
                 egui::TopBottomPanel::bottom("props_footer_t")

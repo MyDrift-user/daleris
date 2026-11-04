@@ -32,20 +32,20 @@ export DISPLAY=:99 LIBGL_ALWAYS_SOFTWARE=1
 
 case "$file" in
   *.AppImage) export APPIMAGE_EXTRACT_AND_RUN=1; program="$file" ;;
-  *) program=bolt-explorer ;;
+  *) program=daleris ;;
 esac
 timeout 90 "$program" --screenshot "$shot" --path /tmp/demo
 test -s "$shot"
 
 case "$file" in
   *.AppImage) exit 0 ;;
-  *.deb) apt-get remove -y bolt-explorer ;;
+  *.deb) apt-get remove -y daleris ;;
   *.rpm)
-    if command -v zypper >/dev/null; then zypper -n rm bolt-explorer
-    else dnf remove -y bolt-explorer; fi ;;
-  *.pkg.tar.zst) pacman -R --noconfirm bolt-explorer ;;
+    if command -v zypper >/dev/null; then zypper -n rm daleris
+    else dnf remove -y daleris; fi ;;
+  *.pkg.tar.zst) pacman -R --noconfirm daleris ;;
 esac
-if command -v bolt-explorer >/dev/null; then
-  echo "bolt-explorer is still there after uninstalling"
+if command -v daleris >/dev/null; then
+  echo "daleris is still there after uninstalling"
   exit 1
 fi

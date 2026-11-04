@@ -254,9 +254,9 @@ pub fn apply(ctx: &egui::Context, p: Palette) {
 static BUNDLED_ICONS: AtomicBool = AtomicBool::new(false);
 
 /// Everywhere but Windows, and on a Windows without its icon font, the app draws with the icons it
-/// brings along. Test hook: BOLT_TEST_BUNDLED_ICONS=1 shows them on Windows.
+/// brings along. Test hook: DALERIS_TEST_BUNDLED_ICONS=1 shows them on Windows.
 pub fn prefers_bundled_icons() -> bool {
-    !cfg!(windows) || std::env::var_os("BOLT_TEST_BUNDLED_ICONS").is_some()
+    !cfg!(windows) || std::env::var_os("DALERIS_TEST_BUNDLED_ICONS").is_some()
 }
 
 pub fn icon_family() -> FontFamily {

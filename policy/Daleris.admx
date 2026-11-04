@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <policyDefinitions xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
   <policyNamespaces>
-    <target prefix="boltexplorer" namespace="BoltExplorer.Policies.BoltExplorer" />
+    <target prefix="daleris" namespace="Daleris.Policies.Daleris" />
   </policyNamespaces>
   <resources minRequiredRevision="1.0" />
   <supportedOn>
@@ -10,84 +10,84 @@
     </definitions>
   </supportedOn>
   <categories>
-    <category name="BoltExplorer" displayName="$(string.BoltExplorer)" />
-    <category name="Fixed" displayName="$(string.CatFixed)"><parentCategory ref="BoltExplorer" /></category>
-    <category name="Recommended" displayName="$(string.CatRecommended)"><parentCategory ref="BoltExplorer" /></category>
+    <category name="Daleris" displayName="$(string.Daleris)" />
+    <category name="Fixed" displayName="$(string.CatFixed)"><parentCategory ref="Daleris" /></category>
+    <category name="Recommended" displayName="$(string.CatRecommended)"><parentCategory ref="Daleris" /></category>
   </categories>
   <policies>
-    <policy name="Fixed_ShowHiddenItems" class="Both" displayName="$(string.ShowHiddenItems)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="ShowHiddenItems">
+    <policy name="Fixed_ShowHiddenItems" class="Both" displayName="$(string.ShowHiddenItems)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ShowHiddenItems">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_ShowPreviewPane" class="Both" displayName="$(string.ShowPreviewPane)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="ShowPreviewPane">
+    <policy name="Fixed_ShowPreviewPane" class="Both" displayName="$(string.ShowPreviewPane)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ShowPreviewPane">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_ShowFileExtensions" class="Both" displayName="$(string.ShowFileExtensions)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="ShowFileExtensions">
+    <policy name="Fixed_ShowFileExtensions" class="Both" displayName="$(string.ShowFileExtensions)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ShowFileExtensions">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_CustomTitleBar" class="Both" displayName="$(string.CustomTitleBar)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="CustomTitleBar">
+    <policy name="Fixed_CustomTitleBar" class="Both" displayName="$(string.CustomTitleBar)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="CustomTitleBar">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_TitleBarLogo" class="Both" displayName="$(string.TitleBarLogo)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="TitleBarLogo">
+    <policy name="Fixed_TitleBarLogo" class="Both" displayName="$(string.TitleBarLogo)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="TitleBarLogo">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_TitleBarName" class="Both" displayName="$(string.TitleBarName)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="TitleBarName">
+    <policy name="Fixed_TitleBarName" class="Both" displayName="$(string.TitleBarName)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="TitleBarName">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_TitleBarSettingsButton" class="Both" displayName="$(string.TitleBarSettingsButton)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="TitleBarSettingsButton">
+    <policy name="Fixed_TitleBarSettingsButton" class="Both" displayName="$(string.TitleBarSettingsButton)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="TitleBarSettingsButton">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_ReopenTabs" class="Both" displayName="$(string.ReopenTabs)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="ReopenTabs">
+    <policy name="Fixed_ReopenTabs" class="Both" displayName="$(string.ReopenTabs)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ReopenTabs">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_WindowsPropertiesDialog" class="Both" displayName="$(string.WindowsPropertiesDialog)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="WindowsPropertiesDialog">
+    <policy name="Fixed_WindowsPropertiesDialog" class="Both" displayName="$(string.WindowsPropertiesDialog)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="WindowsPropertiesDialog">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_FolderSizes" class="Both" displayName="$(string.FolderSizes)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="FolderSizes">
+    <policy name="Fixed_FolderSizes" class="Both" displayName="$(string.FolderSizes)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="FolderSizes">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="SearchSubfolders">
+    <policy name="Fixed_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSubfolders">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_SearchRegex" class="Both" displayName="$(string.SearchRegex)" explainText="$(string.ExplainFixed)" key="Software\Policies\BoltExplorer" valueName="SearchRegex">
+    <policy name="Fixed_SearchRegex" class="Both" displayName="$(string.SearchRegex)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchRegex">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_DefaultView" class="Both" displayName="$(string.DefaultView)" explainText="$(string.ExplainFixed)" presentation="$(presentation.DefaultView)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_DefaultView" class="Both" displayName="$(string.DefaultView)" explainText="$(string.ExplainFixed)" presentation="$(presentation.DefaultView)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="DefaultView" valueName="DefaultView">
@@ -95,7 +95,7 @@
         <item displayName="$(string.LargeIcons)"><value><decimal value="1" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Fixed_Theme" class="Both" displayName="$(string.Theme)" explainText="$(string.ExplainFixed)" presentation="$(presentation.Theme)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_Theme" class="Both" displayName="$(string.Theme)" explainText="$(string.ExplainFixed)" presentation="$(presentation.Theme)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="Theme" valueName="Theme">
@@ -104,7 +104,7 @@
         <item displayName="$(string.Light)"><value><decimal value="2" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Fixed_AccentColor" class="Both" displayName="$(string.AccentColor)" explainText="$(string.ExplainFixed)" presentation="$(presentation.AccentColor)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_AccentColor" class="Both" displayName="$(string.AccentColor)" explainText="$(string.ExplainFixed)" presentation="$(presentation.AccentColor)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="AccentColor" valueName="AccentColor">
@@ -118,7 +118,7 @@
         <item displayName="$(string.Accent6)"><value><decimal value="6" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Fixed_RowHeight" class="Both" displayName="$(string.RowHeight)" explainText="$(string.ExplainFixed)" presentation="$(presentation.RowHeight)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_RowHeight" class="Both" displayName="$(string.RowHeight)" explainText="$(string.ExplainFixed)" presentation="$(presentation.RowHeight)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="RowHeight" valueName="RowHeight">
@@ -127,128 +127,128 @@
         <item displayName="$(string.Comfortable)"><value><decimal value="2" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Fixed_IconPack" class="Both" displayName="$(string.IconPack)" explainText="$(string.IconPackExplain_ExplainFixed)" presentation="$(presentation.IconPack)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_IconPack" class="Both" displayName="$(string.IconPack)" explainText="$(string.IconPackExplain_ExplainFixed)" presentation="$(presentation.IconPack)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="IconPack" valueName="IconPack" /></elements>
     </policy>
-    <policy name="Fixed_RibbonLeft" class="Both" displayName="$(string.RibbonLeft)" explainText="$(string.RibbonLeftExplain_ExplainFixed)" presentation="$(presentation.RibbonLeft)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_RibbonLeft" class="Both" displayName="$(string.RibbonLeft)" explainText="$(string.RibbonLeftExplain_ExplainFixed)" presentation="$(presentation.RibbonLeft)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="RibbonLeft" valueName="RibbonLeft" /></elements>
     </policy>
-    <policy name="Fixed_RibbonRight" class="Both" displayName="$(string.RibbonRight)" explainText="$(string.RibbonRightExplain_ExplainFixed)" presentation="$(presentation.RibbonRight)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_RibbonRight" class="Both" displayName="$(string.RibbonRight)" explainText="$(string.RibbonRightExplain_ExplainFixed)" presentation="$(presentation.RibbonRight)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="RibbonRight" valueName="RibbonRight" /></elements>
     </policy>
-    <policy name="Fixed_RibbonHidden" class="Both" displayName="$(string.RibbonHidden)" explainText="$(string.RibbonHiddenExplain_ExplainFixed)" presentation="$(presentation.RibbonHidden)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_RibbonHidden" class="Both" displayName="$(string.RibbonHidden)" explainText="$(string.RibbonHiddenExplain_ExplainFixed)" presentation="$(presentation.RibbonHidden)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="RibbonHidden" valueName="RibbonHidden" /></elements>
     </policy>
-    <policy name="Fixed_SidebarHiddenSections" class="Both" displayName="$(string.SidebarHiddenSections)" explainText="$(string.SidebarHiddenSectionsExplain_ExplainFixed)" presentation="$(presentation.SidebarHiddenSections)" key="Software\Policies\BoltExplorer">
+    <policy name="Fixed_SidebarHiddenSections" class="Both" displayName="$(string.SidebarHiddenSections)" explainText="$(string.SidebarHiddenSectionsExplain_ExplainFixed)" presentation="$(presentation.SidebarHiddenSections)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="SidebarHiddenSections" valueName="SidebarHiddenSections" /></elements>
     </policy>
-    <policy name="LockRibbon" class="Both" displayName="$(string.LockRibbon)" explainText="$(string.LockRibbonExplain)" key="Software\Policies\BoltExplorer" valueName="LockRibbon">
+    <policy name="LockRibbon" class="Both" displayName="$(string.LockRibbon)" explainText="$(string.LockRibbonExplain)" key="Software\Policies\Daleris" valueName="LockRibbon">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="LockSidebar" class="Both" displayName="$(string.LockSidebar)" explainText="$(string.LockSidebarExplain)" key="Software\Policies\BoltExplorer" valueName="LockSidebar">
+    <policy name="LockSidebar" class="Both" displayName="$(string.LockSidebar)" explainText="$(string.LockSidebarExplain)" key="Software\Policies\Daleris" valueName="LockSidebar">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="LockContextMenu" class="Both" displayName="$(string.LockContextMenu)" explainText="$(string.LockContextMenuExplain)" key="Software\Policies\BoltExplorer" valueName="LockContextMenu">
+    <policy name="LockContextMenu" class="Both" displayName="$(string.LockContextMenu)" explainText="$(string.LockContextMenuExplain)" key="Software\Policies\Daleris" valueName="LockContextMenu">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="DisableCustomCommands" class="Both" displayName="$(string.DisableCustomCommands)" explainText="$(string.DisableCustomCommandsExplain)" key="Software\Policies\BoltExplorer" valueName="DisableCustomCommands">
+    <policy name="DisableCustomCommands" class="Both" displayName="$(string.DisableCustomCommands)" explainText="$(string.DisableCustomCommandsExplain)" key="Software\Policies\Daleris" valueName="DisableCustomCommands">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_ShowHiddenItems" class="Both" displayName="$(string.ShowHiddenItems)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="ShowHiddenItems">
+    <policy name="Rec_ShowHiddenItems" class="Both" displayName="$(string.ShowHiddenItems)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ShowHiddenItems">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_ShowPreviewPane" class="Both" displayName="$(string.ShowPreviewPane)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="ShowPreviewPane">
+    <policy name="Rec_ShowPreviewPane" class="Both" displayName="$(string.ShowPreviewPane)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ShowPreviewPane">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_ShowFileExtensions" class="Both" displayName="$(string.ShowFileExtensions)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="ShowFileExtensions">
+    <policy name="Rec_ShowFileExtensions" class="Both" displayName="$(string.ShowFileExtensions)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ShowFileExtensions">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_CustomTitleBar" class="Both" displayName="$(string.CustomTitleBar)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="CustomTitleBar">
+    <policy name="Rec_CustomTitleBar" class="Both" displayName="$(string.CustomTitleBar)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="CustomTitleBar">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_TitleBarLogo" class="Both" displayName="$(string.TitleBarLogo)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="TitleBarLogo">
+    <policy name="Rec_TitleBarLogo" class="Both" displayName="$(string.TitleBarLogo)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="TitleBarLogo">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_TitleBarName" class="Both" displayName="$(string.TitleBarName)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="TitleBarName">
+    <policy name="Rec_TitleBarName" class="Both" displayName="$(string.TitleBarName)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="TitleBarName">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_TitleBarSettingsButton" class="Both" displayName="$(string.TitleBarSettingsButton)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="TitleBarSettingsButton">
+    <policy name="Rec_TitleBarSettingsButton" class="Both" displayName="$(string.TitleBarSettingsButton)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="TitleBarSettingsButton">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_ReopenTabs" class="Both" displayName="$(string.ReopenTabs)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="ReopenTabs">
+    <policy name="Rec_ReopenTabs" class="Both" displayName="$(string.ReopenTabs)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ReopenTabs">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_WindowsPropertiesDialog" class="Both" displayName="$(string.WindowsPropertiesDialog)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="WindowsPropertiesDialog">
+    <policy name="Rec_WindowsPropertiesDialog" class="Both" displayName="$(string.WindowsPropertiesDialog)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="WindowsPropertiesDialog">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_FolderSizes" class="Both" displayName="$(string.FolderSizes)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="FolderSizes">
+    <policy name="Rec_FolderSizes" class="Both" displayName="$(string.FolderSizes)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="FolderSizes">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="SearchSubfolders">
+    <policy name="Rec_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSubfolders">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_SearchRegex" class="Both" displayName="$(string.SearchRegex)" explainText="$(string.ExplainRecommended)" key="Software\Policies\BoltExplorer\Recommended" valueName="SearchRegex">
+    <policy name="Rec_SearchRegex" class="Both" displayName="$(string.SearchRegex)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchRegex">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_DefaultView" class="Both" displayName="$(string.DefaultView)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.DefaultView)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_DefaultView" class="Both" displayName="$(string.DefaultView)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.DefaultView)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="DefaultView" valueName="DefaultView">
@@ -256,7 +256,7 @@
         <item displayName="$(string.LargeIcons)"><value><decimal value="1" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Rec_Theme" class="Both" displayName="$(string.Theme)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.Theme)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_Theme" class="Both" displayName="$(string.Theme)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.Theme)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="Theme" valueName="Theme">
@@ -265,7 +265,7 @@
         <item displayName="$(string.Light)"><value><decimal value="2" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Rec_AccentColor" class="Both" displayName="$(string.AccentColor)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.AccentColor)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_AccentColor" class="Both" displayName="$(string.AccentColor)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.AccentColor)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="AccentColor" valueName="AccentColor">
@@ -279,7 +279,7 @@
         <item displayName="$(string.Accent6)"><value><decimal value="6" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Rec_RowHeight" class="Both" displayName="$(string.RowHeight)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.RowHeight)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_RowHeight" class="Both" displayName="$(string.RowHeight)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.RowHeight)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><enum id="RowHeight" valueName="RowHeight">
@@ -288,27 +288,27 @@
         <item displayName="$(string.Comfortable)"><value><decimal value="2" /></value></item>
       </enum></elements>
     </policy>
-    <policy name="Rec_IconPack" class="Both" displayName="$(string.IconPack)" explainText="$(string.IconPackExplain_ExplainRecommended)" presentation="$(presentation.IconPack)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_IconPack" class="Both" displayName="$(string.IconPack)" explainText="$(string.IconPackExplain_ExplainRecommended)" presentation="$(presentation.IconPack)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="IconPack" valueName="IconPack" /></elements>
     </policy>
-    <policy name="Rec_RibbonLeft" class="Both" displayName="$(string.RibbonLeft)" explainText="$(string.RibbonLeftExplain_ExplainRecommended)" presentation="$(presentation.RibbonLeft)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_RibbonLeft" class="Both" displayName="$(string.RibbonLeft)" explainText="$(string.RibbonLeftExplain_ExplainRecommended)" presentation="$(presentation.RibbonLeft)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="RibbonLeft" valueName="RibbonLeft" /></elements>
     </policy>
-    <policy name="Rec_RibbonRight" class="Both" displayName="$(string.RibbonRight)" explainText="$(string.RibbonRightExplain_ExplainRecommended)" presentation="$(presentation.RibbonRight)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_RibbonRight" class="Both" displayName="$(string.RibbonRight)" explainText="$(string.RibbonRightExplain_ExplainRecommended)" presentation="$(presentation.RibbonRight)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="RibbonRight" valueName="RibbonRight" /></elements>
     </policy>
-    <policy name="Rec_RibbonHidden" class="Both" displayName="$(string.RibbonHidden)" explainText="$(string.RibbonHiddenExplain_ExplainRecommended)" presentation="$(presentation.RibbonHidden)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_RibbonHidden" class="Both" displayName="$(string.RibbonHidden)" explainText="$(string.RibbonHiddenExplain_ExplainRecommended)" presentation="$(presentation.RibbonHidden)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="RibbonHidden" valueName="RibbonHidden" /></elements>
     </policy>
-    <policy name="Rec_SidebarHiddenSections" class="Both" displayName="$(string.SidebarHiddenSections)" explainText="$(string.SidebarHiddenSectionsExplain_ExplainRecommended)" presentation="$(presentation.SidebarHiddenSections)" key="Software\Policies\BoltExplorer\Recommended">
+    <policy name="Rec_SidebarHiddenSections" class="Both" displayName="$(string.SidebarHiddenSections)" explainText="$(string.SidebarHiddenSectionsExplain_ExplainRecommended)" presentation="$(presentation.SidebarHiddenSections)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="SidebarHiddenSections" valueName="SidebarHiddenSections" /></elements>

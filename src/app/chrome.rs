@@ -13,14 +13,14 @@ impl App {
                 // title-bar parts (each can be switched off in Settings › Appearance)
                 let mut left_w = 0.0;
                 if custom && (self.settings.title_logo || self.settings.title_name) {
-                    let name_w = if self.settings.title_name { ui.fonts(|f| f.layout_no_wrap("Bolt Explorer".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
+                    let name_w = if self.settings.title_name { ui.fonts(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
                     let logo_w = if self.settings.title_logo { 26.0 } else { 0.0 };
                     let (r, resp) = ui.allocate_exact_size(vec2(logo_w + name_w + 8.0, 40.0), Sense::click_and_drag());
                     if self.settings.title_logo {
                         paint_logo(ui.painter(), Rect::from_center_size(pos2(r.left() + 11.0, r.center().y), vec2(18.0, 18.0)), ACCENT());
                     }
                     if self.settings.title_name {
-                        ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Bolt Explorer", FontId::proportional(13.0), DIM());
+                        ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), DIM());
                     }
                     self.title_drag(ui, &resp);
                     left_w = r.width();

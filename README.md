@@ -1,19 +1,19 @@
 <div align="center">
 
-<img src="assets/logo.png" width="128" alt="Bolt Explorer logo">
+<img src="assets/logo.png" width="128" alt="Daleris logo">
 
-# Bolt Explorer
+# Daleris
 
 **A file explorer built for speed, with everything you expect from a modern one.**
 
 Native, written in Rust, with no web view and no runtime to install.
 
-[![CI](https://github.com/MyDrift-user/bolt-explorer/actions/workflows/ci.yml/badge.svg)](https://github.com/MyDrift-user/bolt-explorer/actions/workflows/ci.yml)
+[![CI](https://github.com/MyDrift-user/daleris/actions/workflows/ci.yml/badge.svg)](https://github.com/MyDrift-user/daleris/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-4CA3FF)
 ![Rust](https://img.shields.io/badge/rust-2021-CE422B?logo=rust&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-egui-4C6EF5)
 
-<img src="assets/screenshot.png" width="800" alt="Bolt Explorer showing a folder with the sidebar and preview pane">
+<img src="assets/screenshot.png" width="800" alt="Daleris showing a folder with the sidebar and preview pane">
 
 </div>
 
@@ -101,7 +101,7 @@ Download what you need from **[Releases](../../releases)**:
 
 Windows is the main platform. The Linux and macOS packages are tested automatically when they're built, but aren't yet tested in daily use. After downloading an AppImage or plain program, make it runnable with `chmod +x`.
 
-Nothing is signed by a known publisher, so SmartScreen may show a warning on Windows. On macOS, run `xattr -dr com.apple.quarantine "/Applications/Bolt Explorer.app"` if it's blocked.
+Nothing is signed by a known publisher, so SmartScreen may show a warning on Windows. On macOS, run `xattr -dr com.apple.quarantine "/Applications/Daleris.app"` if it's blocked.
 
 Bug reports for Linux and macOS are especially welcome.
 
@@ -111,11 +111,11 @@ Settings are a plain text file with one `name=value` per line, also shown under 
 
 | System | Settings and `icon packs` | Log |
 |---|---|---|
-| Linux | `~/.config/bolt-explorer/` | `~/.local/state/bolt-explorer/bolt-explorer.log` |
-| macOS | `~/Library/Application Support/Bolt Explorer/` | `~/Library/Logs/Bolt Explorer/bolt-explorer.log` |
-| Windows | `%APPDATA%\BoltExplorer\` | `%LOCALAPPDATA%\BoltExplorer\logs\bolt-explorer.log` |
+| Linux | `~/.config/daleris/` | `~/.local/state/daleris/daleris.log` |
+| macOS | `~/Library/Application Support/Daleris/` | `~/Library/Logs/Daleris/daleris.log` |
+| Windows | `%APPDATA%\Daleris\` | `%LOCALAPPDATA%\Daleris\logs\daleris.log` |
 
-The log records the system, graphics driver, errors and crashes with a backtrace. Set `BOLT_LOG=debug` for more detail. **When reporting a crash, please attach this file.**
+The log records the system, graphics driver, errors and crashes with a backtrace. Set `DALERIS_LOG=debug` for more detail. **When reporting a crash, please attach this file.**
 
 ## 🛠️ Build from source
 

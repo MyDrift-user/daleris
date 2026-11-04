@@ -1,8 +1,8 @@
 //! Group Policy (GPO and GPP) for the Windows build.
 //!
-//! Fixed settings: `Software\Policies\BoltExplorer`, machine first, then user. They always win
+//! Fixed settings: `Software\Policies\Daleris`, machine first, then user. They always win
 //! and are grayed out in the app. Default settings: the `Recommended` subkey below that, then
-//! `Software\BoltExplorer\Defaults` (for preferences). They apply until the person picks their
+//! `Software\Daleris\Defaults` (for preferences). They apply until the person picks their
 //! own value. Values use the names in `VALUES`; `policy/README.txt` lists them for admins.
 
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -118,7 +118,7 @@ pub fn watch(ctx: eframe::egui::Context) {
     if !cfg!(windows) {
         return;
     }
-    let every = std::env::var("BOLT_TEST_POLICY_POLL_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(30_000);
+    let every = std::env::var("DALERIS_TEST_POLICY_POLL_MS").ok().and_then(|v| v.parse().ok()).unwrap_or(30_000);
     let _ = std::thread::Builder::new().name("policy".into()).spawn(move || loop {
         std::thread::sleep(std::time::Duration::from_millis(every));
         let new = read();
@@ -138,9 +138,9 @@ fn read() -> Policy {
 #[cfg(windows)]
 fn read() -> Policy {
     use windows::Win32::System::Registry::{HKEY, HKEY_CURRENT_USER, HKEY_LOCAL_MACHINE};
-    const POLICY: &str = r"Software\Policies\BoltExplorer";
-    const RECOMMENDED: &str = r"Software\Policies\BoltExplorer\Recommended";
-    const DEFAULTS: &str = r"Software\BoltExplorer\Defaults";
+    const POLICY: &str = r"Software\Policies\Daleris";
+    const RECOMMENDED: &str = r"Software\Policies\Daleris\Recommended";
+    const DEFAULTS: &str = r"Software\Daleris\Defaults";
     let mut fixed_at: Vec<(HKEY, String)> = vec![(HKEY_LOCAL_MACHINE, POLICY.into()), (HKEY_CURRENT_USER, POLICY.into())];
     let mut default_at: Vec<(HKEY, String)> = vec![
         (HKEY_LOCAL_MACHINE, RECOMMENDED.into()),
@@ -149,7 +149,7 @@ fn read() -> Policy {
         (HKEY_CURRENT_USER, DEFAULTS.into()),
     ];
     // test hook: extra keys after the real ones, so it can only add to a policy, never overrule it
-    if let Ok(test) = std::env::var("BOLT_TEST_POLICY_KEY") {
+    if let Ok(test) = std::env::var("DALERIS_TEST_POLICY_KEY") {
         fixed_at.push((HKEY_CURRENT_USER, test.clone()));
         default_at.push((HKEY_CURRENT_USER, format!(r"{test}\Recommended")));
         default_at.push((HKEY_CURRENT_USER, format!(r"{test}\Defaults")));

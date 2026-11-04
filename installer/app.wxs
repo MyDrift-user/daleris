@@ -1,17 +1,17 @@
 <!-- Built by the Release workflow: wix build -arch x64 -d Version=x.y.z -o name.msi installer\app.wxs -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="Bolt Explorer" Manufacturer="MyDrift" Version="$(var.Version)" UpgradeCode="A87468C2-85E0-4FB0-9878-BF6064FC3D7F" Scope="perMachine">
-    <MajorUpgrade DowngradeErrorMessage="A newer version of Bolt Explorer is already installed." />
+  <Package Name="Daleris" Manufacturer="MyDrift" Version="$(var.Version)" UpgradeCode="A87468C2-85E0-4FB0-9878-BF6064FC3D7F" Scope="perMachine">
+    <MajorUpgrade DowngradeErrorMessage="A newer version of Daleris is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="app.ico" SourceFile="assets\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="app.ico" />
-    <Property Id="ARPURLINFOABOUT" Value="https://github.com/MyDrift-user/bolt-explorer" />
+    <Property Id="ARPURLINFOABOUT" Value="https://github.com/MyDrift-user/daleris" />
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="Bolt Explorer" />
+      <Directory Id="INSTALLFOLDER" Name="Daleris" />
     </StandardDirectory>
     <Component Directory="INSTALLFOLDER">
-      <File Source="target\release\bolt-explorer.exe" KeyPath="yes">
-        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Bolt Explorer" WorkingDirectory="INSTALLFOLDER" Icon="app.ico" Advertise="yes" />
+      <File Source="target\release\daleris.exe" KeyPath="yes">
+        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="INSTALLFOLDER" Icon="app.ico" Advertise="yes" />
       </File>
     </Component>
   </Package>

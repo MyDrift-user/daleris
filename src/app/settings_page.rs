@@ -288,7 +288,7 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             heading(ui, "Title bar", "The bar with the tabs at the top of the window.");
-            if managed_toggle(ui, &mut self.settings.title_custom, "title_custom", if cfg!(windows) { "Use the Bolt Explorer title bar (off = standard Windows title bar)" } else { "Use the Bolt Explorer title bar (off = the system's own title bar)" }) {
+            if managed_toggle(ui, &mut self.settings.title_custom, "title_custom", if cfg!(windows) { "Use the Daleris title bar (off = standard Windows title bar)" } else { "Use the Daleris title bar (off = the system's own title bar)" }) {
                 self.set_titlebar();
                 self.save_settings();
             }
@@ -307,7 +307,7 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
-            let mut packs: Vec<(String, String)> = vec![("flat".into(), "Bolt (built-in)".into())];
+            let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris (built-in)".into())];
             if !prefers_bundled_icons() {
                 packs.insert(0, ("system".into(), "Windows (system icons)".into()));
             }
@@ -684,7 +684,7 @@ impl App {
         let log = crate::logging::path().cloned();
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Settings file & log", "Settings are a plain text file. If Bolt Explorer crashes, the details are in the log.");
+            heading(ui, "Settings file & log", "Settings are a plain text file. If Daleris crashes, the details are in the log.");
             for (label, file, button) in [("Settings", settings, "Open settings folder"), ("Log", log, "Open log folder")] {
                 ui.horizontal(|ui| {
                     ui.add_sized(vec2(60.0, 24.0), egui::Label::new(label));
@@ -718,9 +718,9 @@ impl App {
                 self.tabs.iter_mut().for_each(|t| t.dirty = true);
                 ch = true;
             }
-            ch |= managed_toggle(ui, &mut self.settings.restore_tabs, "restore_tabs2", "Reopen my tabs when Bolt Explorer starts");
+            ch |= managed_toggle(ui, &mut self.settings.restore_tabs, "restore_tabs2", "Reopen my tabs when Daleris starts");
             if shell::HAS_NATIVE_PROPERTIES {
-                ch |= managed_toggle(ui, &mut self.settings.native_props, "native_props", "Use the Windows Properties dialog instead of Bolt Explorer's");
+                ch |= managed_toggle(ui, &mut self.settings.native_props, "native_props", "Use the Windows Properties dialog instead of Daleris's");
             }
             ui.add_space(8.0);
             ui.horizontal(|ui| {

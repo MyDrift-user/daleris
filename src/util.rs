@@ -12,25 +12,35 @@ fn env_dir(var: &str) -> Option<PathBuf> {
 }
 
 /// Where the settings file and icon packs live:
-/// `%APPDATA%\BoltExplorer`, `~/Library/Application Support/Bolt Explorer` or `~/.config/bolt-explorer`.
+/// `%APPDATA%\Daleris`, `~/Library/Application Support/Daleris` or `~/.config/daleris`.
 pub fn config_dir() -> Option<PathBuf> {
     #[cfg(windows)]
-    return std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("BoltExplorer"));
+    return std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("Daleris"));
     #[cfg(target_os = "macos")]
-    return env_dir("HOME").map(|h| h.join("Library/Application Support/Bolt Explorer"));
+    return env_dir("HOME").map(|h| h.join("Library/Application Support/Daleris"));
     #[cfg(not(any(windows, target_os = "macos")))]
-    return env_dir("XDG_CONFIG_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".config"))).map(|d| d.join("bolt-explorer"));
+    return env_dir("XDG_CONFIG_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".config"))).map(|d| d.join("daleris"));
+}
+
+/// Brings along the settings from when the app was called Bolt Explorer. Only Windows saved any then.
+pub fn adopt_old_settings() {
+    #[cfg(windows)]
+    if let Some(new) = config_dir().filter(|d| !d.exists()) {
+        if let Some(old) = new.parent().map(|p| p.join("BoltExplorer")).filter(|d| d.is_dir()) {
+            let _ = std::fs::rename(old, new);
+        }
+    }
 }
 
 /// Where the log goes:
-/// `%LOCALAPPDATA%\BoltExplorer\logs`, `~/Library/Logs/Bolt Explorer` or `~/.local/state/bolt-explorer`.
+/// `%LOCALAPPDATA%\Daleris\logs`, `~/Library/Logs/Daleris` or `~/.local/state/daleris`.
 pub fn log_dir() -> Option<PathBuf> {
     #[cfg(windows)]
-    return std::env::var_os("LOCALAPPDATA").map(|a| PathBuf::from(a).join("BoltExplorer").join("logs"));
+    return std::env::var_os("LOCALAPPDATA").map(|a| PathBuf::from(a).join("Daleris").join("logs"));
     #[cfg(target_os = "macos")]
-    return env_dir("HOME").map(|h| h.join("Library/Logs/Bolt Explorer"));
+    return env_dir("HOME").map(|h| h.join("Library/Logs/Daleris"));
     #[cfg(not(any(windows, target_os = "macos")))]
-    return env_dir("XDG_STATE_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".local/state"))).map(|d| d.join("bolt-explorer"));
+    return env_dir("XDG_STATE_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".local/state"))).map(|d| d.join("daleris"));
 }
 
 /// Null-terminated UTF-16 for Win32 calls.

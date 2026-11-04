@@ -409,14 +409,14 @@ const RIBBON_ITEMS: [(&str, &str, &str); 14] = [
 const RIBBON_LEFT: [&str; 10] = ["new", "sep1", "cut", "copy", "paste", "rename", "delete", "sep2", "sort", "view"];
 const RIBBON_RIGHT: [&str; 4] = ["more", "terminal", "hidden", "preview"];
 
-/// Test hook: BOLT_TEST_SETTINGS=1 makes a screenshot run read and write the settings file like a
+/// Test hook: DALERIS_TEST_SETTINGS=1 makes a screenshot run read and write the settings file like a
 /// normal run (point APPDATA at a scratch folder first).
 fn test_real_settings() -> bool {
-    std::env::var_os("BOLT_TEST_SETTINGS").is_some()
+    std::env::var_os("DALERIS_TEST_SETTINGS").is_some()
 }
 
 /// Top of the settings file. Holds no equals sign, as lines without one are skipped when reading.
-const SETTINGS_HEADER: &str = "# Bolt Explorer settings. Open windows read this file again when they get focus.\n";
+const SETTINGS_HEADER: &str = "# Daleris settings. Open windows read this file again when they get focus.\n";
 
 /// How a This PC tab is written in the settings file.
 
@@ -425,7 +425,7 @@ const THIS_PC_TAB: &str = "::thispc";
 /// Should the window start without the Windows frame (our own title bar)?
 /// Decided before the window exists so the frame never has to be swapped at start-up.
 pub fn starts_with_custom_titlebar(screenshot: bool) -> bool {
-    if std::env::var("BOLT_TEST_NATIVE_TITLE").is_ok() {
+    if std::env::var("DALERIS_TEST_NATIVE_TITLE").is_ok() {
         return false;
     }
     if screenshot && !test_real_settings() {
@@ -861,11 +861,11 @@ impl App {
         let (tx, rx) = channel();
         let places = fsx::known_folders();
         let mut settings = if screenshot.is_some() && !test_real_settings() { Settings::defaults() } else { Settings::load() };
-        if std::env::var("BOLT_TEST_NATIVE_TITLE").is_ok() {
+        if std::env::var("DALERIS_TEST_NATIVE_TITLE").is_ok() {
             settings.title_custom = false;
         }
         policy::watch(cc.egui_ctx.clone());
-        if std::env::var("BOLT_VIEW").as_deref() == Ok("icons") {
+        if std::env::var("DALERIS_VIEW").as_deref() == Ok("icons") {
             settings.view = View::Icons;
         }
         let home = places.iter().find(|p| p.name == "Home").map(|p| p.path.clone()).unwrap_or_else(|| PathBuf::from("C:\\"));
@@ -934,14 +934,14 @@ impl App {
             app.open_tab(l, false);
         }
         app.active = 0;
-        // test hook: BOLT_TEST_PROPS=<path> opens the Properties window
-        if let Ok(p) = std::env::var("BOLT_TEST_PROPS") {
+        // test hook: DALERIS_TEST_PROPS=<path> opens the Properties window
+        if let Ok(p) = std::env::var("DALERIS_TEST_PROPS") {
             if !p.is_empty() {
                 app.open_props(vec![PathBuf::from(p)]);
             }
         }
-        // test hook: BOLT_PAGE=appearance|sidebar|menu|files opens Settings on that page
-        if let Ok(p) = std::env::var("BOLT_PAGE") {
+        // test hook: DALERIS_PAGE=appearance|sidebar|menu|files opens Settings on that page
+        if let Ok(p) = std::env::var("DALERIS_PAGE") {
             app.settings_page = match p.as_str() {
                 "sidebar" => settings_page::Page::Sidebar,
                 "ribbon" => settings_page::Page::Ribbon,
@@ -1759,17 +1759,17 @@ impl eframe::App for App {
         if self.active >= self.tabs.len() {
             self.active = self.tabs.len() - 1;
         }
-        let title = format!("{} · Bolt Explorer", self.tabs[self.active].loc.title());
+        let title = format!("{} · Daleris", self.tabs[self.active].loc.title());
         ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
         self.screenshot(ctx);
     }
 
-    /// Test hook for screenshot runs: BOLT_TEST_CLICK="right:x,y;move:x,y;click:x,y;double:x,y;wheel:x,y" (logical
+    /// Test hook for screenshot runs: DALERIS_TEST_CLICK="right:x,y;move:x,y;click:x,y;double:x,y;wheel:x,y" (logical
     /// points). Each step is sent through egui 20 frames after the previous one (first at frame 60), so a
     /// screenshot shows what real clicks do.
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
         let Some(shot) = &self.shot else { return };
-        let Ok(spec) = std::env::var("BOLT_TEST_CLICK") else { return };
+        let Ok(spec) = std::env::var("DALERIS_TEST_CLICK") else { return };
         let f = shot.frames;
         for (i, step) in spec.split(';').enumerate() {
             let Some((kind, xy)) = step.split_once(':') else { continue };
@@ -1827,7 +1827,7 @@ impl eframe::App for App {
 impl App {
     /// Test runs (screenshots, forced title bar) must never overwrite the person's settings.
     fn writes_settings(&self) -> bool {
-        (self.shot.is_none() || test_real_settings()) && std::env::var_os("BOLT_TEST_NATIVE_TITLE").is_none()
+        (self.shot.is_none() || test_real_settings()) && std::env::var_os("DALERIS_TEST_NATIVE_TITLE").is_none()
     }
 
     /// The open tabs as written in the settings file (id 0 stands in for the active tab during a frame).

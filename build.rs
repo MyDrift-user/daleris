@@ -22,7 +22,7 @@ fn main() {
 #[cfg(windows)]
 fn embed_icon() {
     let mut res = winresource::WindowsResource::new();
-    res.set_icon("assets/icon.ico").set("ProductName", "Bolt Explorer").set("FileDescription", "Bolt Explorer");
+    res.set_icon("assets/icon.ico").set("ProductName", "Daleris").set("FileDescription", "Daleris");
     if let Err(e) = res.compile() {
         println!("cargo:warning=building without the embedded icon: {e}");
     }

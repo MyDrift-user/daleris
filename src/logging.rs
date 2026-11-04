@@ -1,7 +1,7 @@
 //! The log file and crash capture. Panics on any thread go in with a backtrace. On Linux and
 //! macOS so do fatal signals, and, when not started from a terminal, whatever system libraries
 //! print to stderr. A "started" line with no "exited" line after it means the process was killed.
-//! BOLT_LOG=debug or BOLT_LOG=trace logs more.
+//! DALERIS_LOG=debug or DALERIS_LOG=trace logs more.
 
 use std::fs::File;
 use std::io::{IsTerminal, Write};
@@ -52,7 +52,7 @@ impl log::Log for Logger {
 /// The system, desktop and session type are the first things to know about a crash.
 fn log_start() {
     let env = |k: &str| std::env::var(k).unwrap_or_else(|_| "-".into());
-    log::info!("Bolt Explorer {} started on {} {}, arguments: {:?}", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH, std::env::args().skip(1).collect::<Vec<_>>());
+    log::info!("Daleris {} started on {} {}, arguments: {:?}", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH, std::env::args().skip(1).collect::<Vec<_>>());
     if cfg!(target_os = "linux") {
         log::info!(
             "session: XDG_SESSION_TYPE={} XDG_CURRENT_DESKTOP={} WAYLAND_DISPLAY={} DISPLAY={} WINIT_UNIX_BACKEND={}",
@@ -66,16 +66,16 @@ fn log_start() {
 }
 
 pub fn init() {
-    let level = match std::env::var("BOLT_LOG").as_deref() {
+    let level = match std::env::var("DALERIS_LOG").as_deref() {
         Ok("trace") => log::LevelFilter::Trace,
         Ok("debug") => log::LevelFilter::Debug,
         _ => log::LevelFilter::Info,
     };
     if let Some(dir) = crate::util::log_dir() {
         let _ = std::fs::create_dir_all(&dir);
-        let path = dir.join("bolt-explorer.log");
+        let path = dir.join("daleris.log");
         if std::fs::metadata(&path).is_ok_and(|m| m.len() > MAX_SIZE) {
-            let _ = std::fs::rename(&path, dir.join("bolt-explorer.old.log"));
+            let _ = std::fs::rename(&path, dir.join("daleris.old.log"));
         }
         if let Ok(f) = std::fs::OpenOptions::new().create(true).append(true).open(&path) {
             #[cfg(unix)]
@@ -95,10 +95,10 @@ pub fn init() {
     test_crash();
 }
 
-/// Test hook: BOLT_TEST_CRASH=panic or =signal, to check that a crash really reaches the log.
+/// Test hook: DALERIS_TEST_CRASH=panic or =signal, to check that a crash really reaches the log.
 fn test_crash() {
-    match std::env::var("BOLT_TEST_CRASH").as_deref() {
-        Ok("panic") => panic!("test panic from BOLT_TEST_CRASH"),
+    match std::env::var("DALERIS_TEST_CRASH").as_deref() {
+        Ok("panic") => panic!("test panic from DALERIS_TEST_CRASH"),
         #[cfg(unix)]
         // Handlers hand over to the next one and return, which ends things for a real fault as that
         // repeats by itself. A raised signal doesn't, so keep raising it.

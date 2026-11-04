@@ -48,25 +48,25 @@ jobs:
         env:
           DOTNET_ROLL_FORWARD: Major
         run: |
-          $base = "bolt-explorer-v$env:VERSION-windows-x64"
+          $base = "daleris-v$env:VERSION-windows-x64"
           New-Item -ItemType Directory -Force dist | Out-Null
           & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /Q "/DAppVersion=$env:VERSION" "/DOutputName=$base-setup" installer\setup.iss
           if ($LASTEXITCODE) { throw "ISCC failed" }
           wix build -arch x64 -d "Version=$env:VERSION" -o "dist\$base.msi" installer\app.wxs
           if ($LASTEXITCODE) { throw "wix failed" }
           Remove-Item dist/*.wixpdb
-          Copy-Item target\release\bolt-explorer.exe "dist\$base-portable.exe"
-          Compress-Archive -Path target\release\bolt-explorer.exe -DestinationPath "dist\$base.zip"
-          Compress-Archive -Path policy\* -DestinationPath "dist\bolt-explorer-v$env:VERSION-policy-definitions.zip"
+          Copy-Item target\release\daleris.exe "dist\$base-portable.exe"
+          Compress-Archive -Path target\release\daleris.exe -DestinationPath "dist\$base.zip"
+          Compress-Archive -Path policy\* -DestinationPath "dist\daleris-v$env:VERSION-policy-definitions.zip"
 
       - name: Test installers
         shell: pwsh
         run: |
-          $base = "bolt-explorer-v$env:VERSION-windows-x64"
-          $exe = "$env:ProgramFiles\Bolt Explorer\bolt-explorer.exe"
+          $base = "daleris-v$env:VERSION-windows-x64"
+          $exe = "$env:ProgramFiles\Daleris\daleris.exe"
           $p = Start-Process "dist\$base-setup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ALLUSERS' -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path $exe)) { throw "setup.exe did not install" }
-          $p = Start-Process "$env:ProgramFiles\Bolt Explorer\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
+          $p = Start-Process "$env:ProgramFiles\Daleris\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           Start-Sleep -Seconds 5
           if ($p.ExitCode -or (Test-Path $exe)) { throw "setup.exe did not uninstall" }
           $msi = (Resolve-Path "dist\$base.msi").Path
@@ -112,7 +112,7 @@ jobs:
 
       - name: Test packages on clean systems
         run: |
-          base="dist/bolt-explorer-v$VERSION-$NAME"
+          base="dist/daleris-v$VERSION-$NAME"
           check() { docker run --rm -v "$PWD:/w" -w /w "$1" sh installer/linux/test-package.sh "$2" "$3"; }
           check debian:stable "$base.deb" "$NAME-debian-deb"
           check fedora:latest "$base.rpm" "$NAME-fedora-rpm"
@@ -195,4 +195,4 @@ jobs:
           fi
           flags=()
           [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
-          gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Bolt Explorer v$VERSION" --generate-notes "${flags[@]}"
+          gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Daleris v$VERSION" --generate-notes "${flags[@]}"

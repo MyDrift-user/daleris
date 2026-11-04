@@ -177,21 +177,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bolt-explorer"
-version = "0.0.1"
-dependencies = [
- "eframe",
- "egui-phosphor",
- "image",
- "libc",
- "log",
- "png",
- "regex",
- "windows",
- "winresource",
-]
-
-[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -438,6 +423,21 @@ name = "cursor-icon"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
+
+[[package]]
+name = "daleris"
+version = "0.0.1"
+dependencies = [
+ "eframe",
+ "egui-phosphor",
+ "image",
+ "libc",
+ "log",
+ "png",
+ "regex",
+ "windows",
+ "winresource",
+]
 
 [[package]]
 name = "dispatch"

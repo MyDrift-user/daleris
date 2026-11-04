@@ -2,10 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Bolt Explorer</string>
-  <key>CFBundleDisplayName</key><string>Bolt Explorer</string>
-  <key>CFBundleIdentifier</key><string>io.github.mydrift-user.bolt-explorer</string>
-  <key>CFBundleExecutable</key><string>bolt-explorer</string>
+  <key>CFBundleName</key><string>Daleris</string>
+  <key>CFBundleDisplayName</key><string>Daleris</string>
+  <key>CFBundleIdentifier</key><string>io.github.mydrift-user.daleris</string>
+  <key>CFBundleExecutable</key><string>daleris</string>
   <key>CFBundleIconFile</key><string>icon</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleVersion</key><string>__VERSION__</string>

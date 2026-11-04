@@ -1,11 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
-  <displayName>Bolt Explorer</displayName>
-  <description>Bolt Explorer</description>
+  <displayName>Daleris</displayName>
+  <description>Daleris</description>
   <resources>
     <stringTable>
-      <string id="SUPPORTED_ANY">Bolt Explorer unter Windows</string>
-      <string id="BoltExplorer">Bolt Explorer</string>
+      <string id="SUPPORTED_ANY">Daleris unter Windows</string>
+      <string id="Daleris">Daleris</string>
       <string id="CatFixed">Feste Einstellungen (nicht durch Benutzer änderbar)</string>
       <string id="CatRecommended">Standardeinstellungen (durch Benutzer änderbar)</string>
       <string id="ExplainFixed">Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
@@ -13,7 +13,7 @@
       <string id="ShowHiddenItems">Versteckte und Systemelemente anzeigen</string>
       <string id="ShowPreviewPane">Vorschaubereich anzeigen</string>
       <string id="ShowFileExtensions">Dateinamenerweiterungen anzeigen</string>
-      <string id="CustomTitleBar">Titelleiste von Bolt Explorer verwenden</string>
+      <string id="CustomTitleBar">Titelleiste von Daleris verwenden</string>
       <string id="TitleBarLogo">Logo in der Titelleiste anzeigen</string>
       <string id="TitleBarName">App-Namen in der Titelleiste anzeigen</string>
       <string id="TitleBarSettingsButton">Einstellungen-Schaltfläche anzeigen</string>

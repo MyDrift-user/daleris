@@ -561,7 +561,7 @@ unsafe fn helper_window() -> Option<HWND> {
         return Some(h);
     }
     let hinst = GetModuleHandleW(None).ok()?;
-    let cls = w!("BoltExplorerMenuHelper");
+    let cls = w!("DalerisMenuHelper");
     let wc = WNDCLASSEXW {
         cbSize: std::mem::size_of::<WNDCLASSEXW>() as u32,
         lpfnWndProc: Some(helper_proc),
