@@ -5,8 +5,8 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to release, without the v (e.g. 0.1.0)"
-        required: true
+        description: "Version to release, to check it's the one in Cargo.toml (empty: use Cargo.toml's)"
+        required: false
       prerelease:
         description: "Mark as pre-release"
         type: boolean
@@ -19,20 +19,31 @@ on:
 permissions:
   contents: read
 
-env:
-  VERSION: ${{ inputs.version }}
-
 jobs:
-  windows:
-    runs-on: windows-latest
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.read.outputs.version }}
     steps:
       - uses: actions/checkout@v7
-
-      - name: Check version matches Cargo.toml
-        shell: bash
+      - id: read
+        env:
+          WANTED: ${{ inputs.version }}
         run: |
           v=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          [ "$v" = "$VERSION" ] || { echo "Cargo.toml says $v, input says $VERSION"; exit 1; }
+          if [ -n "$WANTED" ] && [ "$v" != "$WANTED" ]; then
+            echo "Cargo.toml says $v, the input says $WANTED"
+            exit 1
+          fi
+          echo "version=$v" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
 
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
@@ -80,6 +91,8 @@ jobs:
           $exe = "$env:ProgramFiles\Daleris\daleris.exe"
           $p = Start-Process "dist\$base-setup.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/ALLUSERS' -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path $exe)) { throw "setup.exe did not install" }
+          schtasks /Query /TN 'Daleris Updater' 2>$null
+          if ($LASTEXITCODE) { throw "setup.exe didn't add the update task" }
           $p = Start-Process "$env:ProgramFiles\Daleris\unins000.exe" -ArgumentList '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART' -Wait -PassThru
           Start-Sleep -Seconds 5
           if ($p.ExitCode -or (Test-Path $exe)) { throw "setup.exe did not uninstall" }
@@ -99,12 +112,25 @@ jobs:
           function Listed { @(Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*' -ErrorAction SilentlyContinue | Where-Object DisplayName -eq 'Daleris') }
           if ((Listed).Count -ne 1) { throw "Windows lists Daleris $((Listed).Count) times" }
 
+          # A PC-wide install gets the task that installs updates silently, and loses it again.
+          function Task { schtasks /Query /TN 'Daleris Updater' 2>$null; $LASTEXITCODE -eq 0 }
+          if (-not (Task)) { throw "The MSI didn't add the update task" }
+
           $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
           if ($p.ExitCode -or (Test-Path $exe) -or (Test-Path "$menu\Daleris.lnk")) { throw "MSI did not uninstall: $($p.ExitCode)" }
+          if (Task) { throw "Uninstalling the MSI left the update task" }
+
+          # For one account: in their own folder, with no task.
+          $own = "$env:LOCALAPPDATA\Programs\Daleris\daleris.exe"
+          $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart','ALLUSERS=2','MSIINSTALLPERUSER=1' -Wait -PassThru
+          if ($p.ExitCode -or -not (Test-Path $own)) { throw "MSI did not install for one account: $($p.ExitCode)" }
+          if (Task) { throw "A per-user MSI added the update task" }
+          $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart','ALLUSERS=2','MSIINSTALLPERUSER=1' -Wait -PassThru
+          if ($p.ExitCode -or (Test-Path $own)) { throw "MSI did not uninstall for one account: $($p.ExitCode)" }
 
           # A chosen folder, without any screens.
           $dir = 'C:\Apps\Daleris Test'
-          $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart',"INSTALLFOLDER=`"$dir`"" -Wait -PassThru
+          $p = Start-Process msiexec -ArgumentList '/i',"`"$msi`"",'/qn','/norestart',"ALLUSERS=1","APPLICATIONFOLDER=`"$dir`"" -Wait -PassThru
           if ($p.ExitCode -or -not (Test-Path "$dir\daleris.exe")) { throw "MSI did not install into a chosen folder: $($p.ExitCode)" }
           $p = Start-Process msiexec -ArgumentList '/x',"`"$msi`"",'/qn','/norestart' -Wait -PassThru
           if ($p.ExitCode -or (Test-Path "$dir\daleris.exe")) { throw "MSI did not uninstall from a chosen folder: $($p.ExitCode)" }
@@ -131,6 +157,7 @@ jobs:
           if-no-files-found: error
 
   linux:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -141,6 +168,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       NAME: ${{ matrix.name }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
 
@@ -186,6 +214,7 @@ jobs:
           path: screens/*
 
   macos:
+    needs: version
     strategy:
       fail-fast: false
       matrix:
@@ -195,6 +224,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     env:
       NAME: ${{ matrix.name }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
@@ -222,11 +252,12 @@ jobs:
           path: screens/*
 
   release:
-    if: inputs.publish
-    needs: [windows, linux, macos]
+    needs: [version, windows, linux, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/download-artifact@v8
         with:
@@ -234,14 +265,39 @@ jobs:
           pattern: release-*
           merge-multiple: true
 
-      - name: Create release, or update the files of an existing one
+      - name: Sign the update list
+        env:
+          UPDATE_KEY: ${{ secrets.DALERIS_UPDATE_KEY }}
+        run: |
+          [ -n "$UPDATE_KEY" ] || { echo "The DALERIS_UPDATE_KEY secret is missing"; exit 1; }
+          cd dist
+          { echo "version $VERSION"; sha256sum -- * | sed -E 's/^([0-9a-f]+) +\*?/file \1 /'; } > latest.json
+          printf '%s\n' "$UPDATE_KEY" > "$RUNNER_TEMP/key.pem"
+          openssl pkeyutl -sign -inkey "$RUNNER_TEMP/key.pem" -rawin -in latest.json -out latest.json.sig
+          rm -f "$RUNNER_TEMP/key.pem"
+          cat latest.json
+          # the program itself has to accept it, with the key built into it
+          binary="$RUNNER_TEMP/daleris"
+          cp "daleris-v$VERSION-linux-x64" "$binary"
+          chmod +x "$binary"
+          HOME="$RUNNER_TEMP" "$binary" --verify-manifest latest.json latest.json.sig
+          echo tampered >> "$RUNNER_TEMP/changed.json"
+          cat latest.json >> "$RUNNER_TEMP/changed.json"
+          if HOME="$RUNNER_TEMP" "$binary" --verify-manifest "$RUNNER_TEMP/changed.json" latest.json.sig; then
+            echo "A changed list was accepted"
+            exit 1
+          fi
+
+      - name: Create release
+        if: inputs.publish
         env:
           GH_TOKEN: ${{ github.token }}
           PRERELEASE: ${{ inputs.prerelease }}
         run: |
+          # People update to the newest number, so a version can't change once it's out.
           if gh release view "v$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --clobber
-            exit 0
+            echo "v$VERSION is already released. Raise the version in Cargo.toml."
+            exit 1
           fi
           flags=()
           [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)

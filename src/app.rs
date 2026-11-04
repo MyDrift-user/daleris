@@ -374,6 +374,7 @@ pub struct Settings {
     side_hidden: HashSet<String>,
     side_order: HashMap<String, Vec<String>>,
     restore_tabs: bool,
+    auto_update: bool,
     /// use the Windows Properties dialog instead of ours
     native_props: bool,
     /// show each folder's total size (counted in the background)
@@ -461,6 +462,7 @@ impl Settings {
             side_hidden: HashSet::new(),
             side_order: HashMap::new(),
             restore_tabs: false,
+            auto_update: true,
             native_props: false,
             folder_sizes: true,
             col_w: HashMap::new(),
@@ -573,13 +575,14 @@ impl Settings {
             "title_name2" => self.title_name = on,
             "title_gear" => self.title_gear = on,
             "restore_tabs2" => self.restore_tabs = on,
+            "auto_update" => self.auto_update = on,
             _ => return false,
         }
         true
     }
 
     /// The simple values as the settings file writes them.
-    fn value_lines(&self) -> [(&'static str, String); 20] {
+    fn value_lines(&self) -> [(&'static str, String); 21] {
         let b = |x: bool| (x as u8).to_string();
         let mut off: Vec<&str> = self.ribbon_hidden.iter().map(|s| s.as_str()).collect();
         off.sort();
@@ -597,6 +600,7 @@ impl Settings {
             ("title_name2", b(self.title_name)),
             ("title_gear", b(self.title_gear)),
             ("restore_tabs2", b(self.restore_tabs)),
+            ("auto_update", b(self.auto_update)),
             ("native_props", b(self.native_props)),
             ("folder_sizes", b(self.folder_sizes)),
             ("nested_search", b(self.nested_search)),
@@ -822,6 +826,8 @@ pub struct App {
     editing_address: Option<String>,
     focus_address: bool,
     shot: Option<Shot>,
+    updater: Option<crate::update::Updater>,
+    auto_update_on: Arc<AtomicBool>,
     /// The title the window has, as sending one also asks for another frame.
     window_title: String,
     #[cfg_attr(not(windows), allow(dead_code))]
@@ -874,6 +880,9 @@ impl App {
             settings.view = View::Icons;
         }
         let home = places.iter().find(|p| p.name == "Home").map(|p| p.path.clone()).unwrap_or_else(|| PathBuf::from("C:\\"));
+        let auto_update_on = Arc::new(AtomicBool::new(settings.auto_update));
+        // test runs must never look for updates
+        let updater = screenshot.is_none().then(|| crate::update::Updater::start(cc.egui_ctx.clone(), auto_update_on.clone()));
         let mut app = App {
             tabs: Vec::new(),
             active: 0,
@@ -898,6 +907,8 @@ impl App {
             editing_address: None,
             focus_address: false,
             shot: screenshot.map(|path| Shot { path, frames: 0, requested: false }),
+            updater,
+            auto_update_on: auto_update_on.clone(),
             window_title: String::new(),
             ctrl_v_down: false,
             acts: Vec::new(),
@@ -1764,6 +1775,7 @@ impl eframe::App for App {
         if self.active >= self.tabs.len() {
             self.active = self.tabs.len() - 1;
         }
+        self.auto_update_on.store(self.settings.auto_update, Ordering::Relaxed);
         let title = format!("{} · Daleris", self.tabs[self.active].loc.title());
         if title != self.window_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
@@ -1831,6 +1843,9 @@ impl eframe::App for App {
             Settings::load().save(&self.tab_list());
         } else {
             self.save_settings();
+        }
+        if let Some(updater) = &self.updater {
+            updater.run_pending_on_exit();
         }
     }
 }

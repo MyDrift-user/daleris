@@ -17,6 +17,7 @@ mod shell;
 #[path = "shell_unix.rs"]
 mod shell;
 mod theme;
+mod update;
 mod util;
 
 use std::path::PathBuf;
@@ -24,6 +25,10 @@ use std::path::PathBuf;
 fn main() -> eframe::Result<()> {
     logging::init();
     util::adopt_old_settings();
+    update::clean_after_update();
+    if let Some(code) = update::handle_command_line() {
+        std::process::exit(code);
+    }
     // The same ID as the installers' shortcuts, so the taskbar treats the window and shortcut as one app.
     #[cfg(windows)]
     unsafe {

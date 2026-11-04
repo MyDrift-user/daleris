@@ -22,6 +22,7 @@
       <string id="FolderSizes">Ordnergrößen anzeigen</string>
       <string id="SearchSubfolders">Unterordner durchsuchen</string>
       <string id="SearchRegex">Suche als regulären Ausdruck behandeln</string>
+      <string id="AutomaticUpdates">Updates automatisch installieren</string>
       <string id="DefaultView">Standardansicht</string>
       <string id="Details">Details</string>
       <string id="LargeIcons">Große Symbole</string>

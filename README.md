@@ -100,11 +100,16 @@ Download what you need from **[Releases](../../releases)**:
 | | `...-macos-*.pkg` | Installer, for managed deployment |
 | | `...-macos-*`, `...-macos-*.tar.gz` | Program, or the same in an archive |
 
-To install on Windows without any screens, from an administrator prompt (the folder is optional):
+Both Windows installers can install for this PC or for just your account. To install without any screens:
 
 ```bat
-msiexec /i daleris-v0.0.1-windows-x64.msi /qn INSTALLFOLDER="D:\Apps\Daleris"
-daleris-v0.0.1-windows-x64-setup.exe /VERYSILENT /ALLUSERS /DIR="D:\Apps\Daleris"
+:: For this PC, from an administrator prompt. The folder is optional.
+msiexec /i daleris-windows-x64.msi /qn ALLUSERS=1 APPLICATIONFOLDER="D:\Apps\Daleris"
+daleris-windows-x64-setup.exe /VERYSILENT /ALLUSERS /DIR="D:\Apps\Daleris"
+
+:: For one account, without admin rights.
+msiexec /i daleris-windows-x64.msi /qn ALLUSERS=2 MSIINSTALLPERUSER=1
+daleris-windows-x64-setup.exe /VERYSILENT /CURRENTUSER
 ```
 
 Windows is the main platform. The Linux and macOS packages are tested automatically when they're built, but aren't yet tested in daily use. After downloading an AppImage or plain program, make it runnable with `chmod +x`.
@@ -124,6 +129,19 @@ Settings are a plain text file with one `name=value` per line, also shown under 
 | Windows | `%APPDATA%\Daleris\` | `%LOCALAPPDATA%\Daleris\logs\daleris.log` |
 
 The log records the system, graphics driver, errors and crashes with a backtrace. Set `DALERIS_LOG=debug` for more detail. **When reporting a crash, please attach this file.**
+
+## 🔄 Updates
+
+Daleris looks for a new release at startup and every 6 hours, and installs it by itself unless you turn that off under **Settings → Files & folders → Updates**. How depends on how it's installed:
+
+| Installed as | How updates land |
+|---|---|
+| For one account (MSI or `setup.exe`) | Installed silently when you close Daleris |
+| For this PC (MSI or `setup.exe`) | A scheduled task, `Daleris Updater`, installs it as SYSTEM once Daleris is closed, within about an hour. No admin prompts |
+| Portable, AppImage, macOS app | Replaces itself, in use from the next start |
+| `.deb`, `.rpm`, Arch package | Tells you, then asks for your password when you choose to install |
+
+Every release lists its files' checksums in `latest.json`, signed in `latest.json.sig`. Daleris checks that signature against a key built into it, and refuses anything that doesn't match. Administrators can turn updates off with the **AutomaticUpdates** group policy.
 
 ## 🛠️ Build from source
 
@@ -145,10 +163,12 @@ sudo apt install libxkbcommon-dev libgl1-mesa-dev libwayland-dev libx11-dev
 
 Every push is built on all three systems by the CI workflow. Releases only start by hand:
 
-1. Bump `version` in `Cargo.toml` and push.
-2. Go to **Actions → Release → Run workflow** and enter the same version (e.g. `0.2.0`).
+1. Raise `version` in `Cargo.toml` and push. A version can't change once it's released, because updates go by the number.
+2. Go to **Actions → Release → Run workflow**. Turning off **Publish** only builds and tests, leaving the files on the run.
 
-The workflow builds every download, installs and starts the Linux and macOS packages to test them (Linux on clean distro containers), checks that the Windows installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads. Running it again for a version that's already out adds and replaces that release's files.
+Signing needs the private key in the `DALERIS_UPDATE_KEY` repository secret. If it's ever lost, existing copies can't update any more, so keep a backup.
+
+The workflow builds every download, installs and starts the Linux and macOS packages to test them (Linux on clean distro containers), checks that the Windows installers install and uninstall, tags `v<version>` and publishes a GitHub Release with the downloads. 
 
 ## 🗺️ Project layout
 

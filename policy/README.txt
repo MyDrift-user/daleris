@@ -48,6 +48,7 @@ VALUES
   FolderSizes               DWORD   0 off, 1 on
   SearchSubfolders          DWORD   0 off, 1 on
   SearchRegex               DWORD   0 off, 1 on
+  AutomaticUpdates          DWORD   0 off, 1 on
   RibbonLeft                SZ      ribbon items on the left, in order, separated by |
   RibbonRight               SZ      ribbon items on the right, in order, separated by |
   RibbonHidden              SZ      ribbon items that are switched off, separated by |

@@ -87,6 +87,12 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_AutomaticUpdates" class="Both" displayName="$(string.AutomaticUpdates)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="AutomaticUpdates">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Fixed_DefaultView" class="Both" displayName="$(string.DefaultView)" explainText="$(string.ExplainFixed)" presentation="$(presentation.DefaultView)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />

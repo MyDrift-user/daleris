@@ -1,30 +1,46 @@
 <!-- Built by the Release workflow: wix build -arch x64 -ext WixToolset.UI.wixext -d Version=x.y.z -o name.msi installer\app.wxs
-     Silent install: msiexec /i name.msi /qn [INSTALLFOLDER="D:\Apps\Daleris"] -->
+     Silent, for this PC, from an admin prompt: msiexec /i name.msi /qn ALLUSERS=1 [APPLICATIONFOLDER="D:\Apps\Daleris"]
+     Silent, for one account, no admin needed: msiexec /i name.msi /qn ALLUSERS=2 MSIINSTALLPERUSER=1 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package Name="Daleris" Manufacturer="MyDrift" Version="$(var.Version)" UpgradeCode="A87468C2-85E0-4FB0-9878-BF6064FC3D7F" Scope="perMachine">
+  <Package Name="Daleris" Manufacturer="MyDrift" Version="$(var.Version)" UpgradeCode="A87468C2-85E0-4FB0-9878-BF6064FC3D7F" Scope="perUserOrMachine">
     <!-- Same version too: a rebuilt release must replace the old one, not install next to it. -->
     <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Daleris is already installed." />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="app.ico" SourceFile="assets\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="app.ico" />
     <Property Id="ARPURLINFOABOUT" Value="https://github.com/MyDrift-user/daleris" />
+    <Property Id="ApplicationFolderName" Value="Daleris" />
+    <Property Id="WixAppFolder" Value="WixPerMachineFolder" />
     <WixVariable Id="WixUILicenseRtf" Value="target\license.rtf" />
     <WixVariable Id="WixUIBannerBmp" Value="assets\installer-banner.bmp" />
     <WixVariable Id="WixUIDialogBmp" Value="assets\installer-dialog.bmp" />
-    <ui:WixUI Id="WixUI_InstallDir" InstallDirectory="INSTALLFOLDER" />
+    <ui:WixUI Id="WixUI_Advanced" InstallDirectory="APPLICATIONFOLDER" />
     <StandardDirectory Id="ProgramFiles6432Folder">
-      <Directory Id="INSTALLFOLDER" Name="Daleris" />
+      <Directory Id="APPLICATIONFOLDER" Name="Daleris">
+        <Directory Id="UPDATESFOLDER" Name="updates" />
+      </Directory>
     </StandardDirectory>
-    <Component Directory="INSTALLFOLDER">
+    <Component Directory="APPLICATIONFOLDER">
       <File Source="target\release\daleris.exe" KeyPath="yes">
         <!-- A plain shortcut: an advertised one isn't a real link to the program. The ID matches main.rs.
              It has no Icon of its own, as that's kept in a folder each upgrade deletes, and pins keep pointing there. -->
-        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="INSTALLFOLDER" Advertise="no">
+        <Shortcut Id="StartMenuShortcut" Directory="ProgramMenuFolder" Name="Daleris" WorkingDirectory="APPLICATIONFOLDER" Advertise="no">
           <ShortcutProperty Key="System.AppUserModel.ID" Value="MyDrift.Daleris" />
         </Shortcut>
       </File>
       <File Source="LICENSE" Name="LICENSE.txt" />
       <File Source="THIRD-PARTY-NOTICES.txt" />
+      <RemoveFile Id="RemoveUpdates" Directory="UPDATESFOLDER" Name="*" On="uninstall" />
+      <RemoveFolder Id="RemoveUpdatesFolder" Directory="UPDATESFOLDER" On="uninstall" />
     </Component>
+    <!-- For a PC-wide install: installs updates as SYSTEM, so nobody gets an admin prompt. See src/update.rs. -->
+    <CustomAction Id="CreateUpdateTask" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand='"[SystemFolder]schtasks.exe" /Create /F /TN "Daleris Updater" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR "\"[APPLICATIONFOLDER]daleris.exe\" --update-service"' />
+    <CustomAction Id="DeleteUpdateTask" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
+                  ExeCommand='"[SystemFolder]schtasks.exe" /Delete /F /TN "Daleris Updater"' />
+    <InstallExecuteSequence>
+      <Custom Action="DeleteUpdateTask" Before="RemoveFiles" Condition='ALLUSERS=1 AND REMOVE="ALL"' />
+      <Custom Action="CreateUpdateTask" Before="InstallFinalize" Condition='ALLUSERS=1 AND NOT REMOVE="ALL"' />
+    </InstallExecuteSequence>
   </Package>
 </Wix>

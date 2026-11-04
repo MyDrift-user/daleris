@@ -22,6 +22,7 @@
       <string id="FolderSizes">Show folder sizes</string>
       <string id="SearchSubfolders">Search subfolders</string>
       <string id="SearchRegex">Treat searches as regular expressions</string>
+      <string id="AutomaticUpdates">Install updates automatically</string>
       <string id="DefaultView">Default view</string>
       <string id="Details">Details</string>
       <string id="LargeIcons">Large icons</string>

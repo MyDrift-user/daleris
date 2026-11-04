@@ -214,6 +214,8 @@ impl App {
                         self.page_files(ui);
                         ui.add_space(14.0);
                         self.storage_card(ui);
+                        ui.add_space(14.0);
+                        self.updates_card(ui);
                     }
 
                 }
@@ -677,6 +679,63 @@ impl App {
     }
 
     // ------------------------------------------------------------------ files
+
+    /// The version, whether there's a newer one, and whether to install it without asking.
+    fn updates_card(&mut self, ui: &mut Ui) {
+        use crate::update::{Install, Status};
+        let status = self.updater.as_ref().map_or(Status::Idle, |u| u.status());
+        let install = self.updater.as_ref().map_or(Install::Unmanaged, |u| u.install.clone());
+        let mut clicked_check = false;
+        let mut clicked_install = false;
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Updates", &format!("Daleris {}", crate::update::CURRENT));
+            let how = match &install {
+                Install::PerUser { .. } => "Installed for this account. Updates install silently when you close Daleris.",
+                Install::Machine { .. } => "Installed for this PC. A background task installs updates once Daleris is closed, within about an hour.",
+                Install::Portable(_) | Install::AppImage(_) => "A single program file. Updates replace it, and take effect the next time you start it.",
+                Install::MacApp(_) => "Updates replace the app, and take effect the next time you start it.",
+                Install::LinuxPackage(_) => "Installed by your package manager, so updates ask for your password.",
+                Install::Unmanaged => "This copy can't update itself. New versions are on the releases page.",
+            };
+            ui.label(egui::RichText::new(how).color(DIM()));
+            ui.add_space(6.0);
+            if managed_toggle(ui, &mut self.settings.auto_update, "auto_update", "Install updates automatically") {
+                if matches!(install, Install::Machine { .. }) {
+                    crate::update::set_machine_auto_update(self.settings.auto_update);
+                }
+                self.save_settings();
+            }
+            ui.add_space(6.0);
+            let text = match &status {
+                Status::Idle => "Not checked yet.".to_string(),
+                Status::Checking => "Checking for updates…".to_string(),
+                Status::UpToDate => "Daleris is up to date.".to_string(),
+                Status::Available(v) => format!("Version {v} is available."),
+                Status::Downloading(v) => format!("Downloading version {v}…"),
+                Status::InstallsOnClose(v) => format!("Version {v} installs when you close Daleris."),
+                Status::RestartToFinish(v) => format!("Version {v} is ready. Restart Daleris to use it."),
+                Status::Failed(e) => e.clone(),
+            };
+            ui.label(if matches!(status, Status::Failed(_)) { egui::RichText::new(text).color(WARN()) } else { egui::RichText::new(text) });
+            ui.add_space(6.0);
+            let busy = matches!(status, Status::Checking | Status::Downloading(_));
+            ui.horizontal(|ui| {
+                clicked_check = ui.add_enabled(!busy && self.updater.is_some(), egui::Button::new("Check for updates")).clicked();
+                if matches!(status, Status::Available(_)) && !matches!(install, Install::Unmanaged) {
+                    clicked_install = ui.button("Install update").clicked();
+                }
+            });
+        });
+        if let Some(updater) = &self.updater {
+            if clicked_check {
+                updater.check_now(self.settings.auto_update);
+            }
+            if clicked_install {
+                updater.install_now();
+            }
+        }
+    }
 
     /// Where the settings file and the log are, for editing by hand or troubleshooting.
     fn storage_card(&mut self, ui: &mut Ui) {

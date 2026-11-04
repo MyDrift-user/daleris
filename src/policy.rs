@@ -21,7 +21,7 @@ enum Kind {
 
 /// Registry value name, settings file key, what it holds.
 #[cfg_attr(not(windows), allow(dead_code))]
-const VALUES: [(&str, &str, Kind); 21] = [
+const VALUES: [(&str, &str, Kind); 22] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("ShowPreviewPane", "preview", Kind::Bool),
     ("ShowFileExtensions", "ext", Kind::Bool),
@@ -39,6 +39,7 @@ const VALUES: [(&str, &str, Kind); 21] = [
     ("FolderSizes", "folder_sizes", Kind::Bool),
     ("SearchSubfolders", "nested_search", Kind::Bool),
     ("SearchRegex", "regex_search", Kind::Bool),
+    ("AutomaticUpdates", "auto_update", Kind::Bool),
     ("RibbonLeft", "rleft", Kind::Text),
     ("RibbonRight", "rright", Kind::Text),
     ("RibbonHidden", "rhide", Kind::Text),

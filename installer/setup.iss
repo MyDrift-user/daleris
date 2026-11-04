@@ -33,4 +33,12 @@ Name: "{autoprograms}\Daleris"; Filename: "{app}\daleris.exe"; AppUserModelID: "
 Name: "{autodesktop}\Daleris"; Filename: "{app}\daleris.exe"; AppUserModelID: "MyDrift.Daleris"; Tasks: desktopicon
 
 [Run]
+; For a PC-wide install: installs updates as SYSTEM, so nobody gets an admin prompt. See src/update.rs.
+Filename: "{sys}\schtasks.exe"; Parameters: "/Create /F /TN ""Daleris Updater"" /SC HOURLY /RU SYSTEM /RL HIGHEST /TR ""\""{app}\daleris.exe\"" --update-service"""; Flags: runhidden; Check: IsAdminInstallMode
 Filename: "{app}\daleris.exe"; Description: "{cm:LaunchProgram,Daleris}"; Flags: nowait postinstall skipifsilent
+
+[UninstallRun]
+Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN ""Daleris Updater"""; Flags: runhidden; Check: IsAdminInstallMode; RunOnceId: "DeleteUpdateTask"
+
+[UninstallDelete]
+Type: filesandordirs; Name: "{app}\updates"
