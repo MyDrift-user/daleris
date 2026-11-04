@@ -196,4 +196,10 @@ jobs:
           fi
           flags=()
           [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
-          gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Daleris v$VERSION" --generate-notes "${flags[@]}"
+          # An upload can fail while GitHub is having trouble, so start over from a clean slate a few times.
+          for attempt in 1 2 3 4; do
+            gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Daleris v$VERSION" --generate-notes "${flags[@]}" && exit 0
+            sleep 60
+            gh release delete "v$VERSION" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
+          done
+          exit 1
