@@ -34,6 +34,7 @@ codesign --force --sign - "$app"
 pkgbuild --analyze --root "$work/root" "$work/component.plist"
 plutil -replace 0.BundleIsRelocatable -bool NO "$work/component.plist"
 pkgbuild --root "$work/root" --component-plist "$work/component.plist" --install-location /Applications \
+  --scripts installer/macos/scripts \
   --identifier io.github.mydrift-user.daleris --version "$VERSION" "dist/$base.pkg"
 
 ln -s /Applications "$work/root/Applications"

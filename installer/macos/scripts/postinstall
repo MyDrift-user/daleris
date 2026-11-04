@@ -1,0 +1,8 @@
+#!/bin/sh
+# Gives the app to whoever is using this Mac, as dragging it from the .dmg would, so that it can update itself.
+# Installed with nobody logged in, it stays with root, and whoever manages the Mac keeps it up to date.
+user=$(stat -f %Su /dev/console)
+if [ -n "$user" ] && [ "$user" != root ]; then
+  chown -R "$user" "$2/Daleris.app"
+fi
+exit 0

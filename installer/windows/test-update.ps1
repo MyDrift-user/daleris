@@ -37,7 +37,13 @@ function Assert-Version($exe, $version) {
 
 function Show-Logs {
   foreach ($log in "$systemLog\daleris.log", "$systemLog\installer.log", "$ownLog\daleris.log", "$ownLog\installer.log") {
-    if (Test-Path $log) { Write-Host "--- $log"; Get-Content $log -Tail 40 | Write-Host }
+    if (Test-Path $log) {
+      Write-Host "--- $log"
+      # an installer's log is long, so show what led to its first failure
+      $failed = Select-String -Path $log -Pattern 'Return value 3|Error \d{4}\.|^.*error occurred' | Select-Object -First 1
+      if ($failed) { Get-Content $log | Select-Object -Skip ([Math]::Max(0, $failed.LineNumber - 30)) -First 45 | Write-Host }
+      Get-Content $log -Tail 25 | Write-Host
+    }
   }
 }
 
