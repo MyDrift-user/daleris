@@ -249,9 +249,7 @@ fn esc_os(s: &OsStr) -> String {
     esc_text(&s.to_string_lossy())
 }
 
-#[cfg(windows)]
-fn unesc_os(s: &str) -> OsString {
-    use std::os::windows::ffi::OsStringExt;
+fn unesc_wide(s: &str) -> Vec<u16> {
     let mut out: Vec<u16> = Vec::new();
     let mut chars = s.chars();
     while let Some(c) = chars.next() {
@@ -273,7 +271,13 @@ fn unesc_os(s: &str) -> OsString {
         };
         out.extend(c.encode_utf16(&mut [0; 2]).iter());
     }
-    OsString::from_wide(&out)
+    out
+}
+
+#[cfg(windows)]
+fn unesc_os(s: &str) -> OsString {
+    use std::os::windows::ffi::OsStringExt;
+    OsString::from_wide(&unesc_wide(s))
 }
 
 #[cfg(not(windows))]
@@ -282,7 +286,7 @@ fn unesc_os(s: &str) -> OsString {
 }
 
 fn unesc_text(s: &str) -> String {
-    unesc_os(s).to_string_lossy().into_owned()
+    String::from_utf16_lossy(&unesc_wide(s))
 }
 
 impl PickRequest {
