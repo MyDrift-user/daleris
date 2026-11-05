@@ -11,15 +11,17 @@ pub enum Page {
     Ribbon,
     ContextMenu,
     Files,
+    Explorer,
     About,
 }
 
-const PAGES: [(Page, &str, &str); 6] = [
+const PAGES: [(Page, &str, &str); 7] = [
     (Page::Appearance, I_PALETTE, "Appearance"),
     (Page::Sidebar, I_NAVPANE, "Sidebar"),
     (Page::Ribbon, I_GRID, "Ribbon bar"),
     (Page::ContextMenu, I_MORE, "Right-click menu"),
     (Page::Files, I_FOLDER, "Files & folders"),
+    (Page::Explorer, I_NAVPANE, "Windows Explorer"),
     (Page::About, I_INFO, "About & updates"),
 ];
 
@@ -56,7 +58,7 @@ pub fn load_png(path: &Path) -> Option<egui::ColorImage> {
     (rgba.len() == w * h * 4).then(|| egui::ColorImage::from_rgba_unmultiplied([w, h], &rgba))
 }
 
-fn card() -> egui::Frame {
+pub(super) fn card() -> egui::Frame {
     egui::Frame::new().fill(PANEL()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(10).inner_margin(egui::Margin::same(16))
 }
 
@@ -175,6 +177,10 @@ impl App {
                 ui.label(egui::RichText::new("Settings").size(20.0).strong());
                 ui.add_space(12.0);
                 for (p, g, label) in PAGES {
+                    // standing in for File Explorer only means something on Windows
+                    if p == Page::Explorer && !cfg!(windows) {
+                        continue;
+                    }
                     let (r, resp) = ui.allocate_exact_size(vec2(ui.available_width(), 34.0), Sense::click());
                     let active = self.settings_page == p;
                     if active {
@@ -213,6 +219,7 @@ impl App {
                         });
                     }
                     Page::Files => self.page_files(ui),
+                    Page::Explorer => self.page_explorer(ui),
                     Page::About => {
                         self.about_card(ui);
                         ui.add_space(14.0);
@@ -822,6 +829,12 @@ impl App {
                 self.refilter_tabs();
                 ch = true;
             }
+            if managed_toggle(ui, &mut self.settings.hide_dotfiles, "hide_dots", "Hide dotfiles and dotfolders") {
+                self.refilter_tabs();
+                ch = true;
+            }
+            ui.label(egui::RichText::new("Names starting with a dot, such as .git or .env. This works on top of the setting above: an item stays hidden if either one hides it. Ctrl+Shift+. switches it for now.").size(12.0).color(DIM()));
+            ui.add_space(4.0);
             ch |= managed_toggle(ui, &mut self.settings.show_ext, "ext", "Show file name extensions");
             ch |= managed_toggle(ui, &mut self.settings.show_preview, "preview", "Show the preview pane");
             if managed_toggle(ui, &mut self.settings.folder_sizes, "folder_sizes", "Show folder sizes (everything inside each folder, counted in the background)") {
@@ -869,6 +882,75 @@ impl App {
             }
             if ch {
                 self.save_settings();
+            }
+        });
+        ui.add_space(12.0);
+        self.sort_card(ui);
+    }
+
+    /// How folders are sorted until someone chooses otherwise, in plain words.
+    fn sort_card(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Sorting", "A folder keeps the sort you choose for it, wherever it opens. Every other folder starts like this:");
+            let mut ch = false;
+            let fixed_key = policy::is_fixed("sort_key");
+            ui.horizontal(|ui| {
+                ui.add_enabled_ui(!fixed_key, |ui| {
+                    ui.label("Sort by");
+                    let items: Vec<(String, bool)> = SortKey::ALL.iter().map(|k| (k.label().to_string(), true)).collect();
+                    let at = SortKey::ALL.iter().position(|k| *k == self.settings.sort_key);
+                    let (_, picked) = field_dropdown(ui, "default_sort", 190.0, self.settings.sort_key.label(), &items, at, !fixed_key);
+                    if let Some(k) = picked.and_then(|i| SortKey::ALL.get(i).copied()) {
+                        self.settings.sort_key = k;
+                        if !policy::is_fixed("sort_asc") {
+                            self.settings.sort_asc = k.starts_ascending();
+                        }
+                        ch = true;
+                    }
+                });
+                let fixed_way = policy::is_fixed("sort_asc");
+                ui.add_enabled_ui(!fixed_way, |ui| {
+                    let spec = SortSpec { key: self.settings.sort_key, asc: true, dirs_first: true };
+                    if ui.selectable_label(self.settings.sort_asc, spec.direction()).clicked() && !self.settings.sort_asc {
+                        self.settings.sort_asc = true;
+                        ch = true;
+                    }
+                    if ui.selectable_label(!self.settings.sort_asc, SortSpec { asc: false, ..spec }.direction()).clicked() && self.settings.sort_asc {
+                        self.settings.sort_asc = false;
+                        ch = true;
+                    }
+                });
+                if fixed_key || fixed_way {
+                    managed_note(ui);
+                }
+            });
+            ui.add_space(6.0);
+            ch |= managed_toggle(ui, &mut self.settings.dirs_first, "dirs_first", "Keep folders above files");
+            ui.add_space(4.0);
+            ch |= managed_toggle(ui, &mut self.settings.downloads_newest, "downloads_newest", "Show Downloads newest first, with folders mixed in");
+            let n = self.settings.folder_sorts.len();
+            if n > 0 {
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(format!("{n} folder{} sorted your own way", if n == 1 { " is" } else { "s are" })).color(DIM()));
+                    if ui.button("Forget them all").clicked() {
+                        self.settings.folder_sorts.clear();
+                        ch = true;
+                    }
+                });
+            }
+            if ch {
+                self.save_settings();
+                // open folders nobody chose anything for follow the new default
+                let mut tabs = std::mem::take(&mut self.tabs);
+                for t in &mut tabs {
+                    if let Some(d) = t.dir().map(Path::to_path_buf) {
+                        t.set_spec(self.spec_for(&d));
+                        t.dirty = true;
+                    }
+                }
+                self.tabs = tabs;
             }
         });
     }

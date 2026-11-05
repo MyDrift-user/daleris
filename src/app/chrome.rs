@@ -304,12 +304,12 @@ impl App {
             return;
         }
         let p = if text.len() == 2 && text.ends_with(':') { PathBuf::from(format!("{text}\\")) } else { PathBuf::from(text) };
-        if p.is_dir() || fsx::is_server_root(&p).is_some() {
-            self.acts.push(Act::Navigate(Loc::Dir(p)));
-        } else if p.is_file() {
-            self.acts.push(Act::Open(p));
-        } else {
-            self.toast(format!("Can't find '{text}'"), true);
+        // no answer yet may be a server that's down: going there says what's wrong, without stopping here to find out
+        let kind = if fsx::is_server_root(&p).is_some() { target::PathKind::Dir } else { target::kind_within(&p, Duration::from_millis(200)) };
+        match kind {
+            target::PathKind::Dir | target::PathKind::Unknown => self.acts.push(Act::Navigate(Loc::Dir(p))),
+            target::PathKind::File => self.acts.push(Act::Open(p)),
+            target::PathKind::Missing => self.toast(format!("Can't find '{text}'"), true),
         }
     }
 
@@ -506,8 +506,14 @@ impl App {
             _ if !cfg!(windows) => vec![PathBuf::from("/")],
             _ => self.drives.iter().filter(|d| matches!(d.kind, DriveKind::Fixed | DriveKind::Removable)).map(|d| d.root.clone()).collect(),
         };
+        // crawling a folder that can't be opened would only keep threads waiting for it
+        if t.error.is_some() {
+            t.search = None;
+            return;
+        }
         let index = self.index_for(roots);
-        let mut s = Search::new(index, &q, self.settings.show_hidden, self.settings.regex_search);
+        let panel = t.filter.is_active().then(|| t.filter.compile_now());
+        let mut s = Search::new(index, &q, self.settings.show_hidden, self.settings.regex_search, self.settings.hide_dotfiles, panel);
         s.pump();
         t.search = Some(s);
     }
@@ -598,36 +604,8 @@ impl App {
                     self.acts.push(Act::Delete(ui.input(|i| i.modifiers.shift)));
                 }
             }
-            "sort" => {
-                let sort_label = match t.sort {
-                    SortKey::Name => "Name",
-                    SortKey::Modified => "Date",
-                    SortKey::Type => "Type",
-                    SortKey::Size => "Size",
-                };
-                ui.menu_button(egui::RichText::new(format!("{}  Sort: {sort_label}", ic(I_SORT))).font(icon_font(13.5)), |ui| {
-                    let mut changed = false;
-                    for (k, l) in [(SortKey::Name, "Name"), (SortKey::Modified, "Date modified"), (SortKey::Type, "Type"), (SortKey::Size, "Size")] {
-                        if ui.radio(t.sort == k, l).clicked() {
-                            t.sort = k;
-                            changed = true;
-                        }
-                    }
-                    ui.separator();
-                    if ui.radio(t.asc, "Ascending").clicked() {
-                        t.asc = true;
-                        changed = true;
-                    }
-                    if ui.radio(!t.asc, "Descending").clicked() {
-                        t.asc = false;
-                        changed = true;
-                    }
-                    if changed {
-                        t.dirty = true;
-                        self.sort_search(t);
-                    }
-                });
-            }
+            "sort" => self.sort_button(ui, t),
+            "filter" => self.filter_button(ui, t),
             "view" => {
                 let view_glyph = if self.settings.view == View::Details { I_LIST } else { I_GRID };
                 ui.menu_button(egui::RichText::new(format!("{}  View", ic(view_glyph))).font(icon_font(13.5)), |ui| {
@@ -646,6 +624,10 @@ impl App {
                         if t.searching() {
                             self.query_changed(t);
                         }
+                    }
+                    let mut show_dots = !self.settings.hide_dotfiles;
+                    if ui.add_enabled(free("hide_dots"), egui::Checkbox::new(&mut show_dots, "Dotfiles  (Ctrl+Shift+.)")).changed() {
+                        self.acts.push(Act::ToggleDotfiles);
                     }
                     ui.add_enabled(free("ext"), egui::Checkbox::new(&mut self.settings.show_ext, "File name extensions"));
                 });
@@ -691,17 +673,261 @@ impl App {
         }
     }
 
+    /// The Sort menu: what by, which way round, whether folders stay on top, and whether this folder has its own.
+    fn sort_button(&mut self, ui: &mut Ui, t: &mut Tab) {
+        let arrow = if t.asc { "↑" } else { "↓" };
+        let label = format!("{}  {}  {arrow}", ic(I_SORT), t.sort.label());
+        ui.menu_button(egui::RichText::new(label).font(icon_font(13.5)), |ui| {
+            ui.set_min_width(250.0);
+            ui.set_max_width(280.0);
+            ui.label(egui::RichText::new("Sort by").size(12.0).color(DIM()));
+            for k in SortKey::ALL {
+                if ui.radio(t.sort == k, k.label()).clicked() {
+                    self.acts.push(Act::Sort(k, None));
+                }
+            }
+            ui.separator();
+            let words = |asc: bool| SortSpec { key: t.sort, asc, dirs_first: true }.direction();
+            if ui.radio(t.asc, words(true)).clicked() {
+                self.acts.push(Act::Sort(t.sort, Some(true)));
+            }
+            if ui.radio(!t.asc, words(false)).clicked() {
+                self.acts.push(Act::Sort(t.sort, Some(false)));
+            }
+            ui.separator();
+            let mut first = t.dirs_first;
+            if ui.checkbox(&mut first, "Folders first").changed() {
+                self.acts.push(Act::FoldersFirst(first));
+            }
+            if t.dir().is_some() && !t.searching() {
+                ui.separator();
+                let own = self.folder_has_own_sort(t);
+                let note = if own {
+                    "This folder keeps this sort."
+                } else if t.dir().is_some_and(|d| self.places.iter().any(|p| p.name == "Downloads" && fsx::same_path(&p.path, d))) && self.settings.downloads_newest {
+                    "Downloads opens newest first. Changing it here keeps your choice."
+                } else {
+                    "This is your default. Changing it here keeps your choice for this folder."
+                };
+                ui.add(egui::Label::new(egui::RichText::new(note).size(12.0).color(DIM())).wrap());
+                ui.add_space(2.0);
+                if ui.add_enabled(own, egui::Button::new("Reset this folder to default")).clicked() {
+                    self.acts.push(Act::ResetSort);
+                    ui.close_menu();
+                }
+            }
+        })
+        .response
+        .on_hover_text("How this folder is sorted");
+    }
+
+    /// The Filter button, and while something's filtered, how much of the folder is showing.
+    fn filter_button(&mut self, ui: &mut Ui, t: &mut Tab) {
+        let n = t.filter.count();
+        let label = if n > 0 { format!("{}  Filter ({n})", ic(I_FILTER)) } else { format!("{}  Filter", ic(I_FILTER)) };
+        let b = ui.add_enabled(t.dir().is_some(), egui::Button::new(egui::RichText::new(label).font(icon_font(13.5))).selected(t.filter_open || n > 0));
+        if b.clicked() {
+            t.filter_open = !t.filter_open;
+            // the panel offers what's in this folder
+            t.dirty = true;
+        }
+        t.filter_anchor = Some(b.rect);
+        let _ = b.on_hover_text("Show only some of what's in this folder");
+        if t.filter.is_active() {
+            ui.add_space(4.0);
+            if t.filtered() {
+                ui.label(egui::RichText::new(format!("{} of {} shown", fmt_count(t.view.len()), fmt_count(t.shown_of))).size(12.5).color(ACCENT()));
+            }
+            let x = ui.add(egui::Button::new(egui::RichText::new(ic(I_CLOSE)).font(icon_font(10.0))).frame(false).min_size(vec2(22.0, 22.0))).on_hover_text("Clear the filter");
+            if x.clicked() {
+                self.acts.push(Act::ClearFilter);
+            }
+        }
+    }
+
+    /// The filter panel: every choice a click away, and the list follows as they're made.
+    pub(super) fn filter_panel(&mut self, ctx: &egui::Context, t: &mut Tab) {
+        if !t.filter_open {
+            return;
+        }
+        if t.dir().is_none() {
+            t.filter_open = false;
+            return;
+        }
+        let at = t.filter_anchor.map_or(pos2(200.0, 100.0), |r| r.left_bottom() + vec2(0.0, 6.0));
+        let screen = ctx.screen_rect();
+        let width = 400.0_f32.min(screen.width() - 24.0);
+        let at = pos2(at.x.min(screen.right() - width - 12.0).max(screen.left() + 12.0), at.y);
+        let before = t.filter.clone();
+        let area = egui::Area::new(egui::Id::new(("filter_panel", t.id))).order(egui::Order::Foreground).fixed_pos(at).show(ctx, |ui| {
+            egui::Frame::new().fill(PANEL()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(10).inner_margin(egui::Margin::same(14)).shadow(ui.visuals().popup_shadow).show(ui, |ui| {
+                ui.set_width(width - 28.0);
+                ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
+                egui::ScrollArea::vertical().max_height((screen.height() - at.y - 80.0).max(160.0)).auto_shrink([false, true]).show(ui, |ui| {
+                    let f = &mut t.filter;
+                    section(ui, "Kind");
+                    ui.horizontal_wrapped(|ui| {
+                        for (k, label) in listing::FILTER_KINDS {
+                            if chip(ui, label, f.kinds.contains(&k)) {
+                                f.toggle_kind(k);
+                            }
+                        }
+                    });
+                    section(ui, "Extension");
+                    // what's in this folder, most common first, and whatever was chosen elsewhere
+                    let mut seen: Vec<(String, usize)> = t.type_stats_all.clone();
+                    seen.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
+                    seen.truncate(14);
+                    for e in &f.exts {
+                        if !seen.iter().any(|(x, _)| x == e) {
+                            seen.push((e.clone(), 0));
+                        }
+                    }
+                    ui.horizontal_wrapped(|ui| {
+                        for (e, _) in &seen {
+                            if chip(ui, &format!(".{e}"), f.exts.contains(e)) {
+                                f.toggle_ext(e);
+                            }
+                        }
+                        let typed = ui.add(egui::TextEdit::singleline(&mut t.filter_ext).desired_width(70.0).hint_text("other"));
+                        if typed.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
+                            f.toggle_ext(&t.filter_ext);
+                            t.filter_ext.clear();
+                        }
+                    });
+                    section(ui, "Date modified");
+                    ui.horizontal_wrapped(|ui| {
+                        for (d, label) in [(DateRange::Any, "Any time"), (DateRange::Today, "Today"), (DateRange::Week, "This week"), (DateRange::Month, "This month"), (DateRange::Custom, "Between…")] {
+                            if chip(ui, label, f.date == d) {
+                                f.date = d;
+                            }
+                        }
+                    });
+                    if f.date == DateRange::Custom {
+                        ui.horizontal(|ui| {
+                            ui.add(egui::TextEdit::singleline(&mut f.date_from).desired_width(100.0).hint_text("2026-01-01"));
+                            ui.label("and");
+                            ui.add(egui::TextEdit::singleline(&mut f.date_to).desired_width(100.0).hint_text("2026-12-31"));
+                        });
+                        if let Some(e) = f.date_error() {
+                            ui.label(egui::RichText::new(e).size(12.0).color(WARN()));
+                        }
+                    }
+                    section(ui, "Size");
+                    ui.horizontal_wrapped(|ui| {
+                        for (s, label) in [(SizeRange::Any, "Any size"), (SizeRange::Under1Mb, "Under 1 MB"), (SizeRange::Mb1To100, "1 to 100 MB"), (SizeRange::Mb100To1Gb, "100 MB to 1 GB"), (SizeRange::Over1Gb, "Over 1 GB"), (SizeRange::Custom, "Between…")] {
+                            if chip(ui, label, f.size == s) {
+                                f.size = s;
+                            }
+                        }
+                    });
+                    if f.size == SizeRange::Custom {
+                        ui.horizontal(|ui| {
+                            ui.add(egui::TextEdit::singleline(&mut f.size_min).desired_width(90.0).hint_text("10 MB"));
+                            ui.label("and");
+                            ui.add(egui::TextEdit::singleline(&mut f.size_max).desired_width(90.0).hint_text("2 GB"));
+                        });
+                        if let Some(e) = f.size_error() {
+                            ui.label(egui::RichText::new(e).size(12.0).color(WARN()));
+                        }
+                    }
+                    section(ui, "Name contains");
+                    ui.add(egui::TextEdit::singleline(&mut f.name).desired_width(f32::INFINITY).margin(egui::Margin::symmetric(8, 5)));
+                });
+                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    let text = if t.search.is_some() {
+                        "Applies to the search results".to_string()
+                    } else {
+                        format!("{} of {} shown", fmt_count(t.view.len()), fmt_count(t.shown_of))
+                    };
+                    ui.label(egui::RichText::new(text).size(12.5).color(if t.filter.is_active() { ACCENT() } else { DIM() }));
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if action_button(ui, "Done", false).clicked() {
+                            t.filter_open = false;
+                        }
+                        if ui.add_enabled(t.filter.is_active(), egui::Button::new("Clear").min_size(vec2(64.0, 30.0))).clicked() {
+                            t.filter = ListFilter::default();
+                        }
+                    });
+                });
+            });
+        });
+        if t.filter != before {
+            t.dirty = true;
+            if t.searching() {
+                self.query_changed(t);
+            }
+        }
+        // anywhere else closes it, as a menu would
+        let clicked_away = ctx.input(|i| i.pointer.primary_clicked()) && ctx.input(|i| i.pointer.interact_pos()).is_some_and(|p| !area.response.rect.contains(p) && t.filter_anchor.is_none_or(|a| !a.contains(p)));
+        if clicked_away || ctx.input(|i| i.key_pressed(Key::Escape)) {
+            t.filter_open = false;
+        }
+    }
+
+    /// The top of a dialog: where it is, and how the list is arranged.
+    pub(super) fn picker_top(&mut self, ctx: &egui::Context, t: &mut Tab) {
+        let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::symmetric(10, 8));
+        egui::TopBottomPanel::top("picker_top").exact_height(48.0).frame(frame).show_separator_line(true).show(ctx, |ui| {
+            ui.horizontal_centered(|ui| {
+                ui.spacing_mut().item_spacing.x = 2.0;
+                if icon_button(ui, I_BACK, "Back (Alt+Left)", !t.back.is_empty()).clicked() {
+                    self.acts.push(Act::Back);
+                }
+                if icon_button(ui, I_FWD, "Forward (Alt+Right)", !t.fwd.is_empty()).clicked() {
+                    self.acts.push(Act::Forward);
+                }
+                if icon_button(ui, I_UP, "Up (Alt+Up)", t.dir().is_some()).clicked() {
+                    self.acts.push(Act::Up);
+                }
+                if icon_button(ui, I_REFRESH, "Refresh (F5)", true).clicked() {
+                    self.acts.push(Act::Refresh);
+                }
+                ui.add_space(6.0);
+                // narrow windows lose the search box first: the address matters more
+                let room = ui.available_width();
+                let search_w = if room > 620.0 { (room * 0.26).clamp(150.0, 260.0) } else { 0.0 };
+                let tools = 190.0;
+                let addr_w = (room - search_w - tools - 16.0).max(120.0);
+                self.address_bar(ui, t, addr_w);
+                ui.add_space(6.0);
+                self.sort_button(ui, t);
+                self.filter_button(ui, t);
+                let glyph = if self.settings.view == View::Details { I_GRID } else { I_LIST };
+                if icon_button(ui, glyph, "Switch between details and large icons", !policy::is_fixed("view")).clicked() {
+                    let next = if self.settings.view == View::Details { View::Icons } else { View::Details };
+                    self.acts.push(Act::SetView(next));
+                }
+                if search_w > 0.0 {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                            let free = ui.available_width();
+                            ui.add_space((free - search_w).max(0.0));
+                            self.search_box(ui, t, search_w.min(free));
+                        });
+                    });
+                }
+            });
+        });
+    }
+
     pub(super) fn sort_search(&self, t: &mut Tab) {
-        let (sort, asc) = (t.sort, t.asc);
+        let (sort, asc, first) = (t.sort, t.asc, t.dirs_first);
         if let Some(s) = &mut t.search {
             let data = s.index.data.read().unwrap();
             s.results.sort_by(|&a, &b| {
                 let (x, y) = (&data.items[a as usize], &data.items[b as usize]);
+                let (dx, dy) = (x.attrs & fsx::A_DIR != 0, y.attrs & fsx::A_DIR != 0);
+                if first && dx != dy {
+                    return dy.cmp(&dx);
+                }
                 let o = match sort {
                     SortKey::Name => natural_cmp(&data.name(a).to_lowercase(), &data.name(b).to_lowercase()),
-                    SortKey::Modified => x.mtime.cmp(&y.mtime),
+                    // the search index only has the one date
+                    SortKey::Modified | SortKey::Created => x.mtime.cmp(&y.mtime),
                     SortKey::Size => x.size.cmp(&y.size),
-                    SortKey::Type => ext_of(data.name(a), false).cmp(&ext_of(data.name(b), false)),
+                    SortKey::Type | SortKey::Extension => ext_of(data.name(a), false).cmp(&ext_of(data.name(b), false)),
                 };
                 if asc {
                     o
@@ -740,7 +966,15 @@ impl App {
                 } else if t.loc == Loc::ThisPc {
                     ui.label(small(format!("{} drives", self.drives.len())));
                 } else {
-                    ui.label(small(format!("{} items", fmt_count(t.view.len()))));
+                    if t.error.is_some() {
+                        ui.label(small("Not available".into()));
+                    } else if t.loading && t.entries.is_empty() {
+                        ui.label(small("Opening".into()));
+                    } else if t.filtered() {
+                        ui.label(egui::RichText::new(format!("{} of {} shown", fmt_count(t.view.len()), fmt_count(t.shown_of))).size(12.0).color(ACCENT()));
+                    } else {
+                        ui.label(small(format!("{} items", fmt_count(t.view.len()))));
+                    }
                     if t.sel_info.0 > 0 {
                         ui.label(small("·".into()));
                         let size = if t.sel_info.1 > 0 { format!("  {}", fmt_size(t.sel_info.1)) } else { String::new() };
@@ -845,7 +1079,12 @@ impl App {
         let g = truncated(ui, &d.title(), FontId::proportional(14.0), TEXT(), rect.width() - 72.0);
         ui.painter().galley(pos2(x, rect.top() + 10.0), g, TEXT());
         let bar = Rect::from_min_size(pos2(x, rect.top() + 34.0), vec2(rect.width() - 76.0, 6.0));
-        if d.ready && d.total > 0 {
+        if self.drive_offline(d) {
+            ui.painter().circle_filled(pos2(x + 4.0, rect.top() + 43.0), 3.5, WARN());
+            let sub = format!("Not available{}", d.remote.as_ref().map_or(String::new(), |r| format!("  ·  {r}")));
+            let g = truncated(ui, &sub, FontId::proportional(12.0), DIM(), rect.width() - 84.0);
+            ui.painter().galley(pos2(x + 14.0, rect.top() + 36.0), g, DIM());
+        } else if d.ready && d.total > 0 {
             let u = 1.0 - d.free as f32 / d.total as f32;
             ui.painter().rect_filled(bar, CornerRadius::same(3), LINE());
             ui.painter().rect_filled(Rect::from_min_size(bar.min, vec2(bar.width() * u, 6.0)), CornerRadius::same(3), if u > 0.9 { WARN() } else { ACCENT() });
@@ -871,6 +1110,48 @@ impl App {
             }
         });
     }
+}
+
+/// A heading inside the filter panel.
+fn section(ui: &mut Ui, title: &str) {
+    ui.add_space(6.0);
+    ui.label(egui::RichText::new(title).size(12.0).color(DIM()));
+}
+
+/// An on/off choice in the filter panel.
+fn chip(ui: &mut Ui, label: &str, on: bool) -> bool {
+    let fill = if on { ACCENT().gamma_multiply(0.28) } else { RAISED() };
+    let stroke = if on { Stroke::new(1.0_f32, ACCENT()) } else { Stroke::new(1.0_f32, LINE()) };
+    ui.add(egui::Button::new(egui::RichText::new(label).size(12.5).color(TEXT())).fill(fill).stroke(stroke).corner_radius(13).min_size(vec2(0.0, 26.0))).clicked()
+}
+
+/// A button with some presence: the main thing to do here, or one of the others.
+pub(super) fn action_button(ui: &mut Ui, label: &str, primary: bool) -> Response {
+    if primary {
+        ui.add(primary_button(label, true))
+    } else {
+        ui.add(secondary_button(label))
+    }
+}
+
+pub(super) fn primary_button(label: &str, enabled: bool) -> egui::Button<'static> {
+    let fill = if enabled { ACCENT() } else { ACCENT().gamma_multiply(0.45) };
+    egui::Button::new(egui::RichText::new(label.to_string()).size(13.5).color(Color32::WHITE)).fill(fill).stroke(Stroke::NONE).corner_radius(6).min_size(vec2(96.0, 32.0))
+}
+
+pub(super) fn secondary_button(label: &str) -> egui::Button<'static> {
+    egui::Button::new(egui::RichText::new(label.to_string()).size(13.5).color(TEXT())).fill(RAISED()).stroke(Stroke::new(1.0_f32, FAINT())).corner_radius(6).min_size(vec2(96.0, 32.0))
+}
+
+/// A centred column for a page that says something instead of a list.
+pub(super) fn page_column(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
+    let room = ui.available_rect_before_wrap();
+    let width = room.width().min(520.0) - 32.0;
+    ui.add_space((room.height() * 0.2).clamp(24.0, 160.0));
+    ui.vertical_centered(|ui| {
+        ui.set_max_width(width.max(160.0));
+        add(ui);
+    });
 }
 
 /// A small square on/off button with a custom-drawn icon.

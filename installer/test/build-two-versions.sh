@@ -11,12 +11,21 @@ package() {
   esac
 }
 
-cargo build --release --locked --features update-test
+# On Windows the installers also carry the launcher and the file dialog DLLs.
+workspace() {
+  if [ "$RUNNER_OS" = Windows ]; then
+    rustup target add i686-pc-windows-msvc >&2
+    cargo build --release --target i686-pc-windows-msvc -p daleris-dialogs >&2
+    echo --workspace
+  fi
+}
+
+cargo build --release --locked $(workspace) --features update-test
 package
 mv dist old
 
 perl -i -pe 'if (!$done && s/^version = ".*"/version = "99.0.0"/) { $done = 1 }' Cargo.toml
-cargo build --release --features update-test
+cargo build --release $(workspace) --features update-test
 VERSION=99.0.0 package
 mv dist www
 

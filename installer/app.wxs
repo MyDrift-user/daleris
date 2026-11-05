@@ -30,8 +30,23 @@
           <ShortcutProperty Key="System.AppUserModel.ID" Value="MyDrift.Daleris" />
         </Shortcut>
       </File>
+    </Component>
+    <Component Directory="APPLICATIONFOLDER">
       <File Source="LICENSE" Name="LICENSE.txt" />
+    </Component>
+    <Component Directory="APPLICATIONFOLDER">
       <File Source="THIRD-PARTY-NOTICES.txt" />
+    </Component>
+    <!-- Daleris copies these to each person's own folder when they turn on a Windows Explorer switch, and registers those
+         copies, so nothing outside this folder ever points in here. See src/integration_windows.rs. -->
+    <Component Directory="APPLICATIONFOLDER">
+      <File Source="target\release\daleris-open.exe" />
+    </Component>
+    <Component Directory="APPLICATIONFOLDER">
+      <File Source="target\release\daleris-dialogs-x64.dll" />
+    </Component>
+    <Component Directory="APPLICATIONFOLDER">
+      <File Source="target\release\daleris-dialogs-x86.dll" />
     </Component>
     <!-- Marks a PC-wide install. See src/update.rs. -->
     <Component Directory="APPLICATIONFOLDER" Condition="ALLUSERS=1">
@@ -50,7 +65,12 @@
     <!-- Only when really uninstalling: an upgrade first removes the old version, and the installer running it is in this folder. -->
     <CustomAction Id="DeleteUpdates" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="no" Return="ignore"
                   ExeCommand='"[SystemFolder]cmd.exe" /c rmdir /s /q "[APPLICATIONFOLDER]updates"' />
+    <!-- Only when really uninstalling, as the person who is, so that folders go back to File Explorer for them. Anyone else
+         on the PC who had it on gets the same from the launcher, the next time they open a folder. Never stops an uninstall. -->
+    <CustomAction Id="RestoreExplorer" Directory="APPLICATIONFOLDER" Execute="deferred" Impersonate="yes" Return="ignore"
+                  ExeCommand='"[APPLICATIONFOLDER]daleris.exe" --restore-explorer' />
     <InstallExecuteSequence>
+      <Custom Action="RestoreExplorer" Before="RemoveFiles" Condition='REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE' />
       <Custom Action="DeleteUpdates" Before="RemoveFiles" Condition='ALLUSERS=1 AND REMOVE="ALL" AND NOT UPGRADINGPRODUCTCODE' />
       <Custom Action="DeleteUpdateTask" Before="RemoveFiles" Condition='ALLUSERS=1 AND REMOVE="ALL"' />
       <Custom Action="LockInstallFolder" After="InstallFiles" Condition='ALLUSERS=1 AND NOT REMOVE="ALL"' />

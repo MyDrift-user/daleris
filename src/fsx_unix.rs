@@ -82,8 +82,25 @@ fn entry_of(parent: &Path, name: String, lmd: std::fs::Metadata) -> Entry {
 }
 
 /// Stream a directory's entries in batches so the first rows paint immediately.
-pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry>)) -> Result<(), String> {
-    let rd = std::fs::read_dir(path).map_err(|e| e.to_string())?;
+/// What a system error means for someone looking at a folder.
+fn classify(e: &std::io::Error) -> FolderError {
+    use std::io::ErrorKind as K;
+    let kind = match e.kind() {
+        K::NotFound | K::NotADirectory => FailKind::NotFound,
+        K::PermissionDenied => FailKind::AccessDenied,
+        K::TimedOut | K::HostUnreachable | K::NetworkUnreachable | K::ConnectionRefused | K::ConnectionReset | K::NotConnected | K::StaleNetworkFileHandle => FailKind::Unreachable,
+        _ => FailKind::Other,
+    };
+    FolderError::new(kind, e.to_string())
+}
+
+/// A look at the folder, enough to know whether it's still there.
+pub fn check_folder(path: &Path) -> Result<(), FolderError> {
+    std::fs::read_dir(path).map(|_| ()).map_err(|e| classify(&e))
+}
+
+pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry>)) -> Result<(), FolderError> {
+    let rd = std::fs::read_dir(path).map_err(|e| classify(&e))?;
     let mut batch = Vec::with_capacity(256);
     let mut first = true;
     for de in rd.flatten() {
@@ -232,6 +249,8 @@ fn gvfs_drives(out: &mut Vec<Drive>) {
             total: 0,
             free: 0,
             ready: false,
+            checked: false,
+            disconnected: false,
         });
     }
 }
@@ -266,6 +285,8 @@ pub fn drives_quick() -> Vec<Drive> {
             total: 0,
             free: 0,
             ready: false,
+            checked: false,
+            disconnected: false,
         });
     }
     gvfs_drives(&mut out);
@@ -302,6 +323,8 @@ pub fn drives_quick() -> Vec<Drive> {
             total: m.f_blocks * bs,
             free: m.f_bavail * bs,
             ready: m.f_blocks > 0,
+            checked: true,
+            disconnected: false,
         });
     }
     out
@@ -519,4 +542,9 @@ pub fn watch(path: &Path, on_change: impl Fn() + Send + 'static) -> Watcher {
         })
         .ok();
     Watcher { stop }
+}
+
+/// Only Windows has mapped drives to connect again.
+pub fn reconnect_for(_path: &Path, _owner: isize, _ask: bool) -> Result<(), FolderError> {
+    Err(FolderError::new(FailKind::Other, "This isn't a mapped drive"))
 }

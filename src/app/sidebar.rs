@@ -88,13 +88,18 @@ impl App {
                 "pc" => {
                     push("thispc".into(), "This PC".into(), Some(Loc::ThisPc), Some(I_PC), None, false, None, None);
                     for d in self.drives.iter().filter(|d| d.kind != DriveKind::Network) {
-                        let usage = d.ready.then(|| 1.0 - d.free as f32 / d.total.max(1) as f32);
+                        let usage = (d.ready && d.total > 0).then(|| 1.0 - d.free as f32 / d.total.max(1) as f32);
                         push(side_key(&d.root), d.title(), Some(Loc::Dir(d.root.clone())), None, usage, false, None, drive_tip(d));
                     }
                 }
                 "network" => {
                     for d in self.drives.iter().filter(|d| d.kind == DriveKind::Network) {
-                        push(side_key(&d.root), d.title(), Some(Loc::Dir(d.root.clone())), None, None, false, Some(d.letter), drive_tip(d));
+                        let tip = if self.drive_offline(d) {
+                            Some(format!("Not available right now. Click to try again.\n{}", d.remote.clone().unwrap_or_default()))
+                        } else {
+                            drive_tip(d)
+                        };
+                        push(side_key(&d.root), d.title(), Some(Loc::Dir(d.root.clone())), None, None, false, Some(d.letter), tip);
                     }
                     push("mapdrive".into(), network_label().into(), None, Some(I_NETDRIVE), None, false, None, None);
                 }
@@ -102,6 +107,9 @@ impl App {
             }
             for p in &sec.pins {
                 let name = Loc::Dir(p.clone()).title();
+                if self.settings.hide_dotfiles && fsx::is_dot_name(&name) {
+                    continue;
+                }
                 push(side_key(p), name, Some(Loc::Dir(p.clone())), None, None, true, None, Some(p.display().to_string()));
             }
             if let Some(order) = self.settings.side_order.get(&sec.id) {
@@ -187,7 +195,7 @@ impl App {
 
     pub(super) fn sidebar(&mut self, ctx: &egui::Context, t: &Tab) {
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin { left: 8, right: 6, top: 2, bottom: 8 });
-        egui::SidePanel::left("sidebar").resizable(true).default_width(236.0).width_range(160.0..=420.0).frame(frame).show_separator_line(false).show(ctx, |ui| {
+        egui::SidePanel::left("sidebar").resizable(true).default_width(if self.picker.is_some() { 190.0 } else { 236.0 }).width_range(140.0..=420.0).frame(frame).show_separator_line(false).show(ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 1.0;
                 let cur = t.loc.clone();
@@ -334,7 +342,20 @@ impl App {
             }
             _ => {}
         }
-        let col = if active { TEXT() } else { TEXT().gamma_multiply(0.88) };
+        let offline = item.net.is_some_and(|l| self.drives.iter().any(|d| d.letter == l && self.drive_offline(d)));
+        let col = if offline {
+            FAINT()
+        } else if active {
+            TEXT()
+        } else {
+            TEXT().gamma_multiply(0.88)
+        };
+        if offline {
+            // over the icon: this one isn't there at the moment
+            let at = ic_c + vec2(6.0, 6.0);
+            ui.painter().circle_filled(at, 4.5, PANEL());
+            ui.painter().circle_filled(at, 3.0, WARN());
+        }
         let gal = truncated(ui, &item.label, FontId::proportional(13.5), col, rect.width() - 44.0);
         ui.painter().galley(pos2(rect.left() + 36.0, ic_c.y - gal.size().y / 2.0), gal, col);
         if let Some(u) = item.usage {

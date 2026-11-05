@@ -14,7 +14,11 @@ impl App {
                 self.open_tab(loc, true);
                 return;
             }
-            Act::Open(p) => shell::open(&p),
+            Act::Open(p) => {
+                if !self.picker_takes_open(std::slice::from_ref(&p), &mut t) {
+                    shell::open(&p);
+                }
+            }
             Act::OpenWith(p) => shell::open_with(&p),
             Act::RunAdmin(p) => shell::run_as_admin(&p),
             Act::OpenLocation(p) => {
@@ -181,7 +185,11 @@ impl App {
                     s.pins.retain(|x| !fsx::same_path(x, &p));
                 }
             }
-            Act::OpenMany(paths) => paths.iter().for_each(|p| shell::open(p)),
+            Act::OpenMany(paths) => {
+                if !self.picker_takes_open(&paths, &mut t) {
+                    paths.iter().for_each(|p| shell::open(p));
+                }
+            }
             Act::TerminalAt(d) => shell::open_terminal(&d),
             Act::PasteInto(dest) => {
                 if let Some((files, cut)) = shell::clipboard_get_files().filter(|(f, _)| !f.is_empty()) {
@@ -292,13 +300,14 @@ impl App {
                     return;
                 }
             }
-            Act::CopyContents(p) => match std::fs::read(&p) {
-                Ok(bytes) => {
-                    shell::clipboard_set_text(&String::from_utf8_lossy(&bytes));
-                    self.toast("File contents copied", false);
-                }
-                Err(e) => self.toast(format!("Couldn't read the file: {e}"), true),
-            },
+            Act::CopyContents(p) => {
+                let (tx, ctx) = (self.tx.clone(), self.ctx.clone());
+                bg::submit(&p.clone(), "read", move || {
+                    let text = std::fs::read(&p).map(|b| String::from_utf8_lossy(&b).into_owned()).map_err(|e| e.to_string());
+                    let _ = tx.send(Msg::FileText(text));
+                    ctx.request_repaint();
+                });
+            }
             Act::OpenTarget(lnk) => match shell::shortcut_target(&lnk) {
                 Some(target) => {
                     let parent = target.parent().map(|p| p.to_path_buf());
@@ -325,14 +334,66 @@ impl App {
                 }
             }
             Act::Sort(k, asc) => {
+                let mut s = t.spec();
                 if let Some(a) = asc {
-                    t.asc = a;
-                } else if t.sort != k {
-                    t.sort = k;
-                    t.asc = matches!(k, SortKey::Name | SortKey::Type);
+                    s.asc = a;
+                } else if s.key != k {
+                    s.key = k;
+                    s.asc = k.starts_ascending();
                 }
+                self.set_sort(&mut t, s);
+            }
+            Act::FoldersFirst(on) => {
+                let mut s = t.spec();
+                s.dirs_first = on;
+                self.set_sort(&mut t, s);
+            }
+            Act::ResetSort => self.reset_sort(&mut t),
+            Act::ToggleDotfiles if policy::is_fixed("hide_dots") => {}
+            Act::ToggleDotfiles => {
+                self.settings.hide_dotfiles = !self.settings.hide_dotfiles;
                 t.dirty = true;
-                self.sort_search(&mut t);
+                self.tabs.iter_mut().for_each(|o| o.dirty = true);
+                if t.searching() {
+                    self.query_changed(&mut t);
+                }
+                self.save_settings();
+            }
+            Act::CancelLoad => {
+                t.cancel.store(true, Ordering::Relaxed);
+                t.gen += 1;
+                t.loading = false;
+                t.refreshing = false;
+                t.retry_at = None;
+                // what's already there can stay, if this was only a refresh
+                if t.entries.is_empty() {
+                    t.error = Some(FolderError::new(FailKind::Cancelled, ""));
+                }
+            }
+            Act::Retry => {
+                t.retry_wait = FIRST_RETRY;
+                self.start_load(&mut t, false);
+            }
+            Act::Reconnect => {
+                if let Some(p) = t.dir().map(Path::to_path_buf) {
+                    t.reconnecting = true;
+                    t.retry_at = None;
+                    let (tx, ctx, tab) = (self.tx.clone(), self.ctx.clone(), t.id);
+                    let owner = self.owner_window();
+                    bg::spawn("reconnect", move || {
+                        let result = fsx::reconnect_for(&p, owner, true);
+                        let _ = tx.send(Msg::Reconnected { tab, result });
+                        ctx.request_repaint();
+                    });
+                }
+            }
+            Act::ClearFilter => {
+                t.filter = ListFilter::default();
+                t.filter_ext.clear();
+                t.dirty = true;
+                if t.searching() {
+                    self.query_changed(&mut t);
+                }
             }
         }
         self.tabs[ai] = t;
@@ -368,15 +429,17 @@ impl App {
             return;
         }
         let dest = r.path.with_file_name(&new);
-        match std::fs::rename(&r.path, &dest) {
-            Ok(()) if !t.searching() => {
+        let (from, to) = (r.path.clone(), dest);
+        match bg::within(&from.clone(), DISK_WAIT, move || std::fs::rename(&from, &to)) {
+            Some(Ok(())) if !t.searching() => {
                 t.sel.clear();
                 t.sel.insert(new.clone());
                 t.select_after_load = Some(new);
                 self.start_load(t, true);
             }
-            Ok(()) => {}
-            Err(e) => self.toast(format!("Rename failed: {e}"), true),
+            Some(Ok(())) => {}
+            Some(Err(e)) => self.toast(format!("Rename failed: {e}"), true),
+            None => self.toast("The server isn't answering yet. The new name will show if it gets there.", true),
         }
     }
 
@@ -384,24 +447,43 @@ impl App {
         let (base, ext) = if folder { ("New folder", "") } else { ("New Text Document", ".txt") };
         let mut name = format!("{base}{ext}");
         let mut k = 2;
-        while dir.join(&name).exists() {
+        // what's in the list is what's there, and asking the disk could take as long as a server takes to not answer
+        let taken: HashSet<&str> = t.entries.iter().map(|e| e.lower.as_str()).collect();
+        while taken.contains(name.to_lowercase().as_str()) {
             name = format!("{base} ({k}){ext}");
             k += 1;
         }
+        drop(taken);
         let p = dir.join(&name);
-        let r = if folder { std::fs::create_dir(&p) } else { std::fs::write(&p, b"") };
-        if let Err(e) = r {
-            self.toast(format!("Couldn't create it: {e}"), true);
-            return;
-        }
-        if let Some(e) = fsx::stat(&p) {
-            t.entries.push(e);
+        let target = p.clone();
+        let done = bg::within(dir, DISK_WAIT, move || {
+            let made = if folder { std::fs::create_dir(&target) } else { std::fs::write(&target, b"") };
+            made.map(|()| fsx::stat(&target))
+        });
+        match done {
+            Some(Ok(entry)) => {
+                if let Some(e) = entry {
+                    t.entries.push(e);
+                    t.order_for = None;
+                }
+            }
+            Some(Err(e)) => {
+                self.toast(format!("Couldn't create it: {e}"), true);
+                return;
+            }
+            None => {
+                self.toast("The server isn't answering yet. It will show up here if it gets there.", true);
+                return;
+            }
         }
         t.select_after_load = Some(name.clone());
         self.rebuild_view(t);
         t.rename = Some(Rename { key: name.clone(), path: p, buf: name, focus: true });
     }
 }
+
+/// How long the window waits for a file operation someone just asked for. It goes on by itself after that.
+const DISK_WAIT: Duration = Duration::from_millis(300);
 
 pub(super) fn display_name(row: &Row, show_ext: bool) -> String {
     if show_ext || row.is_dir || row.ext.is_empty() || row.name.len() <= row.ext.len() + 1 {

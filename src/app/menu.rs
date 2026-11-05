@@ -156,6 +156,8 @@ pub(super) struct MenuCtx {
     view: View,
     sort: SortKey,
     asc: bool,
+    dirs_first: bool,
+    own_sort: bool,
 }
 
 impl App {
@@ -164,6 +166,14 @@ impl App {
     pub(super) fn open_shell_menu(&mut self, items: &[PathBuf], dir: &Path, extended: bool) {
         self.shell_menu = None;
         self.shell_tex.clear();
+        // This has to run here, and Windows would sit in it for as long as a dead server takes. So a look first.
+        if fsx::is_network_path(dir) {
+            let d = dir.to_path_buf();
+            if bg::within(dir, Duration::from_millis(400), move || fsx::check_folder(&d)).is_none_or(|r| r.is_err()) {
+                log::info!("no Windows menu: {} isn't answering", dir.display());
+                return;
+            }
+        }
         let Some(sm) = ShellMenu::build(items, dir, extended) else { return };
         self.shell_tex = self.shell_textures(&sm);
         self.shell_menu = Some(sm);
@@ -226,6 +236,8 @@ impl App {
             view: self.settings.view,
             sort: t.sort,
             asc: t.asc,
+            dirs_first: t.dirs_first,
+            own_sort: self.folder_has_own_sort(t),
         }
     }
 
@@ -378,14 +390,16 @@ impl App {
                 MEntry::act("view:icons", check(m.view == View::Icons), "Large icons", "", 0, Act::SetView(View::Icons)).managed("view"),
                 MEntry::act("view:preview", check(self.settings.show_preview), "Preview pane", "Alt+P", 1, Act::TogglePreview).managed("preview"),
                 MEntry::act("view:hidden", check(self.settings.show_hidden), "Hidden items", "", 1, Act::ToggleHidden).managed("hidden"),
+                MEntry::act("view:dots", check(!self.settings.hide_dotfiles), "Dotfiles", "Ctrl+Shift+.", 1, Act::ToggleDotfiles).managed("hide_dots"),
             ],
         ));
-        let mut sort: Vec<MEntry> = [(SortKey::Name, "Name"), (SortKey::Modified, "Date modified"), (SortKey::Type, "Type"), (SortKey::Size, "Size")]
-            .into_iter()
-            .map(|(k, l)| MEntry::act(&format!("sort:{l}"), check(m.sort == k), l, "", 0, Act::Sort(k, None)))
-            .collect();
+        let mut sort: Vec<MEntry> = SortKey::ALL.into_iter().map(|k| MEntry::act(&format!("sort:{}", k.label()), check(m.sort == k), k.label(), "", 0, Act::Sort(k, None))).collect();
         sort.push(MEntry::act("sort:asc", check(m.asc), "Ascending", "", 1, Act::Sort(m.sort, Some(true))));
         sort.push(MEntry::act("sort:desc", check(!m.asc), "Descending", "", 1, Act::Sort(m.sort, Some(false))));
+        sort.push(MEntry::act("sort:dirs", check(m.dirs_first), "Folders first", "", 2, Act::FoldersFirst(!m.dirs_first)));
+        if m.own_sort {
+            sort.push(MEntry::act("sort:reset", I_REFRESH, "Reset this folder to default", "", 2, Act::ResetSort));
+        }
         v.push(MEntry::sub("app:sort", I_SORT, "Sort by", G_OPEN, sort));
         v.push(MEntry::act("app:refresh", I_REFRESH, "Refresh", "F5", G_OPEN, Act::Refresh));
         let mut paste = MEntry::act("app:paste", I_PASTE, "Paste", "Ctrl+V", G_EDIT, Act::Paste);
@@ -655,12 +669,13 @@ impl App {
     }
 
     fn sample_ctx(&self, items: &[PathBuf], dir: &Path, background: bool) -> MenuCtx {
-        let row = items.first().filter(|_| !background).and_then(|p| fsx::stat(p).map(|e| (p, e))).map(|(p, e)| Row {
+        let row = items.first().filter(|_| !background).and_then(|p| { let q = p.clone(); bg::within(p, Duration::from_millis(300), move || fsx::stat(&q)).flatten().map(|e| (p, e)) }).map(|(p, e)| Row {
             key: e.name.clone(),
             ext: e.ext.clone(),
             is_dir: e.is_dir,
             size: e.size,
             mtime: e.mtime,
+            ctime: e.ctime,
             attrs: e.attrs,
             name: e.name,
             path: p.clone(),
@@ -677,6 +692,8 @@ impl App {
             view: self.settings.view,
             sort: SortKey::Name,
             asc: true,
+            dirs_first: true,
+            own_sort: false,
             row,
         }
     }

@@ -19,8 +19,13 @@ enum Kind {
 }
 
 /// Registry value name, settings file key, what it holds.
-const VALUES: [(&str, &str, Kind); 22] = [
+const VALUES: [(&str, &str, Kind); 36] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
+    ("HideDotfiles", "hide_dots", Kind::Bool),
+    ("DefaultSort", "sort_key", Kind::Text),
+    ("DefaultSortAscending", "sort_asc", Kind::Bool),
+    ("FoldersFirst", "dirs_first", Kind::Bool),
+    ("DownloadsNewestFirst", "downloads_newest", Kind::Bool),
     ("ShowPreviewPane", "preview", Kind::Bool),
     ("ShowFileExtensions", "ext", Kind::Bool),
     ("DefaultView", "view", Kind::View),
@@ -42,6 +47,15 @@ const VALUES: [(&str, &str, Kind); 22] = [
     ("RibbonRight", "rright", Kind::Text),
     ("RibbonHidden", "rhide", Kind::Text),
     ("SidebarHiddenSections", SIDEBAR_HIDDEN, Kind::Text),
+    ("ExplorerOpenFolders", "exp_folders", Kind::Bool),
+    ("ExplorerWinE", "exp_win_e", Kind::Bool),
+    ("ExplorerWinEHook", "exp_win_e_hook", Kind::Bool),
+    ("ExplorerSelectFile", "exp_select", Kind::Bool),
+    ("ExplorerSingleWindow", "exp_single", Kind::Bool),
+    ("ExplorerFileDialogs", "exp_dialogs", Kind::Bool),
+    ("ExplorerDialogJump", "exp_jump", Kind::Bool),
+    ("ExplorerDialogLog", "exp_dialog_log", Kind::Bool),
+    ("ExplorerDialogExclusions", "exp_exclude", Kind::Text),
 ];
 
 const SIDEBAR_HIDDEN: &str = "sidebar_hidden";
@@ -260,6 +274,12 @@ fn reg_value(root: windows::Win32::System::Registry::HKEY, key: &str, name: &str
 #[cfg(test)]
 pub fn covers(key: &str) -> bool {
     VALUES.iter().any(|(_, k, _)| *k == key)
+}
+
+/// The value name a settings file key goes by.
+#[cfg(test)]
+pub fn name_of(key: &str) -> Option<&'static str> {
+    VALUES.iter().find(|(_, k, _)| *k == key).map(|(n, _, _)| *n)
 }
 
 #[cfg(test)]

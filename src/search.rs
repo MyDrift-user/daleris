@@ -41,6 +41,20 @@ impl Data {
     fn lower(&self, it: &Item) -> &[u8] {
         &self.lower.as_bytes()[it.lower_off as usize..it.lower_off as usize + it.lower_len as usize]
     }
+    /// Is it somewhere inside a folder whose name starts with a dot? The roots of a search don't count: if that's
+    /// where the search was started, that's where the person wants to look.
+    pub fn under_dot_folder(&self, i: u32) -> bool {
+        let mut cur = self.items[i as usize].parent;
+        while cur != NO_PARENT {
+            let it = &self.items[cur as usize];
+            if it.parent != NO_PARENT && self.lower(it).first() == Some(&b'.') {
+                return true;
+            }
+            cur = it.parent;
+        }
+        false
+    }
+
     pub fn full_path(&self, i: u32) -> PathBuf {
         let mut chain = Vec::with_capacity(16);
         let mut cur = i;
@@ -232,6 +246,10 @@ pub struct Query {
     pub highlight: Vec<String>,
     /// why a regular expression couldn't be used
     pub error: Option<String>,
+    /// leave out names that start with a dot, and what's inside folders that do
+    pub hide_dots: bool,
+    /// what the filter panel asks for
+    pub extra: Option<crate::listing::CompiledFilter>,
 }
 
 impl Query {
@@ -327,6 +345,14 @@ impl Query {
             if !ok {
                 return false;
             }
+        }
+        if self.hide_dots && lower_name.first() == Some(&b'.') {
+            return false;
+        }
+        if let Some(f) = &self.extra {
+            let name = std::str::from_utf8(lower_name).unwrap_or("");
+            let ext = if is_dir { "" } else { name.rsplit_once('.').map_or("", |(_, e)| e) };
+            return f.matches(name, ext, is_dir, size, mtime);
         }
         true
     }
@@ -494,12 +520,15 @@ pub struct Search {
 }
 
 impl Search {
-    pub fn new(index: Arc<Index>, text: &str, show_hidden: bool, regex: bool) -> Search {
+    pub fn new(index: Arc<Index>, text: &str, show_hidden: bool, regex: bool, hide_dots: bool, extra: Option<crate::listing::CompiledFilter>) -> Search {
         let q = if regex { Query::regex_whole(text) } else { Query::new(text) };
+        let mut q = if show_hidden { q } else { q.without_hidden() };
+        q.hide_dots = hide_dots;
+        q.extra = extra;
         Search {
             index,
             text: text.to_string(),
-            query: Arc::new(if show_hidden { q } else { q.without_hidden() }),
+            query: Arc::new(q),
             results: Vec::new(),
             scanned: 0,
             rx: None,
@@ -541,7 +570,7 @@ impl Search {
             let idx = self.index.clone();
             let q = self.query.clone();
             let from = self.scanned;
-            std::thread::spawn(move || {
+            crate::bg::spawn("scan", move || {
                 let t0 = Instant::now();
                 let r = scan(&idx, &q, from, total);
                 let _ = tx.send((r, total, t0.elapsed()));
@@ -574,7 +603,7 @@ fn scan(idx: &Index, q: &Query, from: usize, to: usize) -> Vec<u32> {
                         if it.parent == NO_PARENT {
                             continue;
                         }
-                        if q.matches(data.lower(it), it.attrs, it.size, it.mtime) {
+                        if q.matches(data.lower(it), it.attrs, it.size, it.mtime) && !(q.hide_dots && data.under_dot_folder(i as u32)) {
                             out.push(i as u32);
                             if out.len() >= MAX_RESULTS {
                                 break;
@@ -604,4 +633,45 @@ pub fn roots_equal(a: &[PathBuf], b: &[PathBuf]) -> bool {
 
 pub fn display_folder(p: &Path) -> String {
     p.parent().map(|x| x.to_string_lossy().to_string()).unwrap_or_default()
+}
+
+#[cfg(test)]
+mod dot_tests {
+    use super::*;
+
+    #[test]
+    fn hiding_dotfiles_reaches_search() {
+        let mut q = Query::new("env");
+        assert!(q.matches(b".env", 0, 1, 1));
+        q.hide_dots = true;
+        assert!(!q.matches(b".env", 0, 1, 1));
+        assert!(q.matches(b"my.env", 0, 1, 1));
+    }
+
+    #[test]
+    fn what_is_inside_a_dot_folder_counts_too() {
+        let mut d = Data::default();
+        let root = d.push("C:\\", NO_PARENT, A_DIR, 0, 0);
+        let dot = d.push(".git", root, A_DIR, 0, 0);
+        let inside = d.push("config", dot, 0, 1, 1);
+        let plain = d.push("src", root, A_DIR, 0, 0);
+        let fine = d.push("main.rs", plain, 0, 1, 1);
+        assert!(d.under_dot_folder(inside));
+        assert!(!d.under_dot_folder(fine));
+        assert!(!d.under_dot_folder(dot), "that one is caught by its own name");
+        // searching from inside a dot folder is asking to look there
+        let mut e = Data::default();
+        let start = e.push("C:\\.config", NO_PARENT, A_DIR, 0, 0);
+        let item = e.push("settings", start, 0, 1, 1);
+        assert!(!e.under_dot_folder(item));
+    }
+
+    #[test]
+    fn the_filter_panel_reaches_search() {
+        let mut q = Query::new("a");
+        let f = crate::listing::ListFilter { kinds: vec![crate::util::Kind::Image], ..Default::default() };
+        q.extra = Some(f.compile(1));
+        assert!(q.matches(b"a.png", 0, 1, 1));
+        assert!(!q.matches(b"a.txt", 0, 1, 1));
+    }
 }

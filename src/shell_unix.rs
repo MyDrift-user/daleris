@@ -229,7 +229,7 @@ pub fn shortcut_target(lnk: &Path) -> Option<PathBuf> {
 /// Mount a server address (smb://server/share, sftp://host/path, ftp://, dav(s)://, nfs://)
 /// and report where it appeared on disk. Runs on a worker thread.
 pub fn connect_server(url: String, user: String, pass: String, done: impl FnOnce(Result<PathBuf, String>) + Send + 'static) {
-    std::thread::spawn(move || done(mount_url(&url, &user, &pass)));
+    crate::bg::spawn("mount", move || done(mount_url(&url, &user, &pass)));
 }
 
 #[cfg(target_os = "linux")]
@@ -388,7 +388,7 @@ fn trash(paths: &[PathBuf]) -> Result<(), String> {
 
 /// Copy / move / trash / delete on a worker thread. Names that are taken get " (2)".
 pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOnce(Result<(), String>) + Send + 'static) {
-    std::thread::spawn(move || {
+    crate::bg::spawn("shell-op", move || {
         let r = (|| -> Result<(), String> {
             match op {
                 Op::Recycle => trash(&src),

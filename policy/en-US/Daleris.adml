@@ -11,6 +11,17 @@
       <string id="ExplainFixed">This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
       <string id="ExplainRecommended">This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
       <string id="ShowHiddenItems">Show hidden and system items</string>
+      <string id="HideDotfiles">Hide dotfiles and dotfolders</string>
+      <string id="DefaultSort">Default sort order</string>
+      <string id="DefaultSortAscending">Default sort runs from A, oldest or smallest</string>
+      <string id="FoldersFirst">Keep folders above files by default</string>
+      <string id="DownloadsNewestFirst">Show Downloads newest first, with folders mixed in</string>
+      <string id="Sort_name">Name</string>
+      <string id="Sort_modified">Date modified</string>
+      <string id="Sort_created">Date created</string>
+      <string id="Sort_type">Type</string>
+      <string id="Sort_extension">Extension</string>
+      <string id="Sort_size">Size</string>
       <string id="ShowPreviewPane">Show the preview pane</string>
       <string id="ShowFileExtensions">Show file name extensions</string>
       <string id="CustomTitleBar">Use the Daleris title bar</string>
@@ -70,8 +81,36 @@
       <string id="LockContextMenuExplain">The right-click menu cannot be customized.</string>
       <string id="DisableCustomCommands">Turn off custom commands</string>
       <string id="DisableCustomCommandsExplain">Commands people added themselves are not shown or run, and none can be added.</string>
+      <string id="ExplorerOpenFolders">Open folders in Daleris</string>
+      <string id="ExplorerOpenFoldersExplain_ExplainFixed">Folders opened from the desktop, Start and most apps open in Daleris. Windows only. Turned off, whatever this switch wrote for a person is removed the next time Daleris runs for them, or sooner if it's running; the launcher and the DLL also obey it right away. Turned on, it only takes effect once Daleris has run for that person. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerOpenFoldersExplain_ExplainRecommended">Folders opened from the desktop, Start and most apps open in Daleris. Windows only. It only takes effect once Daleris has run for that person. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerWinE">Win + E opens Daleris</string>
+      <string id="ExplorerWinEExplain_ExplainFixed">Win + E opens Daleris, through the setting Windows reads for this shortcut. Windows only. Turned off, whatever this switch wrote for a person is removed the next time Daleris runs for them, or sooner if it's running; the launcher and the DLL also obey it right away. Turned on, it only takes effect once Daleris has run for that person. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerWinEExplain_ExplainRecommended">Win + E opens Daleris, through the setting Windows reads for this shortcut. Windows only. It only takes effect once Daleris has run for that person. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerWinEHook">Win + E opens Daleris through a keyboard hook</string>
+      <string id="ExplorerWinEHookExplain_ExplainFixed">A small background program watches for Win + E, for Windows builds that ignore the setting. Runs from sign-in. Windows only. Turned off, whatever this switch wrote for a person is removed the next time Daleris runs for them, or sooner if it's running; the launcher and the DLL also obey it right away. Turned on, it only takes effect once Daleris has run for that person. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerWinEHookExplain_ExplainRecommended">A small background program watches for Win + E, for Windows builds that ignore the setting. Runs from sign-in. Windows only. It only takes effect once Daleris has run for that person. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerSelectFile">"Show in folder" selects the file</string>
+      <string id="ExplorerSelectFileExplain_ExplainFixed">When an app shows a file in its folder through the Windows call for that, the file is selected. Needs folders to open in Daleris. Windows only. Turned off, whatever this switch wrote for a person is removed the next time Daleris runs for them, or sooner if it's running; the launcher and the DLL also obey it right away. Turned on, it only takes effect once Daleris has run for that person. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerSelectFileExplain_ExplainRecommended">When an app shows a file in its folder through the Windows call for that, the file is selected. Needs folders to open in Daleris. Windows only. It only takes effect once Daleris has run for that person. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerSingleWindow">Open new folders as tabs in the running window</string>
+      <string id="ExplorerSingleWindowExplain_ExplainFixed">Folders opened from outside become tabs in the window that is already open. Windows only. Turned off, whatever this switch wrote for a person is removed the next time Daleris runs for them, or sooner if it's running; the launcher and the DLL also obey it right away. Turned on, it only takes effect once Daleris has run for that person. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerSingleWindowExplain_ExplainRecommended">Folders opened from outside become tabs in the window that is already open. Windows only. It only takes effect once Daleris has run for that person. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerFileDialogs">Open and Save dialogs use Daleris</string>
+      <string id="ExplorerFileDialogsExplain_ExplainFixed">Apps that ask Windows for a modern file dialog get Daleris, through a per-user COM registration that loads a DLL into the app when it opens the dialog. Controls the app adds are shown by Daleris too. Controls the app adds are shown by Daleris too. Games, launchers, anti-cheat and security software always get the Windows dialog. Windows only. Turned off, whatever this switch wrote for a person is removed the next time Daleris runs for them, or sooner if it's running; the launcher and the DLL also obey it right away. Turned on, it only takes effect once Daleris has run for that person. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerFileDialogsExplain_ExplainRecommended">Apps that ask Windows for a modern file dialog get Daleris, through a per-user COM registration that loads a DLL into the app when it opens the dialog. Games, launchers, anti-cheat and security software always get the Windows dialog. Windows only. It only takes effect once Daleris has run for that person. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerDialogJump">Ctrl + G sends a Windows file dialog to the Daleris folder</string>
+      <string id="ExplorerDialogJumpExplain_ExplainFixed">While a Windows file dialog is in front, Ctrl + G takes the dialog to the folder Daleris shows, or says that Daleris isn't open. A small background program runs from sign-in for this. Loads nothing into the app. Windows only. Turned off, whatever this switch wrote for a person is removed the next time Daleris runs for them, or sooner if it's running; the launcher and the DLL also obey it right away. Turned on, it only takes effect once Daleris has run for that person. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerDialogJumpExplain_ExplainRecommended">While a Windows file dialog is in front, Ctrl + G takes the dialog to the folder Daleris shows, or says that Daleris isn't open. A small background program runs from sign-in for this. Loads nothing into the app. Windows only. It only takes effect once Daleris has run for that person. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerDialogExclusions">Apps that keep the Windows file dialog</string>
+      <string id="ExplorerDialogExclusionsExplain_ExplainFixed">Program names or folders, separated by the pipe character. !name.exe lets Daleris show a browser's dialogs. Games, anti-cheat and security software are always left alone, whatever this says. Windows only. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerDialogExclusionsExplain_ExplainRecommended">Program names or folders, separated by the pipe character. !name.exe lets Daleris show a browser's dialogs. Games, anti-cheat and security software are always left alone, whatever this says. Windows only. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
+      <string id="ExplorerDialogLog">Log file dialog decisions</string>
+      <string id="ExplorerDialogLogExplain_ExplainFixed">The file dialog DLL writes which apps asked for a dialog and what it decided to %LOCALAPPDATA%\Daleris\logs\file-dialogs.log. Windows only. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerDialogLogExplain_ExplainRecommended">The file dialog DLL writes which apps asked for a dialog and what it decided to %LOCALAPPDATA%\Daleris\logs\file-dialogs.log. Windows only. This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
     </stringTable>
     <presentationTable>
+      <presentation id="DefaultSort"><dropdownList refId="DefaultSort" noSort="true" /></presentation>
       <presentation id="DefaultView"><dropdownList refId="DefaultView" noSort="true" /></presentation>
       <presentation id="Theme"><dropdownList refId="Theme" noSort="true" /></presentation>
       <presentation id="AccentColor"><dropdownList refId="AccentColor" noSort="true" /></presentation>
@@ -81,6 +120,7 @@
       <presentation id="RibbonRight"><textBox refId="RibbonRight"><label>Ribbon bar: right side</label></textBox></presentation>
       <presentation id="RibbonHidden"><textBox refId="RibbonHidden"><label>Ribbon bar: hidden items</label></textBox></presentation>
       <presentation id="SidebarHiddenSections"><textBox refId="SidebarHiddenSections"><label>Sidebar: hidden sections</label></textBox></presentation>
+      <presentation id="ExplorerDialogExclusions"><textBox refId="ExplorerDialogExclusions"><label>Apps that keep the Windows file dialog</label></textBox></presentation>
     </presentationTable>
   </resources>
 </policyDefinitionResources>

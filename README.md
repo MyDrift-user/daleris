@@ -39,7 +39,10 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 
 ### 🗂️ Everyday file management
 - Tabs, with back, forward and up navigation and an editable address bar
-- List and large icon views, with sorting and resizable columns
+- List and large icon views, with resizable columns
+- A Sort menu with name, dates, type, extension and size, and **Folders first** as its own switch. Each folder keeps the sort you choose for it, and Downloads opens newest first
+- A filter panel for kind, extension, date, size and name, per tab, showing how much of the folder it leaves on screen
+- Hide dotfiles and dotfolders, on top of the Windows hidden setting
 - Folder sizes counted in the background
 - Preview pane for text files and folder summaries, plus a details panel for files
 - Cut, copy, paste, rename and delete, including drag and drop
@@ -49,9 +52,13 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 - On Windows, **Always keep on this device** and **Free up space** work directly from the menu
 - Files that are only in the cloud aren't downloaded just to show a preview
 - Map network drives on Windows, or connect to SMB and SFTP servers on Linux and macOS
+- A server that's down never holds up the window: a folder says what it's waiting for, says in plain words what went wrong, keeps trying, and opens once the server answers. Unavailable drives look it in the sidebar and come back by themselves
 
 ### 🖱️ Native Windows integration
 The real Windows icons, thumbnails and right-click menu, so your shell extensions keep working. You can also add your own commands to the menu, using `{path}`, `{paths}`, `{name}` and `{dir}`.
+
+### 🪟 Stands in for File Explorer (Windows, optional)
+Under **Settings → Windows Explorer** there are separate switches, all off by default, to open folders in Daleris, make Win + E open it, select the file on "Show in folder", open new folders as tabs in the running window, show Daleris for apps' Open and Save dialogs, and send an ordinary file dialog to the folder Daleris shows with Ctrl + G. Each switch says whether it's really active. [What each one does, and its limits.](#-windows-explorer-integration)
 
 ### 🎨 Make it yours
 - Dark, light or follow Windows, with a choice of accent colours
@@ -130,6 +137,25 @@ Settings are a plain text file with one `name=value` per line, also shown under 
 
 The log records the system, graphics driver, errors and crashes with a backtrace. Set `DALERIS_LOG=debug` for more detail. **When reporting a crash, please attach this file.**
 
+## 🪟 Windows Explorer integration
+
+Every switch is off until you turn it on, works on its own and only changes your own account (HKCU). `daleris --restore-explorer` removes everything they wrote and nothing else, and uninstalling does the same.
+
+| Switch | How it works | Limits |
+|---|---|---|
+| Open folders in Daleris | The `Folder` class's `open` and `explore` commands point at a small launcher | Apps that start `explorer.exe` themselves can't be redirected. The Recycle Bin, Control Panel and other places only Explorer can show go to it |
+| Win + E opens Daleris | The setting Windows reads for this shortcut | Some Windows builds are reported to skip it |
+| Win + E, even if Windows ignores that | A low-level keyboard hook in a small process of its own, started at sign-in | Doesn't see keys while an administrator window is in front. Some anti-cheat software may dislike keyboard hooks |
+| "Show in folder" selects the file | The launcher registers as a shell window for a few seconds so `SHOpenFolderAndSelectItems` can tell it what to select | Undocumented, so an update could stop it. Only the first file of several is selected. `explorer.exe /select,` isn't redirected |
+| New folders as tabs in the running window | A named pipe per user and session, with short timeouts | |
+| Open and Save dialogs use Daleris | A per-user COM registration of `CLSID_FileOpenDialog` and `CLSID_FileSaveDialog`. Windows loads a small DLL into an app only when it creates one of these dialogs; the DLL starts Daleris as a separate process for the window | Old-style dialogs (`GetOpenFileName`, `SHBrowseForFolder`), Microsoft Store apps, elevated and sandboxed apps keep the Windows dialog. Controls the app adds are shown too; properties it collects, such as Office's Authors and Tags, aren't editable. Not offered on ARM PCs |
+| Ctrl + G in a Windows file dialog | A small process, started at sign-in, watches the foreground window from outside and sends the dialog the path. Loads nothing into the app | Says so if Daleris isn't open. Can't reach apps running as administrator |
+| Log file dialog decisions | The DLL writes which apps asked for a dialog, what it decided and why, the controls they added and any interface it doesn't know, to `%LOCALAPPDATA%\Daleris\logs\file-dialogs.log` | An app that isn't in the log never asked Windows for this kind of dialog |
+
+**Games and anti-cheat.** Anti-cheat treats loaded DLLs as suspicious. Windows can't be told to load a COM class for some apps only, so the DLL's first act is to check: anything on the built-in list (Roblox, game launchers, known games and anti-cheat, security software, Windows' own shell), anything in a game store's folder, and anything with an anti-cheat or game engine module loaded gets the plain Windows dialog at once. The DLL is still in that process until COM unloads it, though, if the game itself opens a Windows file dialog, which games rarely do. If you'd rather not take that chance, leave this switch off and use Ctrl + G, which loads nothing. The list is under the switch in Settings, and you can add your own.
+
+The DLL can't take an app down with it: every entry point catches panics, every wait has a time limit, and if Daleris doesn't start, stops responding or dies, the normal Windows dialog appears instead. It isn't signed, so antivirus may question it.
+
 ## 🔄 Updates
 
 Daleris looks for a new release at startup and every 6 hours, and installs it by itself unless you turn that off under **Settings → About & updates**. How depends on how it's installed:
@@ -151,7 +177,7 @@ You need [Rust](https://rustup.rs).
 cargo build --release
 ```
 
-The program ends up in `target/release/`.
+The program ends up in `target/release/`. On Windows, `cargo build --release --workspace` also builds the launcher and the 64-bit file dialog DLL for the Windows Explorer switches, which look for them next to the program. For 32-bit apps, also build `daleris-dialogs` for `i686-pc-windows-msvc` (or `-gnu`).
 
 On Debian or Ubuntu, install these libraries first:
 
@@ -181,6 +207,12 @@ src/
   fsx.rs, shell.rs        Windows file system and shell integration
   fsx_unix.rs, shell_unix.rs  the same for Linux and macOS
   policy.rs               Group Policy
+  integration*.rs         the Windows Explorer switches
+crates/
+  integration/            what the program, launcher and DLL share
+  open/                   the launcher Windows runs for folders and Win + E
+  dialogs/                the file dialog DLL
+  shell-test/             a test program that does what apps do with the shell
   theme.rs                colours, icons and logo
 policy/                   ADMX / ADML templates
 assets/logos/             the logo as SVG; build.ps1 makes the app and installer icons from one

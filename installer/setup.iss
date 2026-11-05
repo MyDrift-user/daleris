@@ -26,6 +26,9 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 
 [Files]
 Source: "..\target\release\daleris.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\target\release\daleris-open.exe"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\target\release\daleris-dialogs-x64.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\target\release\daleris-dialogs-x86.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\THIRD-PARTY-NOTICES.txt"; DestDir: "{app}"; Flags: ignoreversion
 Source: "machine-install.txt"; DestDir: "{app}"; Flags: ignoreversion; Check: IsAdminInstallMode
@@ -38,6 +41,8 @@ Name: "{autodesktop}\Daleris"; Filename: "{app}\daleris.exe"; AppUserModelID: "M
 Filename: "{app}\daleris.exe"; Description: "{cm:LaunchProgram,Daleris}"; Flags: nowait postinstall skipifsilent
 
 [UninstallRun]
+; Folders go back to File Explorer for whoever uninstalls. Anyone else gets the same from the launcher. See src/integration_windows.rs.
+Filename: "{app}\daleris.exe"; Parameters: "--restore-explorer"; Flags: runhidden; RunOnceId: "RestoreExplorer"
 Filename: "{sys}\schtasks.exe"; Parameters: "/Delete /F /TN ""Daleris Updater"""; Flags: runhidden; Check: IsAdminInstallMode; RunOnceId: "DeleteUpdateTask"
 
 [UninstallDelete]

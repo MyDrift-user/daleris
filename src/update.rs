@@ -719,7 +719,7 @@ fn run_now() -> i32 {
 
 /// Runs that do their job without a window. Returns the exit code if this was one.
 pub fn handle_command_line() -> Option<i32> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
+    let args: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
     match args.first().map(String::as_str) {
         Some("--version") => {
             println!("Daleris {CURRENT}");

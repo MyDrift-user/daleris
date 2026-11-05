@@ -49,7 +49,10 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Build
-        run: cargo build --release --locked
+        run: |
+          cargo build --release --locked --workspace
+          rustup target add i686-pc-windows-msvc
+          cargo build --release --locked --target i686-pc-windows-msvc -p daleris-dialogs
 
       - name: Install installer tools
         shell: pwsh

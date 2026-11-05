@@ -52,7 +52,7 @@ impl log::Log for Logger {
 /// The system, desktop and session type are the first things to know about a crash.
 fn log_start() {
     let env = |k: &str| std::env::var(k).unwrap_or_else(|_| "-".into());
-    log::info!("Daleris {} started on {} {}, arguments: {:?}", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH, std::env::args().skip(1).collect::<Vec<_>>());
+    log::info!("Daleris {} started on {} {}, arguments: {:?}", env!("CARGO_PKG_VERSION"), std::env::consts::OS, std::env::consts::ARCH, std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect::<Vec<_>>());
     if cfg!(target_os = "linux") {
         log::info!(
             "session: XDG_SESSION_TYPE={} XDG_CURRENT_DESKTOP={} WAYLAND_DISPLAY={} DISPLAY={} WINIT_UNIX_BACKEND={}",

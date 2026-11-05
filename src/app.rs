@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -7,8 +7,12 @@ use std::time::{Duration, Instant};
 
 use eframe::egui::{self, pos2, vec2, Align2, Color32, CornerRadius, FontId, Key, Rect, Response, Sense, Stroke, StrokeKind, TextureHandle, Ui};
 
+use daleris_integration::target;
+
 use crate::dirsize::DirSize;
-use crate::fsx::{self, Cloud, CloudRoot, Drive, DriveKind, Entry, Place};
+use crate::bg;
+use crate::fsx::{self, Cloud, CloudRoot, Drive, DriveKind, Entry, FailKind, FolderError, Place};
+use crate::listing::{self, folder_key, DateRange, ListFilter, SizeRange, SortKey, SortRow, SortSpec};
 use crate::policy;
 use crate::search::{self, Index, Query, Search};
 use crate::shell::{self, ImgReq, Loader, Op};
@@ -19,13 +23,19 @@ mod actions;
 mod chrome;
 mod file_icons;
 mod phosphor_icons;
+mod integration_page;
 mod list;
 mod menu;
+mod picker;
 mod props;
 mod settings_page;
 mod sidebar;
 
 use actions::*;
+use chrome::{action_button, page_column, primary_button, secondary_button};
+use picker::field_dropdown;
+pub use integration_page::{handle_integration_command, Wanted};
+pub use picker::{end_with_parent as end_pick_with_parent, read_request as read_pick_request, Picker};
 use file_icons::{Art, IconFor};
 
 // ====================================================================== model
@@ -54,14 +64,6 @@ impl Loc {
             },
         }
     }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum SortKey {
-    Name,
-    Modified,
-    Type,
-    Size,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -99,7 +101,19 @@ struct Tab {
     cancel: Arc<AtomicBool>,
     load_start: Instant,
     load_time: Option<Duration>,
-    error: Option<String>,
+    error: Option<FolderError>,
+    /// trying again without being asked: what's on screen stays until there's an answer
+    quiet: bool,
+    /// when to try again by itself, and how long to wait the time after
+    retry_at: Option<Instant>,
+    retry_wait: Duration,
+    /// Network folders get looked at now and then, as nothing else says when a server goes away.
+    probe_at: Instant,
+    probe_since: Option<Instant>,
+    /// that look is taking its time
+    stalled: bool,
+    /// a reconnect with a possible password prompt is under way
+    reconnecting: bool,
     sel: HashSet<String>,
     sel_info: (usize, u64),
     cursor: Option<usize>,
@@ -107,6 +121,28 @@ struct Tab {
     scroll_to: Option<usize>,
     sort: SortKey,
     asc: bool,
+    dirs_first: bool,
+    /// all entries in sorted order, of which `view` is what passes the filters
+    order: Vec<u32>,
+    /// what `order` was made for
+    order_for: Option<(SortSpec, usize, u64)>,
+    /// goes up each time `entries` is replaced
+    stamp: u64,
+    /// a big folder is being sorted away from the window
+    sorting: bool,
+    sort_token: u64,
+    last_rebuild: Instant,
+    /// the filter panel's choices
+    filter: ListFilter,
+    filter_open: bool,
+    /// a custom extension being typed in the filter panel
+    filter_ext: String,
+    /// how many items the view would show without the filter panel
+    shown_of: usize,
+    /// where the filter button is, for the panel to open under it
+    filter_anchor: Option<Rect>,
+    /// (extension, how many) of what's in the folder, for the filter panel to offer
+    type_stats_all: Vec<(String, usize)>,
     rename: Option<Rename>,
     query: String,
     scope: Scope,
@@ -141,6 +177,13 @@ impl Tab {
             load_start: Instant::now(),
             load_time: None,
             error: None,
+            quiet: false,
+            retry_at: None,
+            retry_wait: FIRST_RETRY,
+            probe_at: Instant::now(),
+            probe_since: None,
+            stalled: false,
+            reconnecting: false,
             sel: HashSet::new(),
             sel_info: (0, 0),
             cursor: None,
@@ -148,6 +191,19 @@ impl Tab {
             scroll_to: None,
             sort: SortKey::Name,
             asc: true,
+            dirs_first: true,
+            order: Vec::new(),
+            order_for: None,
+            stamp: 0,
+            sorting: false,
+            sort_token: 0,
+            last_rebuild: Instant::now(),
+            filter: ListFilter::default(),
+            filter_open: false,
+            filter_ext: String::new(),
+            shown_of: 0,
+            filter_anchor: None,
+            type_stats_all: Vec::new(),
             rename: None,
             query: String::new(),
             scope: Scope::Subfolders,
@@ -168,11 +224,45 @@ impl Tab {
     fn dir(&self) -> Option<&Path> {
         self.loc.path()
     }
+    fn spec(&self) -> SortSpec {
+        SortSpec { key: self.sort, asc: self.asc, dirs_first: self.dirs_first }
+    }
+    fn set_spec(&mut self, s: SortSpec) {
+        self.sort = s.key;
+        self.asc = s.asc;
+        self.dirs_first = s.dirs_first;
+    }
+    /// Is the filter panel hiding things that would show otherwise?
+    fn filtered(&self) -> bool {
+        self.filter.is_active() && !self.searching()
+    }
 }
 
+/// How long until a folder that failed is tried again by itself, doubling up to `LAST_RETRY`.
+const FIRST_RETRY: Duration = Duration::from_secs(5);
+const LAST_RETRY: Duration = Duration::from_secs(30);
+/// How often an open network folder is looked at, and when a look that hasn't come back counts as trouble.
+const PROBE_EVERY: Duration = Duration::from_secs(8);
+const PROBE_SLOW: Duration = Duration::from_secs(4);
+/// A network drive that hasn't said how it is by now looks unavailable until it does.
+const DRIVE_SLOW: Duration = Duration::from_secs(4);
+/// How often drives are looked at when nothing else asks for it.
+const DRIVE_POLL: Duration = Duration::from_secs(15);
+/// Folders with more entries than this are sorted away from the window.
+const BIG_FOLDER: usize = 30_000;
+
 enum Msg {
+    /// a big folder's sort is done
+    Sorted { tab: u64, token: u64, order: Vec<u32>, made_for: (SortSpec, usize, u64) },
+    /// what a look at an open network folder found
+    Probe { tab: u64, gen: u64, result: Result<(), FolderError> },
+    Reconnected { tab: u64, result: Result<(), FolderError> },
+    /// a drive came back while something was using it
+    DrivesChanged,
+    /// the contents of a file, read away from the window
+    FileText(Result<String, String>),
     Batch { tab: u64, gen: u64, batch: Vec<Entry> },
-    Done { tab: u64, gen: u64, err: Option<String> },
+    Done { tab: u64, gen: u64, err: Option<FolderError> },
     Changed { tab: u64 },
     Drives(Vec<Drive>),
     DriveDetail(Drive),
@@ -210,6 +300,7 @@ struct Row {
     is_dir: bool,
     size: u64,
     mtime: u64,
+    ctime: u64,
     attrs: u32,
     path: PathBuf,
     folder: Option<String>,
@@ -272,6 +363,16 @@ enum Act {
     NewWindow(PathBuf),
     RunCustom(usize),
     Sort(SortKey, Option<bool>),
+    FoldersFirst(bool),
+    ResetSort,
+    ToggleDotfiles,
+    /// the loading page's button: stop waiting
+    CancelLoad,
+    /// the failure page's button
+    Retry,
+    /// connect the mapped drive this folder is on, asking for a password if it takes one
+    Reconnect,
+    ClearFilter,
 }
 
 enum Slot {
@@ -284,6 +385,9 @@ struct Shot {
     path: PathBuf,
     frames: u32,
     requested: bool,
+    /// test hook: more pictures on the way, at these frames, as `<name>-<frame>.png`
+    more: Vec<u32>,
+    saving: Option<u32>,
 }
 
 /// Where a right-click menu item goes: in the menu, in its "Show more options" submenu, or nowhere.
@@ -350,6 +454,16 @@ fn default_sections() -> Vec<SectionCfg> {
 
 pub struct Settings {
     show_hidden: bool,
+    /// names starting with a dot, whatever their attributes say
+    hide_dotfiles: bool,
+    /// the sort a folder gets until someone chooses one for it
+    sort_key: SortKey,
+    sort_asc: bool,
+    dirs_first: bool,
+    /// Downloads gets its own order out of the box
+    downloads_newest: bool,
+    /// what was chosen per folder, by `folder_key`
+    folder_sorts: BTreeMap<String, SortSpec>,
     show_preview: bool,
     show_ext: bool,
     view: View,
@@ -389,12 +503,23 @@ pub struct Settings {
     ribbon_left: Vec<String>,
     ribbon_right: Vec<String>,
     ribbon_hidden: HashSet<String>,
+    /// the Windows Explorer switches. See integration_page.rs.
+    exp_folders: bool,
+    exp_win_e: bool,
+    exp_win_e_hook: bool,
+    exp_select: bool,
+    exp_single: bool,
+    exp_dialogs: bool,
+    exp_jump: bool,
+    exp_dialog_log: bool,
+    /// apps that keep the Windows file dialog, separated by |
+    exp_exclude: String,
     /// lines of the settings file for values a policy fixes right now, written back unchanged
     kept: Vec<String>,
 }
 
 /// Everything the ribbon bar can show: id, icon, name in Settings.
-const RIBBON_ITEMS: [(&str, &str, &str); 14] = [
+const RIBBON_ITEMS: [(&str, &str, &str); 15] = [
     ("new", I_ADD, "New"),
     ("sep1", I_GRIP, "Divider"),
     ("cut", I_CUT, "Cut"),
@@ -404,17 +529,23 @@ const RIBBON_ITEMS: [(&str, &str, &str); 14] = [
     ("delete", I_DELETE, "Delete"),
     ("sep2", I_GRIP, "Divider"),
     ("sort", I_SORT, "Sort"),
+    ("filter", I_FILTER, "Filter"),
     ("view", I_LIST, "View"),
     ("more", I_MORE, "Three dots (Windows menu for this folder)"),
     ("terminal", I_TERMINAL, "Open in Terminal"),
     ("hidden", I_EYE, "Show hidden items"),
     ("preview", I_PANE, "Preview pane"),
 ];
-const RIBBON_LEFT: [&str; 10] = ["new", "sep1", "cut", "copy", "paste", "rename", "delete", "sep2", "sort", "view"];
+const RIBBON_LEFT: [&str; 11] = ["new", "sep1", "cut", "copy", "paste", "rename", "delete", "sep2", "sort", "filter", "view"];
 const RIBBON_RIGHT: [&str; 4] = ["more", "terminal", "hidden", "preview"];
 
 /// Test hook: DALERIS_TEST_SETTINGS=1 makes a screenshot run read and write the settings file like a
 /// normal run (point APPDATA at a scratch folder first).
+/// A number from a test hook's environment variable.
+fn test_number(name: &str, default: u32) -> u32 {
+    std::env::var(name).ok().and_then(|v| v.parse().ok()).unwrap_or(default)
+}
+
 fn test_real_settings() -> bool {
     std::env::var_os("DALERIS_TEST_SETTINGS").is_some()
 }
@@ -423,7 +554,6 @@ fn test_real_settings() -> bool {
 const SETTINGS_HEADER: &str = "# Daleris settings. Open windows read this file again when they get focus.\n";
 
 /// How a This PC tab is written in the settings file.
-
 const THIS_PC_TAB: &str = "::thispc";
 
 /// Should the window start without the Windows frame (our own title bar)?
@@ -443,6 +573,12 @@ impl Settings {
     fn defaults() -> Settings {
         Settings {
             show_hidden: false,
+            hide_dotfiles: false,
+            sort_key: SortKey::Name,
+            sort_asc: true,
+            dirs_first: true,
+            downloads_newest: true,
+            folder_sorts: BTreeMap::new(),
             show_preview: true,
             show_ext: true,
             view: View::Details,
@@ -471,6 +607,15 @@ impl Settings {
             ribbon_left: RIBBON_LEFT.iter().map(|s| s.to_string()).collect(),
             ribbon_right: RIBBON_RIGHT.iter().map(|s| s.to_string()).collect(),
             ribbon_hidden: HashSet::new(),
+            exp_folders: false,
+            exp_win_e: false,
+            exp_win_e_hook: false,
+            exp_select: false,
+            exp_single: false,
+            exp_dialogs: false,
+            exp_jump: false,
+            exp_dialog_log: false,
+            exp_exclude: String::new(),
             kept: Vec::new(),
         }
     }
@@ -556,6 +701,11 @@ impl Settings {
         let list = || v.split('|').map(str::trim).filter(|k| !k.is_empty()).map(String::from);
         match k {
             "hidden" => self.show_hidden = on,
+            "hide_dots" => self.hide_dotfiles = on,
+            "sort_key" => self.sort_key = SortKey::from_word(v).unwrap_or(SortKey::Name),
+            "sort_asc" => self.sort_asc = on,
+            "dirs_first" => self.dirs_first = on,
+            "downloads_newest" => self.downloads_newest = on,
             "preview" => self.show_preview = on,
             "ext" => self.show_ext = on,
             "view" => self.view = if v == "icons" { View::Icons } else { View::Details },
@@ -576,18 +726,32 @@ impl Settings {
             "title_gear" => self.title_gear = on,
             "restore_tabs2" => self.restore_tabs = on,
             "auto_update" => self.auto_update = on,
+            "exp_folders" => self.exp_folders = on,
+            "exp_win_e" => self.exp_win_e = on,
+            "exp_win_e_hook" => self.exp_win_e_hook = on,
+            "exp_select" => self.exp_select = on,
+            "exp_single" => self.exp_single = on,
+            "exp_dialogs" => self.exp_dialogs = on,
+            "exp_jump" => self.exp_jump = on,
+            "exp_dialog_log" => self.exp_dialog_log = on,
+            "exp_exclude" => self.exp_exclude = v.to_string(),
             _ => return false,
         }
         true
     }
 
     /// The simple values as the settings file writes them.
-    fn value_lines(&self) -> [(&'static str, String); 21] {
+    fn value_lines(&self) -> [(&'static str, String); 35] {
         let b = |x: bool| (x as u8).to_string();
         let mut off: Vec<&str> = self.ribbon_hidden.iter().map(|s| s.as_str()).collect();
         off.sort();
         [
             ("hidden", b(self.show_hidden)),
+            ("hide_dots", b(self.hide_dotfiles)),
+            ("sort_key", self.sort_key.word().to_string()),
+            ("sort_asc", b(self.sort_asc)),
+            ("dirs_first", b(self.dirs_first)),
+            ("downloads_newest", b(self.downloads_newest)),
             ("preview", b(self.show_preview)),
             ("ext", b(self.show_ext)),
             ("view", if self.view == View::Icons { "icons".to_string() } else { "details".to_string() }),
@@ -608,6 +772,15 @@ impl Settings {
             ("rleft", self.ribbon_left.join("|")),
             ("rright", self.ribbon_right.join("|")),
             ("rhide", off.join("|")),
+            ("exp_folders", b(self.exp_folders)),
+            ("exp_win_e", b(self.exp_win_e)),
+            ("exp_win_e_hook", b(self.exp_win_e_hook)),
+            ("exp_select", b(self.exp_select)),
+            ("exp_single", b(self.exp_single)),
+            ("exp_dialogs", b(self.exp_dialogs)),
+            ("exp_jump", b(self.exp_jump)),
+            ("exp_dialog_log", b(self.exp_dialog_log)),
+            ("exp_exclude", self.exp_exclude.clone()),
         ]
     }
 
@@ -670,6 +843,13 @@ impl Settings {
                                 if let Ok(w) = w.parse::<f32>() {
                                     s.col_w.insert(id.to_string(), w.clamp(30.0, 3000.0));
                                 }
+                            }
+                        }
+                    }
+                    "fsort" => {
+                        if let Some((folder, spec)) = v.split_once('\t') {
+                            if let Some(spec) = SortSpec::decode(spec) {
+                                s.folder_sorts.insert(folder.to_string(), spec);
                             }
                         }
                     }
@@ -771,6 +951,9 @@ impl Settings {
                 out += &format!("spin={}\t{}\n", sec.id, p.display());
             }
         }
+        for (folder, spec) in &self.folder_sorts {
+            out += &format!("fsort={folder}\t{}\n", spec.encode());
+        }
         let mut hidden: Vec<&String> = self.side_hidden.iter().collect();
         hidden.sort();
         for k in hidden {
@@ -855,13 +1038,33 @@ pub struct App {
     popup_serial: u64,
     /// last time Windows' theme/accent was checked (for 'follow Windows')
     sys_check: f64,
+    /// a look at the drive list is under way
+    drives_busy: Arc<AtomicBool>,
+    /// network drives that haven't said how they are yet, since when
+    drive_wait: HashMap<char, Instant>,
+    drive_poll: Instant,
+    /// the preview that's wanted now, so that ones nobody wants any more don't run
+    preview_wanted: Arc<std::sync::atomic::AtomicU64>,
     /// the 'Connect to server' dialog (Linux/macOS): url, user, password
     connect: Option<(String, String, String)>,
+    /// this process is an app's Open or Save dialog. See picker.rs.
+    picker: Option<Picker>,
+    /// the Windows Explorer switches as last applied to the system
+    explorer_applied: Option<(Vec<(crate::integration::Feature, bool)>, String)>,
+    explorer_status_at: Option<Instant>,
+    explorer_live: Vec<(crate::integration::Feature, crate::integration::Live)>,
+    /// folders new launches send to this window, while it takes them
+    #[cfg(windows)]
+    requests: Option<Receiver<daleris_integration::pipe::Request>>,
+    #[cfg(windows)]
+    serving: Arc<AtomicBool>,
+    /// what the Ctrl + G watcher was last told this window shows
+    jump_told: Option<Option<PathBuf>>,
 }
 const PER_FILE_ICON: [&str; 11] = ["exe", "lnk", "ico", "url", "cur", "ani", "scr", "msc", "cpl", "appref-ms", "website"];
 
 impl App {
-    pub fn new(cc: &eframe::CreationContext, start: Option<PathBuf>, query: Option<String>, screenshot: Option<PathBuf>) -> App {
+    pub fn new(cc: &eframe::CreationContext, wanted: Wanted, query: Option<String>, screenshot: Option<PathBuf>, picker: Option<Picker>) -> App {
         shell::init_com();
         if let Some(gl) = &cc.gl {
             use eframe::glow::{self, HasContext};
@@ -872,7 +1075,7 @@ impl App {
         install(&cc.egui_ctx);
         let ctx = cc.egui_ctx.clone();
         let (tx, rx) = channel();
-        let places = fsx::known_folders();
+        let mut places = fsx::known_folders();
         let mut settings = if screenshot.is_some() && !test_real_settings() { Settings::defaults() } else { Settings::load() };
         if std::env::var("DALERIS_TEST_NATIVE_TITLE").is_ok() {
             settings.title_custom = false;
@@ -884,7 +1087,21 @@ impl App {
         let home = places.iter().find(|p| p.name == "Home").map(|p| p.path.clone()).unwrap_or_else(|| PathBuf::from("C:\\"));
         let auto_update_on = Arc::new(AtomicBool::new(settings.auto_update));
         // test runs must never look for updates
-        let updater = screenshot.is_none().then(|| crate::update::Updater::start(cc.egui_ctx.clone(), auto_update_on.clone()));
+        let updater = (screenshot.is_none() && picker.is_none()).then(|| crate::update::Updater::start(cc.egui_ctx.clone(), auto_update_on.clone()));
+        // test hook: Downloads moved elsewhere, which also keeps other people's files out of test pictures
+        if let Some(d) = std::env::var_os("DALERIS_TEST_DOWNLOADS") {
+            if let Some(p) = places.iter_mut().find(|p| p.name == "Downloads") {
+                p.path = PathBuf::from(d);
+            }
+        }
+        // test hook: what a high-DPI screen looks like
+        if let Some(z) = std::env::var("DALERIS_TEST_ZOOM").ok().and_then(|z| z.parse().ok()) {
+            cc.egui_ctx.set_zoom_factor(z);
+        }
+        #[cfg(windows)]
+        if std::env::var_os("DALERIS_TEST_BACKGROUND").is_some() {
+            shell::test_never_activate();
+        }
         let mut app = App {
             tabs: Vec::new(),
             active: 0,
@@ -908,7 +1125,13 @@ impl App {
             focus_search: false,
             editing_address: None,
             focus_address: false,
-            shot: screenshot.map(|path| Shot { path, frames: 0, requested: false }),
+            shot: screenshot.map(|path| Shot {
+                path,
+                frames: 0,
+                requested: false,
+                more: std::env::var("DALERIS_TEST_SHOT_MORE").unwrap_or_default().split(',').filter_map(|f| f.parse().ok()).collect(),
+                saving: None,
+            }),
             updater,
             auto_update_on: auto_update_on.clone(),
             update_notice_closed: None,
@@ -929,22 +1152,39 @@ impl App {
             popup: None,
             popup_serial: 0,
             sys_check: 0.0,
+            drives_busy: Arc::new(AtomicBool::new(false)),
+            drive_wait: HashMap::new(),
+            drive_poll: Instant::now(),
+            preview_wanted: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             connect: None,
+            picker,
+            explorer_applied: None,
+            explorer_status_at: None,
+            explorer_live: Vec::new(),
+            #[cfg(windows)]
+            requests: None,
+            #[cfg(windows)]
+            serving: Arc::new(AtomicBool::new(false)),
+            jump_told: None,
         };
         app.apply_theme();
         app.refresh_drives();
         app.refresh_clouds();
 
         let mut locs: Vec<Loc> = Vec::new();
-        if let Some(p) = start {
+        if wanted.this_pc {
+            locs.push(Loc::ThisPc);
+        } else if let Some(p) = wanted.dir {
             locs.push(Loc::Dir(p));
-        } else if (app.shot.is_none() || test_real_settings()) && app.settings.restore_tabs {
+        } else if app.picker.is_none() && (app.shot.is_none() || test_real_settings()) && app.settings.restore_tabs {
+            // a look for each tab, and no more than this in all: a server that's down can say so once the window is up
+            let deadline = Instant::now() + Duration::from_millis(400);
             locs.extend(app.settings.tabs.iter().filter_map(|p| {
                 if p.as_os_str() == THIS_PC_TAB {
-                    Some(Loc::ThisPc)
-                } else {
-                    p.is_dir().then(|| Loc::Dir(p.clone()))
+                    return Some(Loc::ThisPc);
                 }
+                let wait = deadline.saturating_duration_since(Instant::now());
+                (target::kind_within(p, wait) != target::PathKind::Missing).then(|| Loc::Dir(p.clone()))
             }));
         }
         if locs.is_empty() {
@@ -954,6 +1194,7 @@ impl App {
             app.open_tab(l, false);
         }
         app.active = 0;
+        app.tabs[0].select_after_load = wanted.select;
         // test hook: DALERIS_TEST_PROPS=<path> opens the Properties window
         if let Ok(p) = std::env::var("DALERIS_TEST_PROPS") {
             if !p.is_empty() {
@@ -967,6 +1208,7 @@ impl App {
                 "ribbon" => settings_page::Page::Ribbon,
                 "menu" => settings_page::Page::ContextMenu,
                 "files" => settings_page::Page::Files,
+                "explorer" => settings_page::Page::Explorer,
                 "about" => settings_page::Page::About,
                 _ => settings_page::Page::Appearance,
             };
@@ -1003,7 +1245,13 @@ impl App {
         t.cancel.store(true, Ordering::Relaxed);
         t.cancel = Arc::new(AtomicBool::new(false));
         t.gen += 1;
-        t.error = None;
+        if !std::mem::take(&mut t.quiet) {
+            t.error = None;
+        }
+        t.retry_at = None;
+        t.stalled = false;
+        t.probe_since = None;
+        t.probe_at = Instant::now() + PROBE_EVERY;
         t.incoming.clear();
         t.refresh_at = None;
         t.load_start = Instant::now();
@@ -1011,6 +1259,13 @@ impl App {
         if !refresh {
             t.entries.clear();
             t.view.clear();
+            t.order.clear();
+            t.order_for = None;
+            t.stamp += 1;
+            t.shown_of = 0;
+            if let Loc::Dir(p) = &t.loc {
+                t.set_spec(self.spec_for(p));
+            }
             t.sel.clear();
             t.sel_info = (0, 0);
             t.cursor = None;
@@ -1034,27 +1289,114 @@ impl App {
                 t.in_cloud = self.clouds.iter().any(|c| fsx::is_under(&p, &c.path));
                 let (tx, id, gen, cancel, ctx) = (self.tx.clone(), t.id, t.gen, t.cancel.clone(), self.ctx.clone());
                 let p2 = p.clone();
-                std::thread::Builder::new()
-                    .name("list".into())
-                    .spawn(move || {
-                        let r = fsx::list_dir(&p2, &cancel, |batch| {
+                // Watching starts once the folder has been read: on a dead server that too can hang.
+                if t.watched.as_deref() != Some(p.as_path()) {
+                    t.watcher = None;
+                    t.watched = None;
+                }
+                bg::submit(&p, "list", move || {
+                    // the person left while this was waiting its turn
+                    if cancel.load(Ordering::Relaxed) {
+                        return;
+                    }
+                    let list = || {
+                        fsx::list_dir(&p2, &cancel, |batch| {
                             let _ = tx.send(Msg::Batch { tab: id, gen, batch });
                             ctx.request_repaint();
-                        });
-                        let _ = tx.send(Msg::Done { tab: id, gen, err: r.err() });
-                        ctx.request_repaint();
-                    })
-                    .ok();
-                if t.watched.as_deref() != Some(p.as_path()) {
-                    let (tx, id, ctx) = (self.tx.clone(), t.id, self.ctx.clone());
-                    t.watcher = Some(fsx::watch(&p, move || {
-                        let _ = tx.send(Msg::Changed { tab: id });
-                        ctx.request_repaint();
-                    }));
-                    t.watched = Some(p);
-                }
+                        })
+                    };
+                    let mut r = list();
+                    // Windows doesn't always connect a mapped drive by itself. No prompt here: nobody asked for one.
+                    if matches!(&r, Err(e) if e.kind == FailKind::Disconnected) && !cancel.load(Ordering::Relaxed) && fsx::reconnect_for(&p2, 0, false).is_ok() {
+                        let _ = tx.send(Msg::DrivesChanged);
+                        r = list();
+                    }
+                    let _ = tx.send(Msg::Done { tab: id, gen, err: r.err() });
+                    ctx.request_repaint();
+                });
             }
         }
+    }
+
+    /// The sort a folder opens with.
+    fn spec_for(&self, folder: &Path) -> SortSpec {
+        let s = &self.settings;
+        let downloads = self.places.iter().find(|p| p.name == "Downloads").map(|p| p.path.as_path());
+        listing::sort_for(Some(folder), &s.folder_sorts, downloads, s.downloads_newest, SortSpec { key: s.sort_key, asc: s.sort_asc, dirs_first: s.dirs_first })
+    }
+
+    /// The person chose how this folder is sorted: from now on, that's how it's sorted, wherever it opens.
+    fn set_sort(&mut self, t: &mut Tab, spec: SortSpec) {
+        t.set_spec(spec);
+        t.dirty = true;
+        self.sort_search(t);
+        if !t.searching() {
+            if let Some(d) = t.dir() {
+                self.settings.folder_sorts.insert(folder_key(d), spec);
+                // a list nobody will go through by hand. It only needs to not grow forever.
+                while self.settings.folder_sorts.len() > 2000 {
+                    self.settings.folder_sorts.pop_first();
+                }
+                self.save_settings();
+            }
+        }
+        // other tabs on this folder follow
+        if let Some(d) = t.dir().map(Path::to_path_buf) {
+            for o in self.tabs.iter_mut().filter(|o| o.dir().is_some_and(|x| fsx::same_path(x, &d))) {
+                o.set_spec(spec);
+                o.dirty = true;
+            }
+        }
+    }
+
+    fn folder_has_own_sort(&self, t: &Tab) -> bool {
+        t.dir().is_some_and(|d| self.settings.folder_sorts.contains_key(&folder_key(d)))
+    }
+
+    /// Back to what this folder would have if nobody had chosen anything for it.
+    fn reset_sort(&mut self, t: &mut Tab) {
+        let Some(d) = t.dir().map(Path::to_path_buf) else { return };
+        self.settings.folder_sorts.remove(&folder_key(&d));
+        self.save_settings();
+        let spec = self.spec_for(&d);
+        t.set_spec(spec);
+        t.dirty = true;
+        for o in self.tabs.iter_mut().filter(|o| o.dir().is_some_and(|x| fsx::same_path(x, &d))) {
+            o.set_spec(spec);
+            o.dirty = true;
+        }
+    }
+
+    /// What a network path points at: `\\server\share` for a mapped drive too.
+    fn remote_of(&self, p: &Path) -> Option<String> {
+        let s = p.to_string_lossy();
+        if s.starts_with(r"\\") {
+            let mut parts = s.trim_start_matches('\\').splitn(3, '\\');
+            return match (parts.next(), parts.next()) {
+                (Some(a), Some(b)) if !b.is_empty() => Some(format!(r"\\{a}\{b}")),
+                (Some(a), _) => Some(format!(r"\\{a}")),
+                _ => None,
+            };
+        }
+        self.drive_for(p).filter(|d| d.kind == DriveKind::Network).and_then(|d| d.remote.clone())
+    }
+
+    /// Is this network drive unavailable, as far as can be told without waiting for it?
+    fn drive_offline(&self, d: &Drive) -> bool {
+        d.kind == DriveKind::Network && (d.disconnected || (d.checked && !d.ready) || self.drive_wait.get(&d.letter).is_some_and(|w| w.elapsed() >= DRIVE_SLOW))
+    }
+
+    /// The window's frame was cut short by a bug. It's in the log; all that's left to do is keep the window usable.
+    fn recover_from_panic(&mut self) {
+        self.acts.clear();
+        self.popup = None;
+        if self.tabs.get(self.active).is_some_and(|t| t.id == 0) {
+            let mut t = Tab::new(self.next_id, Loc::ThisPc);
+            self.next_id += 1;
+            self.start_load(&mut t, false);
+            self.tabs[self.active] = t;
+        }
+        self.toast("Something went wrong in this window, and the tab was reset. The details are in the log.", true);
     }
 
     fn navigate(&mut self, t: &mut Tab, loc: Loc) {
@@ -1078,28 +1420,55 @@ impl App {
     }
 
     fn refresh_drives(&mut self) {
+        self.look_at_drives(true);
+    }
+
+    /// The drive list right away, and each drive's details as they come, however long that drive takes. A drive that
+    /// is still being looked at isn't looked at again, however often this is called. `all`: not only the network
+    /// drives and new ones, which wakes up other drives that have gone to sleep.
+    fn look_at_drives(&mut self, all: bool) {
+        static LOOKING: std::sync::Mutex<Vec<char>> = std::sync::Mutex::new(Vec::new());
+        if self.drives_busy.swap(true, Ordering::AcqRel) {
+            return;
+        }
         let tx = self.tx.clone();
         let ctx = self.ctx.clone();
-        std::thread::spawn(move || {
+        let busy = self.drives_busy.clone();
+        let known: Vec<char> = self.drives.iter().map(|d| d.letter).collect();
+        let started = bg::spawn("drives", move || {
             let quick = fsx::drives_quick();
             let _ = tx.send(Msg::Drives(quick.clone()));
             ctx.request_repaint();
+            busy.store(false, Ordering::Release);
             for mut d in quick {
-                let tx = tx.clone();
-                let ctx = ctx.clone();
-                std::thread::spawn(move || {
+                if d.checked || !(all || d.kind == DriveKind::Network || !known.contains(&d.letter)) {
+                    continue;
+                }
+                {
+                    let mut looking = LOOKING.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+                    if looking.contains(&d.letter) {
+                        continue;
+                    }
+                    looking.push(d.letter);
+                }
+                let (tx, ctx, root) = (tx.clone(), ctx.clone(), d.root.clone());
+                bg::submit(&root, "drive", move || {
                     fsx::drive_details(&mut d);
+                    LOOKING.lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|l| *l != d.letter);
                     let _ = tx.send(Msg::DriveDetail(d));
                     ctx.request_repaint();
                 });
             }
         });
+        if !started {
+            self.drives_busy.store(false, Ordering::Release);
+        }
     }
 
     fn refresh_clouds(&mut self) {
         let tx = self.tx.clone();
         let ctx = self.ctx.clone();
-        std::thread::spawn(move || {
+        bg::spawn("clouds", move || {
             let _ = tx.send(Msg::Clouds(fsx::cloud_roots()));
             ctx.request_repaint();
         });
@@ -1108,6 +1477,51 @@ impl App {
     fn pump(&mut self) {
         while let Ok(m) = self.rx.try_recv() {
             match m {
+                Msg::Sorted { tab, token, order, made_for } => {
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.sort_token == token) {
+                        t.sorting = false;
+                        t.dirty = true;
+                        if made_for == (t.spec(), t.entries.len(), t.stamp) {
+                            t.order = order;
+                            t.order_for = Some(made_for);
+                        }
+                    }
+                }
+                Msg::Probe { tab, gen, result } => {
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.gen == gen) {
+                        t.probe_since = None;
+                        t.stalled = false;
+                        t.probe_at = Instant::now() + PROBE_EVERY;
+                        if let Err(e) = result {
+                            log::warn!("{} went away: {}", t.loc.title(), e.detail);
+                            t.retry_wait = FIRST_RETRY;
+                            t.retry_at = e.may_recover().then(|| Instant::now() + FIRST_RETRY);
+                            t.error = Some(e);
+                            t.watcher = None;
+                            t.watched = None;
+                        }
+                    }
+                }
+                Msg::Reconnected { tab, result } => {
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab) {
+                        t.reconnecting = false;
+                        match result {
+                            Ok(()) => t.refresh_at = Some(Instant::now()),
+                            // the person said no to the password prompt: nothing has changed
+                            Err(e) if e.kind == FailKind::Cancelled => {}
+                            Err(e) => t.error = Some(e),
+                        }
+                    }
+                    self.look_at_drives(false);
+                }
+                Msg::DrivesChanged => self.look_at_drives(false),
+                Msg::FileText(r) => match r {
+                    Ok(text) => {
+                        shell::clipboard_set_text(&text);
+                        self.toast("File contents copied", false);
+                    }
+                    Err(e) => self.toast(format!("Couldn't read the file: {e}"), true),
+                },
                 Msg::Batch { tab, gen, batch } => {
                     if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.gen == gen) {
                         if t.refreshing {
@@ -1123,11 +1537,36 @@ impl App {
                         if t.refreshing {
                             if err.is_none() {
                                 t.entries = std::mem::take(&mut t.incoming);
+                                t.order.clear();
+                                t.order_for = None;
+                                t.stamp += 1;
                             }
                             t.refreshing = false;
                         }
                         t.loading = false;
                         t.load_time = Some(t.load_start.elapsed());
+                        match &err {
+                            None => {
+                                t.retry_wait = FIRST_RETRY;
+                                t.retry_at = None;
+                                if let (Loc::Dir(p), None) = (&t.loc, &t.watcher) {
+                                    let (tx, id, ctx) = (self.tx.clone(), t.id, self.ctx.clone());
+                                    t.watcher = Some(fsx::watch(p, move || {
+                                        let _ = tx.send(Msg::Changed { tab: id });
+                                        ctx.request_repaint();
+                                    }));
+                                    t.watched = Some(p.clone());
+                                }
+                            }
+                            Some(e) => {
+                                log::warn!("{} can't be opened: {}", t.loc.title(), e.detail);
+                                t.watcher = None;
+                                t.watched = None;
+                                // again and again, less and less often, until it answers
+                                t.retry_at = e.may_recover().then(|| Instant::now() + t.retry_wait);
+                                t.retry_wait = (t.retry_wait * 2).min(LAST_RETRY);
+                            }
+                        }
                         t.error = err;
                         t.dirty = true;
                     }
@@ -1142,12 +1581,23 @@ impl App {
                     let old = std::mem::take(&mut self.drives);
                     self.drives = d
                         .into_iter()
-                        .map(|n| old.iter().find(|o| o.letter == n.letter && o.ready).map(|o| Drive { remote: n.remote.clone(), ..o.clone() }).unwrap_or(n))
+                        .map(|n| match old.iter().find(|o| o.letter == n.letter && o.checked && !n.checked) {
+                            // what's known until the new look comes back
+                            Some(o) => Drive { remote: n.remote.clone(), disconnected: n.disconnected, ..o.clone() },
+                            None => n,
+                        })
                         .collect();
+                    fsx::set_network_roots(self.drives.iter().filter(|d| d.kind == DriveKind::Network).map(|d| d.root.clone()).collect());
+                    self.drive_wait.retain(|l, _| self.drives.iter().any(|d| d.letter == *l));
+                    for d in self.drives.iter().filter(|d| d.kind == DriveKind::Network && !d.checked) {
+                        self.drive_wait.entry(d.letter).or_insert_with(Instant::now);
+                    }
                 }
                 Msg::DriveDetail(d) => {
+                    self.drive_wait.remove(&d.letter);
                     if let Some(x) = self.drives.iter_mut().find(|x| x.letter == d.letter) {
-                        *x = d;
+                        d.ready.then(|| log::debug!("{} is available", d.title()));
+                        *x = Drive { disconnected: x.disconnected && !d.ready, ..d };
                     }
                 }
                 Msg::Clouds(c) => {
@@ -1221,6 +1671,45 @@ impl App {
         if let Some(at) = self.tabs.iter().filter_map(|t| t.refresh_at).min() {
             self.ctx.request_repaint_after(at.saturating_duration_since(now));
         }
+        self.look_after_network(now);
+    }
+
+    /// Things nobody asked for that keep the network side honest: trying a failed folder again, noticing a server
+    /// that has gone away, and drives coming and going. Only the tab on screen: the others catch up when they're shown.
+    fn look_after_network(&mut self, now: Instant) {
+        if now.duration_since(self.drive_poll) >= DRIVE_POLL {
+            self.drive_poll = now;
+            self.look_at_drives(false);
+        }
+        let i = self.active.min(self.tabs.len().saturating_sub(1));
+        let Some(t) = self.tabs.get_mut(i) else { return };
+        if t.retry_at.is_some_and(|at| at <= now) && !t.loading && !t.reconnecting {
+            let mut t = std::mem::replace(&mut self.tabs[i], Tab::new(0, Loc::ThisPc));
+            t.quiet = true;
+            self.start_load(&mut t, true);
+            self.tabs[i] = t;
+            return;
+        }
+        let Loc::Dir(p) = &t.loc else { return };
+        if t.error.is_some() || t.loading || !fsx::is_network_path(p) {
+            return;
+        }
+        match t.probe_since {
+            Some(since) => {
+                t.stalled = now.duration_since(since) >= PROBE_SLOW;
+                self.ctx.request_repaint_after(Duration::from_secs(1));
+            }
+            None if now >= t.probe_at => {
+                t.probe_since = Some(now);
+                let (tx, ctx, tab, gen, path) = (self.tx.clone(), self.ctx.clone(), t.id, t.gen, p.clone());
+                bg::submit(p, "probe", move || {
+                    let result = fsx::check_folder(&path);
+                    let _ = tx.send(Msg::Probe { tab, gen, result });
+                    ctx.request_repaint();
+                });
+            }
+            None => {}
+        }
     }
 
     fn toast(&mut self, s: impl Into<String>, err: bool) {
@@ -1250,49 +1739,41 @@ impl App {
 
     fn rebuild_view(&self, t: &mut Tab) {
         let filter = (t.scope == Scope::ThisFolder && !t.query.trim().is_empty()).then(|| if self.settings.regex_search { Query::regex_whole(&t.query) } else { Query::new(&t.query) });
-        let show_hidden = self.settings.show_hidden;
-        let mut v: Vec<u32> = (0..t.entries.len() as u32)
-            .filter(|&i| {
-                let e = &t.entries[i as usize];
-                (show_hidden || !e.hidden()) && filter.as_ref().is_none_or(|q| search::matches_entry(q, e))
-            })
-            .collect();
-        let es = &t.entries;
-        let (asc, sort) = (t.asc, t.sort);
-        // sorting by size: folders count with their total size (when known)
-        let base = t.dir().map(|d| d.to_path_buf()).unwrap_or_default();
-        let sizes: Vec<u64> = if sort == SortKey::Size {
-            es.iter().map(|e| if e.is_dir && self.settings.folder_sizes { self.sizer.known(&base.join(&e.name)).unwrap_or(0) } else { e.size }).collect()
-        } else {
-            Vec::new()
-        };
-        v.sort_unstable_by(|&a, &b| {
-            let (x, y) = (&es[a as usize], &es[b as usize]);
-            if x.is_dir != y.is_dir {
-                return y.is_dir.cmp(&x.is_dir);
+        self.ensure_order(t);
+        let (show_hidden, hide_dots) = (self.settings.show_hidden, self.settings.hide_dotfiles);
+        let picker = self.picker.as_ref();
+        let panel = t.filter.is_active().then(|| t.filter.compile_now());
+        let mut v: Vec<u32> = Vec::with_capacity(t.order.len());
+        let mut shown_of = 0;
+        for &i in &t.order {
+            let Some(e) = t.entries.get(i as usize) else { continue };
+            if !listing::is_visible(e.hidden(), e.is_dotfile(), show_hidden, hide_dots) || picker.is_some_and(|p| !p.shows(&e.name, e.is_dir)) {
+                continue;
             }
-            let o = match sort {
-                SortKey::Name => std::cmp::Ordering::Equal,
-                SortKey::Modified => x.mtime.cmp(&y.mtime),
-                SortKey::Size => sizes[a as usize].cmp(&sizes[b as usize]),
-                SortKey::Type => x.ext.cmp(&y.ext),
+            shown_of += 1;
+            if filter.as_ref().is_none_or(|q| search::matches_entry(q, e)) && panel.as_ref().is_none_or(|f| f.matches(&e.lower, &e.ext, e.is_dir, e.size, e.mtime)) {
+                v.push(i);
             }
-            .then_with(|| natural_cmp(&x.lower, &y.lower));
-            if asc {
-                o
-            } else {
-                o.reverse()
-            }
-        });
+        }
         t.view = v;
-        let mut counts: HashMap<(String, bool), usize> = HashMap::new();
+        t.shown_of = shown_of;
+        let mut counts: HashMap<(&str, bool), usize> = HashMap::new();
         for &i in &t.view {
             let e = &t.entries[i as usize];
-            *counts.entry((e.ext.clone(), e.is_dir)).or_default() += 1;
+            *counts.entry((e.ext.as_str(), e.is_dir)).or_default() += 1;
         }
-        t.type_stats = counts.into_iter().map(|((ext, d), n)| (ext, d, n)).collect();
+        t.type_stats = counts.into_iter().map(|((ext, d), n)| (ext.to_string(), d, n)).collect();
+        if t.filter_open {
+            let mut all: HashMap<&str, usize> = HashMap::new();
+            for e in t.entries.iter().filter(|e| !e.is_dir && !e.ext.is_empty()) {
+                *all.entry(e.ext.as_str()).or_default() += 1;
+            }
+            t.type_stats_all = all.into_iter().map(|(e, n)| (e.to_string(), n)).collect();
+        }
+        t.last_rebuild = Instant::now();
         if let Some(name) = t.select_after_load.take() {
             if let Some(pos) = t.view.iter().position(|&i| t.entries[i as usize].name.eq_ignore_ascii_case(&name)) {
+                log::debug!("selected {name} after loading");
                 t.sel.clear();
                 t.sel.insert(t.entries[t.view[pos] as usize].name.clone());
                 t.cursor = Some(pos);
@@ -1303,8 +1784,10 @@ impl App {
             }
         }
         if !t.loading {
-            let names: HashSet<&str> = t.entries.iter().map(|e| e.name.as_str()).collect();
-            t.sel.retain(|k| names.contains(k.as_str()));
+            if !t.sel.is_empty() {
+                let names: HashSet<&str> = t.entries.iter().map(|e| e.name.as_str()).collect();
+                t.sel.retain(|k| names.contains(k.as_str()));
+            }
             if let Some(c) = t.cursor {
                 if c >= t.view.len() {
                     t.cursor = t.view.len().checked_sub(1);
@@ -1312,6 +1795,57 @@ impl App {
             }
         }
         self.update_sel_info(t);
+    }
+
+    /// Puts `t.order` in line with the sort and the entries. A big folder keeps its old order, with what's new at the
+    /// end, until a thread has come back with the new one.
+    fn ensure_order(&self, t: &mut Tab) {
+        let made_for = (t.spec(), t.entries.len(), t.stamp);
+        if t.order_for == Some(made_for) {
+            return;
+        }
+        let n = t.entries.len();
+        let big = n >= BIG_FOLDER;
+        if big {
+            let have = t.order.len().min(n);
+            t.order.truncate(have);
+            t.order.extend(have as u32..n as u32);
+            if t.sorting {
+                return;
+            }
+        }
+        let base = t.dir().map(|d| d.to_path_buf()).unwrap_or_default();
+        let by_size = t.sort == SortKey::Size && self.settings.folder_sizes;
+        let rows: Vec<SortRow> = t
+            .entries
+            .iter()
+            .enumerate()
+            .map(|(i, e)| SortRow {
+                index: i as u32,
+                is_dir: e.is_dir,
+                lower: e.lower.clone(),
+                ext: e.ext.clone(),
+                // folders count with their total size, when known
+                size: if e.is_dir && by_size { self.sizer.known(&base.join(&e.name)).unwrap_or(0) } else { e.size },
+                mtime: e.mtime,
+                ctime: e.ctime,
+            })
+            .collect();
+        if !big {
+            t.order = listing::sorted_indexes(rows, made_for.0);
+            t.order_for = Some(made_for);
+            return;
+        }
+        t.sorting = true;
+        t.sort_token += 1;
+        let (tx, ctx, tab, token) = (self.tx.clone(), self.ctx.clone(), t.id, t.sort_token);
+        if !bg::spawn("sort", move || {
+            let order = listing::sorted_indexes(rows, made_for.0);
+            let _ = tx.send(Msg::Sorted { tab, token, order, made_for });
+            ctx.request_repaint();
+        }) {
+            t.sorting = false;
+        }
     }
 
     fn update_sel_info(&self, t: &mut Tab) {
@@ -1359,6 +1893,7 @@ impl App {
                             is_dir,
                             size: it.size,
                             mtime: it.mtime,
+                            ctime: it.mtime,
                             attrs: it.attrs,
                             folder: Some(search::display_folder(&path)),
                             path,
@@ -1379,6 +1914,7 @@ impl App {
                             is_dir: e.is_dir,
                             size: e.size,
                             mtime: e.mtime,
+                            ctime: e.ctime,
                             attrs: e.attrs,
                             path: base.join(&e.name),
                             folder: None,
@@ -1491,6 +2027,18 @@ impl App {
         }
     }
 
+    /// The window a password prompt should belong to.
+    fn owner_window(&self) -> isize {
+        #[cfg(windows)]
+        {
+            shell::main_hwnd().0 as isize
+        }
+        #[cfg(not(windows))]
+        {
+            0
+        }
+    }
+
     fn draw_icon(&mut self, ui: &Ui, rect: Rect, path: &Path, ext: &str, is_dir: bool, attrs: u32) {
 
         let dim = attrs & fsx::A_HIDDEN != 0;
@@ -1545,7 +2093,7 @@ impl App {
             return;
         }
         // Known folders use the icon Explorer shows (their shell identity), not the disk folder's.
-        let (key, req) = match place {
+        let (key, req) = match place.filter(|_| !fsx::is_network_path(path)) {
             Some((name, kf)) => {
                 let key = format!("kf:{name}");
                 (key.clone(), ImgReq::KnownFolder { key, id: kf })
@@ -1707,19 +2255,22 @@ fn menu_item(ui: &mut Ui, glyph: &'static str, label: &str, shortcut: &str) -> b
 
 // ====================================================================== frame
 
-impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+impl App {
+    fn frame(&mut self, ctx: &egui::Context) {
+        let frame_start = Instant::now();
         self.pump();
         self.poll_late_icons();
         self.follow_windows_theme(ctx);
         self.sync_settings(ctx);
         self.settings.enforce(&policy::current());
+        self.explorer_tick(ctx);
         let mut t = std::mem::replace(&mut self.tabs[self.active], Tab::new(0, Loc::ThisPc));
 
         // folder sizes came in: re-sort (when sorted by size, at most every half second) and update the selection total
         if self.sizer.take_changed() {
             if t.sort == SortKey::Size && self.size_resort.elapsed() > Duration::from_millis(500) {
                 self.size_resort = Instant::now();
+                t.order_for = None;
                 t.dirty = true;
             } else if t.sort == SortKey::Size {
                 self.sizer.mark_changed();
@@ -1727,7 +2278,10 @@ impl eframe::App for App {
             }
             self.update_sel_info(&mut t);
         }
-        if t.dirty {
+        // a big folder still coming in isn't sorted again for every batch
+        if t.dirty && t.loading && t.entries.len() >= BIG_FOLDER && t.last_rebuild.elapsed() < Duration::from_millis(400) {
+            ctx.request_repaint_after(Duration::from_millis(100));
+        } else if t.dirty {
             t.dirty = false;
             self.rebuild_view(&mut t);
         }
@@ -1743,15 +2297,22 @@ impl eframe::App for App {
         self.keyboard(ctx, &mut t);
         self.dropped_files(ctx, &t);
         let in_settings = t.loc == Loc::Settings;
-        self.tab_bar(ctx, &mut t);
-        self.toolbar(ctx, &mut t);
-        if !in_settings {
-            self.command_bar(ctx, &mut t);
-        }
-        self.status_bar(ctx, &t);
-        self.sidebar(ctx, &t);
-        if self.settings.show_preview && !in_settings {
-            self.preview_panel(ctx, &t);
+        // A picker is a dialog: what's for managing files or the window it doesn't need.
+        if self.picker.is_some() {
+            self.picker_top(ctx, &mut t);
+            self.picker_bar(ctx, &mut t);
+            self.sidebar(ctx, &t);
+        } else {
+            self.tab_bar(ctx, &mut t);
+            self.toolbar(ctx, &mut t);
+            if !in_settings {
+                self.command_bar(ctx, &mut t);
+            }
+            self.status_bar(ctx, &t);
+            self.sidebar(ctx, &t);
+            if self.settings.show_preview && !in_settings {
+                self.preview_panel(ctx, &t);
+            }
         }
         egui::CentralPanel::default().frame(egui::Frame::new().fill(BG())).show(ctx, |ui| {
             if in_settings {
@@ -1765,7 +2326,10 @@ impl eframe::App for App {
                 }
             }
         });
-        self.resize_grips(ctx);
+        self.filter_panel(ctx, &mut t);
+        if self.picker.is_none() {
+            self.resize_grips(ctx);
+        }
         self.popup_ui(ctx);
         self.connect_dialog(ctx);
         self.props_window(ctx, &t);
@@ -1781,7 +2345,7 @@ impl eframe::App for App {
             self.active = self.tabs.len() - 1;
         }
         self.auto_update_on.store(self.settings.auto_update, Ordering::Relaxed);
-        let title = format!("{} · Daleris", self.tabs[self.active].loc.title());
+        let title = self.picker.as_ref().map_or_else(|| format!("{} · Daleris", self.tabs[self.active].loc.title()), Picker::window_title);
         if title != self.window_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.window_title = title;
@@ -1790,6 +2354,24 @@ impl eframe::App for App {
         self.screenshot(ctx);
         // Theme, accent and drive changes are looked for while drawing, so look now and then when nothing happens.
         ctx.request_repaint_after(Duration::from_secs(2));
+        // whatever made this slow held up the whole window, so it's worth knowing about
+        if frame_start.elapsed() > Duration::from_millis(500) && ctx.cumulative_pass_nr() > 2 {
+            log::warn!("the window was stuck for {} ms", frame_start.elapsed().as_millis());
+        }
+        // test hook: a bug in the window's own code must not take the app with it
+        if self.shot.as_ref().is_some_and(|s| s.frames == 90) && std::env::var("DALERIS_TEST_CRASH").as_deref() == Ok("frame") {
+            panic!("test panic in a frame");
+        }
+    }
+}
+
+impl eframe::App for App {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Unwinding out of this would end at the window procedure, which Rust turns into an abort: the whole app gone,
+        // with whatever was going on in it.
+        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.frame(ctx))).is_err() {
+            self.recover_from_panic();
+        }
     }
 
     /// Test hook for screenshot runs: DALERIS_TEST_CLICK="right:x,y;move:x,y;click:x,y;double:x,y;wheel:x,y" (logical
@@ -1797,16 +2379,50 @@ impl eframe::App for App {
     /// screenshot shows what real clicks do.
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
         let Some(shot) = &self.shot else { return };
+        // a test window never has real focus; keyboard steps still have to reach the widgets
+        raw.focused = true;
         let Ok(spec) = std::env::var("DALERIS_TEST_CLICK") else { return };
         let f = shot.frames;
+        let gap = test_number("DALERIS_TEST_STEP_FRAMES", 20);
+        let mut acts = Vec::new();
         for (i, step) in spec.split(';').enumerate() {
             let Some((kind, xy)) = step.split_once(':') else { continue };
+            let due = f == 60 + gap * i as u32;
+            // "key:Tab", "key:shift+Tab", "text:abc", "nav:path", "newtab:path", "closetab:1", "tab:0"
+            match kind {
+                "key" => {
+                    if due {
+                        let (shift, name) = xy.strip_prefix("shift+").map_or((false, xy), |n| (true, n));
+                        if let Some(key) = Key::from_name(name) {
+                            let modifiers = egui::Modifiers { shift, ..Default::default() };
+                            for pressed in [true, false] {
+                                raw.events.push(egui::Event::Key { key, physical_key: None, pressed, repeat: false, modifiers });
+                            }
+                        }
+                    }
+                    continue;
+                }
+                "text" | "nav" | "newtab" | "tab" | "closetab" | "cancel" => {
+                    if due {
+                        match kind {
+                            "text" => raw.events.push(egui::Event::Text(xy.to_string())),
+                            "nav" => acts.push(Act::Navigate(if xy == "thispc" { Loc::ThisPc } else { Loc::Dir(PathBuf::from(xy)) })),
+                            "newtab" => acts.push(Act::NavigateNewTab(Loc::Dir(PathBuf::from(xy)))),
+                            "tab" => acts.push(Act::SwitchTab(xy.parse().unwrap_or(0))),
+                            "cancel" => acts.push(Act::CancelLoad),
+                            _ => acts.push(Act::CloseTab(xy.parse().unwrap_or(0))),
+                        }
+                    }
+                    continue;
+                }
+                _ => {}
+            }
             let nums: Vec<f32> = xy.split(',').filter_map(|v| v.trim().parse().ok()).collect();
             if nums.len() < 2 {
                 continue;
             }
             let pos = pos2(nums[0], nums[1]);
-            let at = 60 + 20 * i as u32;
+            let at = 60 + gap * i as u32;
             // "drag:x1,y1,x2,y2": press at the first point, move in steps, release at the second
             if kind == "drag" && nums.len() >= 4 {
                 let to = pos2(nums[2], nums[3]);
@@ -1840,9 +2456,16 @@ impl eframe::App for App {
                 }
             }
         }
+        self.acts.extend(acts);
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        if let Some(p) = &mut self.picker {
+            p.cancel_if_unanswered();
+        }
+        if self.jump_told.is_some() {
+            crate::integration::clear_jump_folder();
+        }
         // nothing changed in this window: keep what another window saved, only update the tabs
         if self.writes_settings() && self.settings.body() == *self.saved_body.borrow() {
             Settings::load().save(&self.tab_list());
@@ -1858,7 +2481,7 @@ impl eframe::App for App {
 impl App {
     /// Test runs (screenshots, forced title bar) must never overwrite the person's settings.
     fn writes_settings(&self) -> bool {
-        (self.shot.is_none() || test_real_settings()) && std::env::var_os("DALERIS_TEST_NATIVE_TITLE").is_none()
+        self.picker.is_none() && (self.shot.is_none() || test_real_settings()) && std::env::var_os("DALERIS_TEST_NATIVE_TITLE").is_none()
     }
 
     /// The open tabs as written in the settings file (id 0 stands in for the active tab during a frame).
@@ -1902,7 +2525,7 @@ impl App {
         if body == *self.saved_body.borrow() && !policy_changed {
             return;
         }
-        let refilter = disk.show_hidden != self.settings.show_hidden || disk.folder_sizes != self.settings.folder_sizes;
+        let refilter = disk.show_hidden != self.settings.show_hidden || disk.hide_dotfiles != self.settings.hide_dotfiles || disk.folder_sizes != self.settings.folder_sizes;
         let title = disk.title_custom != self.settings.title_custom;
         self.settings = disk;
         *self.saved_body.borrow_mut() = body;
@@ -1930,7 +2553,29 @@ impl App {
     fn screenshot(&mut self, ctx: &egui::Context) {
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
+        // off screen there's nothing to keep it to the screen's pace
+        if std::env::var_os("DALERIS_TEST_BACKGROUND").is_some() {
+            std::thread::sleep(Duration::from_millis(16));
+        }
         let img = ctx.input(|i| i.raw.events.iter().find_map(|e| if let egui::Event::Screenshot { image, .. } = e { Some(image.clone()) } else { None }));
+        if let (Some(img), Some(frame)) = (&img, shot.saving) {
+            shot.saving = None;
+            let stem = shot.path.with_extension("");
+            let _ = save_png(Path::new(&format!("{}-{frame}.png", stem.display())), img);
+            ctx.request_repaint();
+            return;
+        }
+        if shot.saving.is_some() {
+            ctx.request_repaint();
+            return;
+        }
+        if let Some(pos) = shot.more.iter().position(|f| *f == shot.frames) {
+            shot.more.remove(pos);
+            shot.saving = Some(shot.frames);
+            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+            ctx.request_repaint();
+            return;
+        }
         if let Some(img) = img {
             if let Some(dir) = shot.path.parent() {
                 let _ = std::fs::create_dir_all(dir);
@@ -1939,11 +2584,12 @@ impl App {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
             return;
         }
-        if shot.frames >= 120 && !shot.requested {
+        let at = test_number("DALERIS_TEST_SHOT_FRAMES", 120);
+        if shot.frames >= at && !shot.requested {
             shot.requested = true;
             ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
         }
-        if shot.frames > 600 {
+        if shot.frames > at + 480 {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
         }
         ctx.request_repaint();
@@ -2050,13 +2696,15 @@ impl App {
                         }
                         Key::Enter => {
                             for p in self.selected_paths(t) {
-                                if p.is_dir() {
+                                // no answer in time: going there will say what's wrong
+                                if matches!(target::kind_within(&p, Duration::from_millis(150)), target::PathKind::Dir | target::PathKind::Unknown) {
                                     self.acts.push(if m.command { Act::NavigateNewTab(Loc::Dir(p)) } else { Act::Navigate(Loc::Dir(p)) });
                                     break;
                                 }
                                 self.acts.push(Act::Open(p));
                             }
                         }
+                        Key::Period if m.command && m.shift => self.acts.push(Act::ToggleDotfiles),
                         Key::Backspace => self.acts.push(Act::Up),
                         Key::Delete => self.acts.push(Act::Delete(m.shift)),
                         Key::F2 => self.acts.push(Act::StartRename),
@@ -2183,6 +2831,26 @@ mod tests {
     use super::*;
 
     /// Anything new in the settings file has to be something administrators can set too.
+    #[test]
+    fn folder_sorts_survive_the_settings_file() {
+        let mut s = Settings::defaults();
+        let spec = SortSpec { key: SortKey::Created, asc: false, dirs_first: false };
+        s.folder_sorts.insert("c:\\some folder".to_string(), spec);
+        let body = s.body();
+        let line = body.lines().find(|l| l.starts_with("fsort=")).expect("written");
+        let (folder, written) = line["fsort=".len()..].split_once(char::from(9)).expect("two parts");
+        assert_eq!(folder, "c:\\some folder");
+        assert_eq!(SortSpec::decode(written), Some(spec));
+    }
+
+    #[test]
+    fn the_new_defaults_are_what_was_asked_for() {
+        let s = Settings::defaults();
+        assert!(!s.hide_dotfiles, "dotfiles show unless someone hides them");
+        assert!(s.dirs_first && s.sort_asc && s.sort_key == SortKey::Name);
+        assert!(s.downloads_newest);
+    }
+
     #[test]
     fn a_policy_can_set_every_setting() {
         for (key, _) in Settings::defaults().value_lines() {

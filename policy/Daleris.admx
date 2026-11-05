@@ -21,6 +21,42 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_HideDotfiles" class="Both" displayName="$(string.HideDotfiles)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="HideDotfiles">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_DefaultSortAscending" class="Both" displayName="$(string.DefaultSortAscending)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="DefaultSortAscending">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_FoldersFirst" class="Both" displayName="$(string.FoldersFirst)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="FoldersFirst">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_DownloadsNewestFirst" class="Both" displayName="$(string.DownloadsNewestFirst)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="DownloadsNewestFirst">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_DefaultSort" class="Both" displayName="$(string.DefaultSort)" explainText="$(string.ExplainFixed)" presentation="$(presentation.DefaultSort)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><enum id="DefaultSort" valueName="DefaultSort">
+        <item displayName="$(string.Sort_name)"><value><string>name</string></value></item>
+        <item displayName="$(string.Sort_modified)"><value><string>modified</string></value></item>
+        <item displayName="$(string.Sort_created)"><value><string>created</string></value></item>
+        <item displayName="$(string.Sort_type)"><value><string>type</string></value></item>
+        <item displayName="$(string.Sort_extension)"><value><string>extension</string></value></item>
+        <item displayName="$(string.Sort_size)"><value><string>size</string></value></item>
+      </enum></elements>
+    </policy>
     <policy name="Fixed_ShowPreviewPane" class="Both" displayName="$(string.ShowPreviewPane)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ShowPreviewPane">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -158,6 +194,59 @@
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="SidebarHiddenSections" valueName="SidebarHiddenSections" /></elements>
     </policy>
+    <policy name="Fixed_ExplorerOpenFolders" class="Both" displayName="$(string.ExplorerOpenFolders)" explainText="$(string.ExplorerOpenFoldersExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerOpenFolders">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerWinE" class="Both" displayName="$(string.ExplorerWinE)" explainText="$(string.ExplorerWinEExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerWinE">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerWinEHook" class="Both" displayName="$(string.ExplorerWinEHook)" explainText="$(string.ExplorerWinEHookExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerWinEHook">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerSelectFile" class="Both" displayName="$(string.ExplorerSelectFile)" explainText="$(string.ExplorerSelectFileExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerSelectFile">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerSingleWindow" class="Both" displayName="$(string.ExplorerSingleWindow)" explainText="$(string.ExplorerSingleWindowExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerSingleWindow">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerFileDialogs" class="Both" displayName="$(string.ExplorerFileDialogs)" explainText="$(string.ExplorerFileDialogsExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerFileDialogs">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerDialogJump" class="Both" displayName="$(string.ExplorerDialogJump)" explainText="$(string.ExplorerDialogJumpExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerDialogJump">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerDialogExclusions" class="Both" displayName="$(string.ExplorerDialogExclusions)" explainText="$(string.ExplorerDialogExclusionsExplain_ExplainFixed)" presentation="$(presentation.ExplorerDialogExclusions)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ExplorerDialogExclusions" valueName="ExplorerDialogExclusions" /></elements>
+    </policy>
+    <policy name="Fixed_ExplorerDialogLog" class="Both" displayName="$(string.ExplorerDialogLog)" explainText="$(string.ExplorerDialogLogExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerDialogLog">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="LockRibbon" class="Both" displayName="$(string.LockRibbon)" explainText="$(string.LockRibbonExplain)" key="Software\Policies\Daleris" valueName="LockRibbon">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -193,6 +282,42 @@
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_HideDotfiles" class="Both" displayName="$(string.HideDotfiles)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="HideDotfiles">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_DefaultSortAscending" class="Both" displayName="$(string.DefaultSortAscending)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="DefaultSortAscending">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_FoldersFirst" class="Both" displayName="$(string.FoldersFirst)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="FoldersFirst">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_DownloadsNewestFirst" class="Both" displayName="$(string.DownloadsNewestFirst)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="DownloadsNewestFirst">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_DefaultSort" class="Both" displayName="$(string.DefaultSort)" explainText="$(string.ExplainRecommended)" presentation="$(presentation.DefaultSort)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><enum id="DefaultSort" valueName="DefaultSort">
+        <item displayName="$(string.Sort_name)"><value><string>name</string></value></item>
+        <item displayName="$(string.Sort_modified)"><value><string>modified</string></value></item>
+        <item displayName="$(string.Sort_created)"><value><string>created</string></value></item>
+        <item displayName="$(string.Sort_type)"><value><string>type</string></value></item>
+        <item displayName="$(string.Sort_extension)"><value><string>extension</string></value></item>
+        <item displayName="$(string.Sort_size)"><value><string>size</string></value></item>
+      </enum></elements>
     </policy>
     <policy name="Rec_ShowPreviewPane" class="Both" displayName="$(string.ShowPreviewPane)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ShowPreviewPane">
       <parentCategory ref="Recommended" />
@@ -330,6 +455,59 @@
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="SidebarHiddenSections" valueName="SidebarHiddenSections" /></elements>
+    </policy>
+    <policy name="Rec_ExplorerOpenFolders" class="Both" displayName="$(string.ExplorerOpenFolders)" explainText="$(string.ExplorerOpenFoldersExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerOpenFolders">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerWinE" class="Both" displayName="$(string.ExplorerWinE)" explainText="$(string.ExplorerWinEExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerWinE">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerWinEHook" class="Both" displayName="$(string.ExplorerWinEHook)" explainText="$(string.ExplorerWinEHookExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerWinEHook">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerSelectFile" class="Both" displayName="$(string.ExplorerSelectFile)" explainText="$(string.ExplorerSelectFileExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerSelectFile">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerSingleWindow" class="Both" displayName="$(string.ExplorerSingleWindow)" explainText="$(string.ExplorerSingleWindowExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerSingleWindow">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerFileDialogs" class="Both" displayName="$(string.ExplorerFileDialogs)" explainText="$(string.ExplorerFileDialogsExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerFileDialogs">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerDialogJump" class="Both" displayName="$(string.ExplorerDialogJump)" explainText="$(string.ExplorerDialogJumpExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerDialogJump">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerDialogExclusions" class="Both" displayName="$(string.ExplorerDialogExclusions)" explainText="$(string.ExplorerDialogExclusionsExplain_ExplainRecommended)" presentation="$(presentation.ExplorerDialogExclusions)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ExplorerDialogExclusions" valueName="ExplorerDialogExclusions" /></elements>
+    </policy>
+    <policy name="Rec_ExplorerDialogLog" class="Both" displayName="$(string.ExplorerDialogLog)" explainText="$(string.ExplorerDialogLogExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerDialogLog">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
     </policy>
   </policies>
 </policyDefinitions>

@@ -5,7 +5,7 @@
 use std::borrow::Cow;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
 
 // Attribute bits (Windows' values; the Unix back-end maps its own flags onto them).
 pub const A_READONLY: u32 = 0x1;
@@ -42,6 +42,70 @@ impl Entry {
     pub fn hidden(&self) -> bool {
         self.attrs & (A_HIDDEN | A_SYSTEM) != 0
     }
+
+    /// A name that starts with a dot.
+    pub fn is_dotfile(&self) -> bool {
+        is_dot_name(&self.name)
+    }
+}
+
+pub fn is_dot_name(name: &str) -> bool {
+    name.starts_with('.')
+}
+
+/// Why a folder can't be shown, in terms a person can do something about.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum FailKind {
+    /// the server doesn't answer, or the network isn't there
+    Unreachable,
+    /// the server answers, and has no such share
+    ShareMissing,
+    AccessDenied,
+    /// a mapped drive that isn't connected
+    Disconnected,
+    NotFound,
+    /// a drive without a disk, or one that's locked
+    NotReady,
+    /// the person stopped waiting
+    Cancelled,
+    Other,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FolderError {
+    pub kind: FailKind,
+    /// what the system said, for the small print
+    pub detail: String,
+}
+
+impl FolderError {
+    pub fn new(kind: FailKind, detail: impl Into<String>) -> FolderError {
+        FolderError { kind, detail: detail.into() }
+    }
+
+    /// Is this worth trying again without being asked? It may well sort itself out.
+    pub fn may_recover(&self) -> bool {
+        matches!(self.kind, FailKind::Unreachable | FailKind::ShareMissing | FailKind::Disconnected | FailKind::NotReady)
+    }
+}
+
+/// The roots of the network drives this PC has, for telling network paths apart without asking the disk.
+static NETWORK_ROOTS: Mutex<Vec<PathBuf>> = Mutex::new(Vec::new());
+
+/// What the drive list says is on the network.
+pub fn set_network_roots(roots: Vec<PathBuf>) {
+    *NETWORK_ROOTS.lock().unwrap_or_else(PoisonError::into_inner) = roots;
+}
+
+/// The network drive `p` is on.
+pub fn network_root_of(p: &Path) -> Option<PathBuf> {
+    NETWORK_ROOTS.lock().unwrap_or_else(PoisonError::into_inner).iter().find(|r| is_under(p, r)).cloned()
+}
+
+/// Could a look at this path take as long as a server takes to not answer? Doesn't touch the disk.
+pub fn is_network_path(p: &Path) -> bool {
+    let s = p.to_string_lossy();
+    (cfg!(windows) && s.starts_with(r"\\") && !s.starts_with(r"\\?\") && !s.starts_with(r"\\.\")) || network_root_of(p).is_some()
 }
 
 /// One directory entry as the search crawler and size counter see it.
@@ -97,6 +161,10 @@ pub struct Drive {
     pub total: u64,
     pub free: u64,
     pub ready: bool,
+    /// the details came back, whatever they said. Until then `ready` means nothing.
+    pub checked: bool,
+    /// a remembered mapping that isn't connected right now (Windows)
+    pub disconnected: bool,
 }
 
 impl Drive {

@@ -49,6 +49,13 @@ impl App {
             v.push(ColSpec { id: "status", label: "Status", sort: None, w: status_w });
         }
         v.push(ColSpec { id: "modified", label: "Date modified", sort: Some(SortKey::Modified), w: modified });
+        // what the list is sorted by has to be there to see
+        if t.sort == SortKey::Created && !search {
+            v.push(ColSpec { id: "created", label: "Date created", sort: Some(SortKey::Created), w: user("created").unwrap_or(140.0) });
+        }
+        if t.sort == SortKey::Extension && !search {
+            v.push(ColSpec { id: "ext", label: "Extension", sort: Some(SortKey::Extension), w: user("ext").unwrap_or(84.0) });
+        }
         if !search {
             v.push(ColSpec { id: "type", label: "Type", sort: Some(SortKey::Type), w: ty });
         }
@@ -85,6 +92,8 @@ impl App {
             "name" => 40.0 + widest(rows.iter().map(|r| display_name(r, self.settings.show_ext)).collect(), 13.5) + 8.0,
             "folder" => 8.0 + widest(rows.iter().filter_map(|r| r.folder.clone()).collect(), 12.5) + 18.0,
             "modified" => widest(rows.iter().map(|r| fmt_filetime(r.mtime)).collect(), 12.5) + 24.0,
+            "created" => widest(rows.iter().map(|r| fmt_filetime(r.ctime)).collect(), 12.5) + 24.0,
+            "ext" => widest(rows.iter().map(|r| r.ext.clone()).collect(), 12.5) + 24.0,
             "type" => widest(rows.iter().map(|r| self.type_name(&r.ext, r.is_dir)).collect(), 12.5) + 24.0,
             "size" => {
                 let sizes = rows
@@ -125,14 +134,14 @@ impl App {
                         painter.text(r.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, arrow, FontId::proportional(8.0), DIM());
                     }
                     if resp.clicked() && !near_edge {
-                        if t.sort == k {
-                            t.asc = !t.asc;
+                        let mut s = t.spec();
+                        if s.key == k {
+                            s.asc = !s.asc;
                         } else {
-                            t.sort = k;
-                            t.asc = k == SortKey::Name || k == SortKey::Type;
+                            s.key = k;
+                            s.asc = k.starts_ascending();
                         }
-                        t.dirty = true;
-                        self.sort_search(t);
+                        self.set_sort(t, s);
                     }
                 }
             }
@@ -172,25 +181,175 @@ impl App {
         }
     }
 
-    fn empty_or_error(&self, ui: &mut Ui, t: &Tab) -> bool {
-        if let Some(e) = &t.error {
-            ui.add_space(40.0);
-            ui.vertical_centered(|ui| {
-                ui.label(egui::RichText::new("This folder can't be opened").size(16.0));
-                ui.label(egui::RichText::new(e).color(DIM()));
-            });
-            return true;
+    /// What there is to say when there's nothing to list. True if that's the whole page.
+    fn empty_or_error(&mut self, ui: &mut Ui, t: &Tab) -> bool {
+        if t.search.is_none() {
+            if let Some(e) = t.error.clone() {
+                self.failure_page(ui, t, &e);
+                return true;
+            }
+            if t.loading && t.entries.is_empty() && self.loading_page(ui, t) {
+                return true;
+            }
         }
         let busy = t.loading || t.search.as_ref().is_some_and(|s| s.busy());
         if self.row_count(t) == 0 && !busy {
-            let msg = if t.searching() || !t.query.is_empty() { "No items match your search." } else { "This folder is empty." };
             ui.add_space(40.0);
-            ui.vertical_centered(|ui| ui.label(egui::RichText::new(msg).color(DIM())));
+            let hidden_by_filter = t.filtered() && t.shown_of > 0 && t.query.is_empty();
+            ui.vertical_centered(|ui| {
+                if hidden_by_filter {
+                    ui.label(egui::RichText::new(format!("The filter is hiding all {} items in this folder.", fmt_count(t.shown_of))).color(DIM()));
+                    ui.add_space(8.0);
+                    if action_button(ui, "Clear filter", false).clicked() {
+                        self.acts.push(Act::ClearFilter);
+                    }
+                } else {
+                    let msg = if t.searching() || !t.query.is_empty() {
+                        "No items match your search."
+                    } else if !t.entries.is_empty() {
+                        "Everything in this folder is hidden. The View menu can show hidden items and dotfiles."
+                    } else {
+                        "This folder is empty."
+                    };
+                    ui.label(egui::RichText::new(msg).color(DIM()));
+                }
+            });
         }
         false
     }
 
+    /// While a folder hasn't said anything yet. Nothing at all for the moment a local one takes, which would only flash.
+    fn loading_page(&mut self, ui: &mut Ui, t: &Tab) -> bool {
+        let Some(p) = t.dir() else { return false };
+        let waited = t.load_start.elapsed();
+        let network = fsx::is_network_path(p);
+        if !network && waited < Duration::from_millis(250) {
+            ui.ctx().request_repaint_after(Duration::from_millis(100));
+            return true;
+        }
+        ui.ctx().request_repaint_after(Duration::from_millis(250));
+        let title = match self.remote_of(p) {
+            Some(r) if network => format!("Connecting to {r}…"),
+            _ => format!("Opening {}…", t.loc.title()),
+        };
+        page_column(ui, |ui| {
+            ui.add(egui::Spinner::new().size(30.0).color(ACCENT()));
+            ui.add_space(14.0);
+            ui.add(egui::Label::new(egui::RichText::new(title).size(16.0).color(TEXT())).wrap());
+            if waited >= Duration::from_secs(2) {
+                ui.add_space(6.0);
+                ui.label(egui::RichText::new(format!("{} s so far. A server that doesn't answer can take a minute or more to give up.", waited.as_secs())).size(12.5).color(DIM()));
+                ui.add_space(14.0);
+                if action_button(ui, "Cancel", false).clicked() {
+                    self.acts.push(Act::CancelLoad);
+                }
+            }
+        });
+        true
+    }
+
+    /// Why the folder can't be shown, in words, and what can be done about it.
+    fn failure_page(&mut self, ui: &mut Ui, t: &Tab, e: &FolderError) {
+        let Some(p) = t.dir().map(Path::to_path_buf) else { return };
+        let remote = self.remote_of(&p);
+        let place = remote.clone().unwrap_or_else(|| p.display().to_string());
+        let server = place.trim_start_matches('\\').split('\\').next().unwrap_or("").to_string();
+        let share = place.trim_start_matches('\\').split('\\').nth(1).unwrap_or("").to_string();
+        let letter = self.drive_for(&p).filter(|d| d.kind == DriveKind::Network).map(|d| d.letter);
+        let network = remote.is_some();
+        let (title, body) = match e.kind {
+            FailKind::Unreachable => (format!("Can't reach {}", if server.is_empty() { place.clone() } else { format!("\\\\{server}") }), "The server isn't answering. It may be switched off, or this PC may not be on its network or VPN.".to_string()),
+            FailKind::ShareMissing => (format!("\\\\{server} has no share called {share}"), "The server answered, but this share isn't there. It may have been renamed or removed.".to_string()),
+            FailKind::AccessDenied if network => ("You don't have access to this folder".to_string(), format!("{place} turned down your account. Someone with rights to it can let you in, or you can connect with another account.")),
+            FailKind::AccessDenied => ("You don't have access to this folder".to_string(), "Your account isn't allowed to open it.".to_string()),
+            FailKind::Disconnected => (format!("Drive {}: isn't connected", letter.unwrap_or('?')), format!("It points to {place}, which couldn't be reached. Reconnecting may ask for a password.")),
+            FailKind::NotFound => ("This folder isn't there any more".to_string(), "It may have been moved, renamed or deleted.".to_string()),
+            FailKind::NotReady => ("This drive isn't ready".to_string(), "There may be no disk in it, or it may be locked.".to_string()),
+            FailKind::Cancelled if network => ("Stopped connecting".to_string(), format!("You stopped waiting for {place}.")),
+            FailKind::Cancelled => ("Stopped opening this folder".to_string(), String::new()),
+            FailKind::Other => ("This folder can't be opened".to_string(), String::new()),
+        };
+        let reconnect = letter.is_some() && matches!(e.kind, FailKind::Disconnected | FailKind::AccessDenied | FailKind::Unreachable);
+        page_column(ui, |ui| {
+            let (r, _) = ui.allocate_exact_size(vec2(44.0, 44.0), Sense::hover());
+            let col = if e.kind == FailKind::Cancelled { DIM() } else { WARN() };
+            ui.painter().circle_stroke(r.center(), 20.0, Stroke::new(2.0_f32, col));
+            ui.painter().text(r.center(), Align2::CENTER_CENTER, if e.kind == FailKind::Cancelled { "×" } else { "!" }, FontId::proportional(24.0), col);
+            ui.add_space(12.0);
+            ui.add(egui::Label::new(egui::RichText::new(title).size(17.0).color(TEXT())).wrap());
+            if !body.is_empty() {
+                ui.add_space(6.0);
+                ui.add(egui::Label::new(egui::RichText::new(body).color(DIM())).wrap());
+            }
+            ui.add_space(16.0);
+            ui.horizontal_wrapped(|ui| {
+                // centred by hand, as a wrapping row always starts at the left
+                let reconnecting = t.reconnecting;
+                let mut buttons: Vec<(&str, Act, bool)> = Vec::new();
+                if reconnect && !reconnecting {
+                    buttons.push(("Reconnect", Act::Reconnect, matches!(e.kind, FailKind::Disconnected)));
+                }
+                buttons.push(("Retry", Act::Retry, buttons.is_empty() || !matches!(e.kind, FailKind::Disconnected)));
+                if !t.back.is_empty() {
+                    buttons.push(("Back", Act::Back, false));
+                }
+                if p.parent().is_some() && !matches!(e.kind, FailKind::Unreachable | FailKind::Disconnected) {
+                    buttons.push(("Go up", Act::Up, false));
+                } else {
+                    buttons.push(("This PC", Act::Navigate(Loc::ThisPc), false));
+                }
+                let widths: f32 = buttons.iter().map(|(l, _, _)| ui.fonts(|f| f.layout_no_wrap(l.to_string(), FontId::proportional(13.5), TEXT()).size().x).max(64.0) + 32.0 + 8.0).sum();
+                ui.add_space(((ui.available_width() - widths) / 2.0).max(0.0));
+                for (label, act, primary) in buttons {
+                    if action_button(ui, label, primary).clicked() {
+                        self.acts.push(act);
+                    }
+                }
+            });
+            if reconnect && t.reconnecting {
+                ui.add_space(6.0);
+                ui.label(egui::RichText::new("Reconnecting…").size(12.5).color(DIM()));
+            }
+            ui.add_space(10.0);
+            if e.may_recover() {
+                let note = if t.loading { "Checking again…" } else { "Daleris keeps trying, and opens the folder as soon as it answers." };
+                ui.label(egui::RichText::new(note).size(12.0).color(FAINT()));
+            }
+            if !e.detail.is_empty() {
+                ui.add_space(2.0);
+                ui.add(egui::Label::new(egui::RichText::new(format!("{}  ·  {}", p.display(), e.detail)).size(11.5).color(FAINT())).wrap());
+            }
+        });
+    }
+
+    /// Over the list: what's shown may no longer be true.
+    fn stalled_banner(&mut self, ui: &mut Ui, t: &Tab) {
+        let refreshing = t.refreshing && t.load_start.elapsed() >= Duration::from_secs(2);
+        if !t.stalled && !refreshing {
+            return;
+        }
+        ui.ctx().request_repaint_after(Duration::from_millis(500));
+        let Some(p) = t.dir() else { return };
+        let place = self.remote_of(p).unwrap_or_else(|| t.loc.title());
+        egui::Frame::new().fill(RAISED()).inner_margin(egui::Margin::symmetric(12, 6)).show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            ui.horizontal(|ui| {
+                ui.add(egui::Spinner::new().size(14.0).color(WARN()));
+                ui.label(egui::RichText::new(format!("{place} isn't answering. What's shown here may be out of date.")).size(12.5).color(TEXT()));
+                if refreshing && ui.small_button("Stop waiting").clicked() {
+                    self.acts.push(Act::CancelLoad);
+                }
+            });
+        });
+    }
+
     pub(super) fn details(&mut self, ui: &mut Ui, t: &mut Tab) {
+        // the list's parts have nothing to do on a page that says why there's no list
+        if t.search.is_none() && (t.error.is_some() || (t.loading && t.entries.is_empty())) {
+            self.empty_or_error(ui, t);
+            return;
+        }
+        self.stalled_banner(ui, t);
         let full = ui.available_width();
         let cols = self.columns(ui, t, full);
         let total = COL_LEFT + cols.iter().map(|c| c.w).sum::<f32>() + COL_RIGHT;
@@ -304,6 +463,8 @@ impl App {
                         id => {
                             let text = match id {
                                 "modified" => fmt_filetime(row.mtime),
+                                "created" => fmt_filetime(row.ctime),
+                                "ext" => row.ext.clone(),
                                 "type" => self.type_name(&row.ext, row.is_dir),
                                 "size" if !row.is_dir => fmt_size(row.size),
                                 // folders: the total of everything inside, counted in the background
@@ -337,6 +498,7 @@ impl App {
         if self.empty_or_error(ui, t) {
             return;
         }
+        self.stalled_banner(ui, t);
         let bg = self.background_claim(ui, t);
         let full = ui.available_width();
         let (tile_w, tile_h) = (116.0, 132.0);
@@ -563,13 +725,28 @@ impl App {
         if target != self.preview.path {
             self.preview.gen += 1;
             self.preview.path = target.clone();
-            self.preview.entry = target.as_ref().and_then(|p| fsx::stat(p));
+            // from the list, which has it already; a look at the disk could stop the window on a dead server
+            let listed = |p: &PathBuf| p.file_name().and_then(|n| t.entries.iter().find(|e| e.name.as_str() == n.to_string_lossy())).cloned();
+            self.preview.entry = target.as_ref().and_then(|p| {
+                if t.searching() {
+                    let q = p.clone();
+                    bg::within(p, Duration::from_millis(150), move || fsx::stat(&q)).flatten()
+                } else {
+                    listed(p)
+                }
+            });
             self.preview.content = PvContent::Nothing;
+            self.preview_wanted.store(self.preview.gen, Ordering::Relaxed);
             if let (Some(p), Some(e)) = (&target, &self.preview.entry) {
                 self.preview.content = PvContent::Loading;
-                let (tx, gen, ctx2, p, e) = (self.tx.clone(), self.preview.gen, ctx.clone(), p.clone(), e.clone());
-                std::thread::spawn(move || {
-                    let content = load_preview(&p, &e);
+                let (tx, gen, ctx2, p2, e) = (self.tx.clone(), self.preview.gen, ctx.clone(), p.clone(), e.clone());
+                let wanted = self.preview_wanted.clone();
+                bg::submit(p, "preview", move || {
+                    // moved on while this was waiting its turn
+                    if wanted.load(Ordering::Relaxed) != gen {
+                        return;
+                    }
+                    let content = load_preview(&p2, &e);
                     let _ = tx.send(Msg::Preview { gen, content });
                     ctx2.request_repaint();
                 });
@@ -667,7 +844,8 @@ impl App {
             match &t.loc {
                 Loc::ThisPc => ("This PC".into(), format!("{} drives", self.drives.len())),
                 Loc::Settings => ("Settings".into(), String::new()),
-                Loc::Dir(_) => (t.loc.title(), format!("{} items", fmt_count(t.view.len()))),
+                Loc::Dir(_) if t.error.is_some() || (t.loading && t.entries.is_empty()) => (t.loc.title(), String::new()),
+                Loc::Dir(_) => (t.loc.title(), format!("{} item{}", fmt_count(t.view.len()), if t.view.len() == 1 { "" } else { "s" })),
             }
         };
         if let (Loc::Dir(d), false, true) = (&t.loc, t.searching(), n_sel <= 1) {

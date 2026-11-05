@@ -1,0 +1,26 @@
+[package]
+name = "dialog-test"
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-only"
+publish = false
+
+# For testing the Explorer integration by hand and from scripts. Never shipped.
+[target.'cfg(windows)'.dependencies.windows-core]
+version = "0.58"
+
+[target.'cfg(windows)'.dependencies.windows]
+version = "0.58"
+features = [
+    "implement",
+    "Win32_Foundation",
+    "Win32_System_Com",
+    "Win32_System_LibraryLoader",
+    "Win32_System_ProcessStatus",
+    "Win32_System_Threading",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Shell_PropertiesSystem",
+    "Win32_UI_WindowsAndMessaging",
+]

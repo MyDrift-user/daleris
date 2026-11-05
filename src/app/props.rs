@@ -32,12 +32,18 @@ impl App {
             return;
         }
         let gen = self.preview.gen.wrapping_add(self.props.as_ref().map(|p| p.gen + 1).unwrap_or(1)).wrapping_add(7);
-        let entry = if paths.len() == 1 { fsx::stat(&paths[0]) } else { None };
+        let entry = if paths.len() == 1 {
+            let p = paths[0].clone();
+            bg::within(&paths[0], Duration::from_millis(400), move || fsx::stat(&p)).flatten()
+        } else {
+            None
+        };
         let cancel = Arc::new(AtomicBool::new(false));
         // measure everything in the background, reporting progress as it goes
         {
             let (tx, ctx, paths, cancel) = (self.tx.clone(), self.ctx.clone(), paths.clone(), cancel.clone());
-            std::thread::spawn(move || {
+            let lane = paths[0].clone();
+            bg::submit(&lane, "props", move || {
                 let (mut bytes, mut files, mut dirs) = (0u64, 0usize, 0usize);
                 let mut stack: Vec<PathBuf> = Vec::new();
                 for p in &paths {

@@ -33,6 +33,11 @@ USING GPP (Group Policy Preferences)
 VALUES
   Name                      Type    Meaning
   ShowHiddenItems           DWORD   0 off, 1 on
+  HideDotfiles              DWORD   0 off, 1 hides names that start with a dot. An item is hidden if this or ShowHiddenItems hides it
+  DefaultSort               SZ      name, modified, created, type, extension or size: how a folder is sorted until someone chooses
+  DefaultSortAscending      DWORD   1 from A, the oldest or the smallest, 0 the other way round
+  FoldersFirst              DWORD   1 keeps folders above files by default, 0 mixes them in
+  DownloadsNewestFirst      DWORD   1 opens the Downloads folder newest first with folders mixed in, 0 treats it like any other
   ShowPreviewPane           DWORD   0 off, 1 on
   ShowFileExtensions        DWORD   0 off, 1 on
   DefaultView               DWORD   0 details, 1 large icons
@@ -57,7 +62,18 @@ VALUES
   SidebarHiddenSections     SZ      any of quick, cloud, pc, network, separated by |
                                     (as a default this only applies the first time the app runs)
 
-  Ribbon items: new sep1 cut copy paste rename delete sep2 sort view more terminal hidden preview
+  ExplorerOpenFolders       DWORD   0 off, 1 on. Folders from the desktop, Start and most apps open in Daleris
+  ExplorerWinE              DWORD   0 off, 1 on. Win + E opens Daleris, through the setting Windows reads for it
+  ExplorerWinEHook          DWORD   0 off, 1 on. Win + E through a keyboard hook in a small background program
+  ExplorerSelectFile        DWORD   0 off, 1 on. "Show in folder" selects the file (needs ExplorerOpenFolders)
+  ExplorerSingleWindow      DWORD   0 off, 1 on. New folders become tabs in the running window
+  ExplorerFileDialogs       DWORD   0 off, 1 on. Open and Save dialogs use Daleris (loads a DLL into apps, see below)
+  ExplorerDialogJump        DWORD   0 off, 1 on. Ctrl + G takes a Windows file dialog to the Daleris folder
+  ExplorerDialogLog         DWORD   0 off, 1 on. The DLL writes what it decides to %LOCALAPPDATA%\Daleris\logs\file-dialogs.log
+  ExplorerDialogExclusions  SZ      apps that keep the Windows file dialog, separated by |, as names or folders.
+                                    !name.exe lets Daleris show a browser's dialogs
+
+  Ribbon items: new sep1 cut copy paste rename delete sep2 sort filter view more terminal hidden preview
   Fixing RibbonLeft or RibbonRight shows only the items listed on either side.
 
 LOCKS (under the fixed keys only: DWORD, 1 turns it on)
@@ -73,6 +89,20 @@ UPDATES ON A PC-WIDE INSTALL
   The task goes by, in order: DisableUpdates, a fixed AutomaticUpdates, the switch in Settings (which is
   kept in %ProgramData%\Daleris\auto-update.txt for the whole PC), a default AutomaticUpdates. Otherwise it's on.
   A fixed AutomaticUpdates of 1 means no user of the PC can turn updates off.
+
+WINDOWS EXPLORER INTEGRATION
+  The Explorer values above only mean something on Windows, and are ignored on Linux and macOS.
+  Everything they change is in each person's own HKCU, so they work per user, never per machine, whichever part of
+  Group Policy sets them.
+  Fixed to 0: what the switch wrote is removed when Daleris next runs for that person, or within 30 seconds if it's
+  running. Until then the launcher and the DLL read the same policy and step aside by themselves: a folder opens in File
+  Explorer and an app gets the Windows dialog, straight away.
+  Fixed to 1, or as a default: it can only be registered from that person's own session, so it takes effect once Daleris
+  has run for them. Nothing is set up for someone who has never started Daleris.
+  ExplorerFileDialogs loads an unsigned DLL into apps, when they open a dialog. Games, launchers, anti-cheat and security
+  software are always left alone, as are elevated, sandboxed and Microsoft Store apps. Check it with your antivirus or
+  application control policy before deploying it. It's not offered on ARM PCs.
+  daleris --restore-explorer removes everything Daleris wrote for the person who runs it, and nothing else.
 
 Each person's own choice is kept underneath a fixed setting and comes back if the policy is removed.
 

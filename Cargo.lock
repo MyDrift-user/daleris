@@ -499,8 +499,9 @@ dependencies = [
 
 [[package]]
 name = "daleris"
-version = "0.0.3"
+version = "0.0.4"
 dependencies = [
+ "daleris-integration",
  "ed25519-dalek",
  "eframe",
  "egui-phosphor",
@@ -513,6 +514,31 @@ dependencies = [
  "sha2",
  "windows",
  "winresource",
+]
+
+[[package]]
+name = "daleris-dialogs"
+version = "0.0.0"
+dependencies = [
+ "daleris-integration",
+ "windows",
+ "windows-core",
+]
+
+[[package]]
+name = "daleris-integration"
+version = "0.0.0"
+dependencies = [
+ "windows",
+]
+
+[[package]]
+name = "daleris-open"
+version = "0.0.0"
+dependencies = [
+ "daleris-integration",
+ "windows",
+ "windows-core",
 ]
 
 [[package]]
@@ -529,6 +555,14 @@ checksum = "e7c1832837b905bbfb5101e07cc24c8deddf52f93225eee6ead5f4d63d53ddcb"
 dependencies = [
  "const-oid",
  "zeroize",
+]
+
+[[package]]
+name = "dialog-test"
+version = "0.0.0"
+dependencies = [
+ "windows",
+ "windows-core",
 ]
 
 [[package]]

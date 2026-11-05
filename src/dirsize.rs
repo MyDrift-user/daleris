@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::{Duration, Instant};
 
-use crate::fsx::{for_each_raw, A_DIR, A_REPARSE};
+use crate::fsx::{for_each_raw, is_network_path, A_DIR, A_REPARSE};
 
 /// How long a counted size is trusted before it is counted again.
 const FRESH_FOR: Duration = Duration::from_secs(120);
@@ -31,6 +31,9 @@ struct Inner {
     cache: Mutex<HashMap<String, Slot>>,
     queue: Mutex<Vec<PathBuf>>,
     wake: Condvar,
+    /// network folders have a worker of their own, so that a dead server can't hold up the others
+    net_queue: Mutex<Vec<PathBuf>>,
+    net_wake: Condvar,
     /// set when any size changed, so the list can re-sort
     changed: AtomicBool,
     ctx: eframe::egui::Context,
@@ -52,10 +55,18 @@ fn key(p: &Path) -> String {
 
 impl DirSizer {
     pub fn new(ctx: eframe::egui::Context) -> DirSizer {
-        let inner = Arc::new(Inner { cache: Mutex::new(HashMap::new()), queue: Mutex::new(Vec::new()), wake: Condvar::new(), changed: AtomicBool::new(false), ctx });
-        for i in 0..3 {
+        let inner = Arc::new(Inner {
+            cache: Mutex::new(HashMap::new()),
+            queue: Mutex::new(Vec::new()),
+            wake: Condvar::new(),
+            net_queue: Mutex::new(Vec::new()),
+            net_wake: Condvar::new(),
+            changed: AtomicBool::new(false),
+            ctx,
+        });
+        for i in 0..4 {
             let inner = inner.clone();
-            std::thread::Builder::new().name(format!("dirsize{i}")).spawn(move || worker(&inner)).ok();
+            crate::bg::spawn(&format!("dirsize{i}"), move || worker(&inner, i == 3));
         }
         DirSizer { inner }
     }
@@ -73,8 +84,13 @@ impl DirSizer {
             }
         }
         self.inner.cache.lock().unwrap().insert(k, Slot { size: DirSize::Queued, at: Instant::now() });
-        self.inner.queue.lock().unwrap().push(dir.to_path_buf());
-        self.inner.wake.notify_one();
+        if is_network_path(dir) {
+            self.inner.net_queue.lock().unwrap().push(dir.to_path_buf());
+            self.inner.net_wake.notify_one();
+        } else {
+            self.inner.queue.lock().unwrap().push(dir.to_path_buf());
+            self.inner.wake.notify_one();
+        }
         DirSize::Queued
     }
 
@@ -112,12 +128,13 @@ impl DirSizer {
     }
 }
 
-fn worker(inner: &Inner) {
+fn worker(inner: &Inner, net: bool) {
+    let (queue, wake) = if net { (&inner.net_queue, &inner.net_wake) } else { (&inner.queue, &inner.wake) };
     loop {
         let dir = {
-            let mut q = inner.queue.lock().unwrap();
+            let mut q = queue.lock().unwrap();
             while q.is_empty() {
-                q = inner.wake.wait(q).unwrap();
+                q = wake.wait(q).unwrap();
             }
             q.pop().unwrap() // newest first: what is on screen now
         };

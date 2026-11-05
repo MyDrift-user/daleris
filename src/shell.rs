@@ -37,6 +37,21 @@ pub fn main_hwnd() -> HWND {
     unsafe { GetActiveWindow() }
 }
 
+/// Test hook: this thread's windows can't take focus or show on the taskbar.
+pub fn test_never_activate() {
+    use windows::Win32::Foundation::{BOOL, LPARAM};
+    use windows::Win32::System::Threading::GetCurrentThreadId;
+    use windows::Win32::UI::WindowsAndMessaging::{EnumThreadWindows, GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW};
+    unsafe extern "system" fn each(hwnd: HWND, _: LPARAM) -> BOOL {
+        let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
+        SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | (WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0) as isize);
+        true.into()
+    }
+    unsafe {
+        let _ = EnumThreadWindows(GetCurrentThreadId(), Some(each), LPARAM(0));
+    }
+}
+
 // ---------------------------------------------------------------- images
 
 pub struct RawImg {
@@ -77,6 +92,8 @@ type Queue = Arc<(Mutex<Vec<ImgReq>>, Condvar)>;
 pub struct Loader {
     icons: Queue,
     thumbs: Queue,
+    /// Anything on a network path. Those can take a dead server's time, which local files shouldn't have to wait for.
+    net: Queue,
     pub rx: Receiver<ImgResult>,
 }
 
@@ -87,11 +104,15 @@ impl Loader {
         let thumbs: Queue = Arc::new((Mutex::new(Vec::new()), Condvar::new()));
         spawn_workers(&icons, 2, &tx, &ctx);
         spawn_workers(&thumbs, 3, &tx, &ctx);
-        Loader { icons, thumbs, rx }
+        let net: Queue = Arc::new((Mutex::new(Vec::new()), Condvar::new()));
+        spawn_workers(&net, 2, &tx, &ctx);
+        Loader { icons, thumbs, net, rx }
     }
 
     pub fn request(&self, r: ImgReq) {
-        let q = match r {
+        let q = match &r {
+            ImgReq::Icon { path, by_attrs: false, .. } if crate::fsx::is_network_path(Path::new(path)) => &self.net,
+            ImgReq::Thumb { path, .. } if crate::fsx::is_network_path(path) => &self.net,
             ImgReq::Icon { .. } | ImgReq::KnownFolder { .. } => &self.icons,
             ImgReq::Thumb { .. } => &self.thumbs,
         };
@@ -103,7 +124,10 @@ impl Loader {
     /// Drop queued thumbnails that are no longer on screen (e.g. after navigating).
     pub fn clear_thumbs(&self) -> Vec<String> {
         let mut v = self.thumbs.0.lock().unwrap();
-        v.drain(..).map(|r| r.key().to_string()).collect()
+        let mut gone: Vec<String> = v.drain(..).map(|r| r.key().to_string()).collect();
+        // and whatever is waiting for a server: the person has moved on
+        gone.extend(self.net.0.lock().unwrap().drain(..).map(|r| r.key().to_string()));
+        gone
     }
 }
 
@@ -309,18 +333,24 @@ pub fn open_url(url: &str) {
 }
 
 pub fn open(path: &Path) {
-    let p = wide(path.as_os_str());
-    let dir = path.parent().map(|d| wide(d.as_os_str()));
-    unsafe {
-        ShellExecuteW(
-            main_hwnd(),
-            PCWSTR::null(), // the file type's default action (open, play, run, edit…)
-            PCWSTR(p.as_ptr()),
-            PCWSTR::null(),
-            dir.as_ref().map(|d| PCWSTR(d.as_ptr())).unwrap_or(PCWSTR::null()),
-            SW_SHOWNORMAL,
-        );
-    }
+    let owner = main_hwnd().0 as isize;
+    let path = path.to_path_buf();
+    // A file on a server that's gone keeps this waiting for as long as the server takes to not answer.
+    crate::bg::submit(&path.clone(), "open", move || {
+        init_com();
+        let p = wide(path.as_os_str());
+        let dir = path.parent().map(|d| wide(d.as_os_str()));
+        unsafe {
+            ShellExecuteW(
+                HWND(owner as *mut _),
+                PCWSTR::null(), // the file type's default action (open, play, run, edit…)
+                PCWSTR(p.as_ptr()),
+                PCWSTR::null(),
+                dir.as_ref().map(|d| PCWSTR(d.as_ptr())).unwrap_or(PCWSTR::null()),
+                SW_SHOWNORMAL,
+            );
+        }
+    });
 }
 
 pub fn run_as_admin(path: &Path) {
@@ -410,7 +440,7 @@ fn multi_sz(paths: &[PathBuf]) -> Vec<u16> {
 /// the operation can be undone from Explorer (Ctrl+Z) like any shell operation.
 pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOnce(Result<(), String>) + Send + 'static) {
     let owner = main_hwnd().0 as isize;
-    std::thread::spawn(move || {
+    crate::bg::spawn("shell-op", move || {
         init_com();
         let from = multi_sz(&src);
         let to = dest.as_ref().map(|d| multi_sz(std::slice::from_ref(d)));

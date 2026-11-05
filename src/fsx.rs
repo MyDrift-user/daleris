@@ -49,7 +49,7 @@ pub fn is_server_root(p: &Path) -> Option<String> {
 }
 
 /// Stream a directory's entries in batches so the first rows paint immediately.
-pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry>)) -> Result<(), String> {
+pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry>)) -> Result<(), FolderError> {
     if let Some(server) = is_server_root(path) {
         emit(list_shares(&server)?);
         return Ok(());
@@ -77,7 +77,7 @@ pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry
             if e.code() == ERROR_FILE_NOT_FOUND.to_hresult() {
                 return Ok(()); // empty folder (e.g. a bare drive root with nothing in it)
             }
-            return Err(e.message().to_string());
+            return Err(classify(path, (e.code().0 as u32) & 0xFFFF, e.message()));
         }
     };
     let mut batch = Vec::with_capacity(512);
@@ -104,6 +104,91 @@ pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry
         emit(batch);
     }
     Ok(())
+}
+
+/// What a system error means for someone looking at this path.
+fn classify(path: &Path, code: u32, message: String) -> FolderError {
+    let kind = classify_code(code, is_network_path(path), drive_letter(path).is_some_and(|l| !drive_exists(l)));
+    FolderError::new(kind, format!("{} (error {code})", message.trim()))
+}
+
+/// The kind of failure a system error code is. `letter_gone`: the path is on a drive letter that doesn't exist now.
+fn classify_code(code: u32, network: bool, letter_gone: bool) -> FailKind {
+    match code {
+        // the drive went away, which for a mapped one means it's not connected
+        2 | 3 | 15 | 53 | 67 | 1200 if letter_gone => FailKind::Disconnected,
+        // the network isn't there, or the server doesn't answer
+        53 | 51 | 54 | 59 | 64 | 121 | 1231 | 1232 | 1222 | 1311 => FailKind::Unreachable,
+        67 => FailKind::ShareMissing,
+        5 | 86 | 1219 | 1326 | 1327 | 1328 | 1330 | 1331 | 1909 => FailKind::AccessDenied,
+        1201 | 2250 | 1200 => FailKind::Disconnected,
+        2 | 3 | 15 | 161 | 267 => FailKind::NotFound,
+        21 | 1005 | 1006 | 1392 => FailKind::NotReady,
+        _ if network => FailKind::Unreachable,
+        _ => FailKind::Other,
+    }
+}
+
+fn drive_letter(path: &Path) -> Option<char> {
+    let s = path.to_string_lossy();
+    let mut c = s.chars();
+    let l = c.next()?;
+    (l.is_ascii_alphabetic() && c.next() == Some(':')).then(|| l.to_ascii_uppercase())
+}
+
+fn drive_exists(letter: char) -> bool {
+    let bit = letter as u32 - 'A' as u32;
+    let mask = unsafe { GetLogicalDrives() };
+    mask & (1 << bit) != 0
+}
+
+/// Not in the bindings, so found by name. 0 is success, as with the rest of this API.
+unsafe fn restore_connection(owner: HWND, device: PCWSTR, ask: bool) -> u32 {
+    use windows::core::{s, w};
+    use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
+    type Restore = unsafe extern "system" fn(HWND, PCWSTR, i32) -> u32;
+    let Ok(lib) = LoadLibraryW(w!("mpr.dll")) else { return ERROR_NOT_SUPPORTED.0 };
+    match GetProcAddress(lib, s!("WNetRestoreSingleConnectionW")) {
+        Some(f) => std::mem::transmute::<_, Restore>(f)(owner, device, ask as i32),
+        None => ERROR_NOT_SUPPORTED.0,
+    }
+}
+
+/// Connects a mapped drive again. With `ask`, Windows may ask for a password, in a window owned by `owner`. Can take
+/// as long as a server takes to not answer.
+pub fn reconnect_drive(letter: char, owner: HWND, ask: bool) -> Result<(), FolderError> {
+    let local = wide(format!("{letter}:"));
+    let rc = unsafe { restore_connection(owner, PCWSTR(local.as_ptr()), ask) };
+    if rc == 0 {
+        return Ok(());
+    }
+    let message = windows::core::Error::from_hresult(WIN32_ERROR(rc).to_hresult()).message();
+    // asked for the password and got nothing
+    if rc == 1223 {
+        return Err(FolderError::new(FailKind::Cancelled, message));
+    }
+    Err(classify(Path::new(&format!("{letter}:\\")), rc, message))
+}
+
+/// A look at the folder, enough to know whether it's still there. Can take as long as a server takes to not answer.
+pub fn check_folder(path: &Path) -> Result<(), FolderError> {
+    let mut pattern = path.as_os_str().to_os_string();
+    if !pattern.to_string_lossy().ends_with('\\') {
+        pattern.push("\\");
+    }
+    pattern.push("*");
+    let pat = long_path(Path::new(&pattern));
+    let mut data = WIN32_FIND_DATAW::default();
+    match unsafe { FindFirstFileExW(PCWSTR(pat.as_ptr()), FindExInfoBasic, &mut data as *mut _ as *mut _, FindExSearchNameMatch, None, FIND_FIRST_EX_FLAGS(0)) } {
+        Ok(h) => {
+            unsafe {
+                let _ = FindClose(h);
+            }
+            Ok(())
+        }
+        Err(e) if e.code() == ERROR_FILE_NOT_FOUND.to_hresult() => Ok(()),
+        Err(e) => Err(classify(path, (e.code().0 as u32) & 0xFFFF, e.message())),
+    }
 }
 
 fn entry_from(d: &WIN32_FIND_DATAW) -> Option<Entry> {
@@ -190,13 +275,14 @@ pub fn stat(path: &Path) -> Option<Entry> {
 
 // ---------------------------------------------------------------- network shares
 
-fn list_shares(server: &str) -> Result<Vec<Entry>, String> {
+fn list_shares(server: &str) -> Result<Vec<Entry>, FolderError> {
     let srv = wide(format!(r"\\{server}"));
     let mut buf: *mut u8 = std::ptr::null_mut();
     let (mut read, mut total) = (0u32, 0u32);
     let rc = unsafe { NetShareEnum(PCWSTR(srv.as_ptr()), 1, &mut buf, u32::MAX, &mut read, &mut total, None) };
     if rc != 0 || buf.is_null() {
-        return Err(format!("Could not list shares on \\\\{server} (error {rc})"));
+        let kind = if rc == 0 { FailKind::Other } else { classify_code(rc, true, false) };
+        return Err(FolderError::new(kind, format!("Could not list shares on \\\\{server} (error {rc})")));
     }
     let mut out = Vec::new();
     unsafe {
@@ -246,12 +332,15 @@ pub fn drives_quick() -> Vec<Drive> {
             6 => DriveKind::Ram,
             _ => DriveKind::Unknown,
         };
+        let mut disconnected = false;
         let remote = if kind == DriveKind::Network {
             let local = wide(format!("{letter}:"));
             let mut buf = [0u16; 1024];
             let mut len = buf.len() as u32;
             let rc = unsafe { WNetGetConnectionW(PCWSTR(local.as_ptr()), PWSTR(buf.as_mut_ptr()), &mut len) };
-            if rc == NO_ERROR {
+            // 1201: remembered, not connected. The name still comes back.
+            disconnected = rc == WIN32_ERROR(1201);
+            if rc == NO_ERROR || disconnected {
                 Some(from_wide(&buf))
             } else {
                 None
@@ -269,13 +358,46 @@ pub fn drives_quick() -> Vec<Drive> {
             total: 0,
             free: 0,
             ready: false,
+            checked: false,
+            disconnected,
         });
     }
+    // Windows remembers mappings it couldn't connect at logon, and those have no drive letter until they do.
+    for i in (0..26u32).filter(|i| mask & (1 << i) == 0) {
+        let letter = (b'A' + i as u8) as char;
+        if let Some(remote) = remembered_drive(letter) {
+            out.push(Drive {
+                letter,
+                root: PathBuf::from(format!("{letter}:\\")),
+                kind: DriveKind::Network,
+                label: String::new(),
+                remote: Some(remote),
+                fs: String::new(),
+                total: 0,
+                free: 0,
+                ready: false,
+                checked: true,
+                disconnected: true,
+            });
+        }
+    }
+    out.sort_by_key(|d| d.letter);
     out
+}
+
+/// What a drive letter that's not in use is remembered as, if anything. Doesn't touch the network.
+fn remembered_drive(letter: char) -> Option<String> {
+    let local = wide(format!("{letter}:"));
+    let mut buf = [0u16; 1024];
+    let mut len = buf.len() as u32;
+    let rc = unsafe { WNetGetConnectionW(PCWSTR(local.as_ptr()), PWSTR(buf.as_mut_ptr()), &mut len) };
+    (rc == WIN32_ERROR(1201)).then(|| from_wide(&buf)).filter(|r| !r.is_empty())
 }
 
 /// Slow pass for one drive: label, file system and capacity.
 pub fn drive_details(d: &mut Drive) {
+    d.checked = true;
+    d.ready = false;
     let w = wide(d.root.as_os_str());
     let mut label = [0u16; 261];
     let mut fs = [0u16; 64];
@@ -495,4 +617,33 @@ pub fn watch(path: &Path, on_change: impl Fn() + Send + 'static) -> Watcher {
         })
         .ok();
     Watcher { stop }
+}
+
+/// Connects the mapped drive `path` is on again, if it's on one. `owner` is the window a password prompt belongs to.
+pub fn reconnect_for(path: &Path, owner: isize, ask: bool) -> Result<(), FolderError> {
+    match drive_letter(path) {
+        Some(l) => reconnect_drive(l, HWND(owner as *mut _), ask),
+        None => Err(FolderError::new(FailKind::Other, "This isn't a mapped drive")),
+    }
+}
+
+#[cfg(test)]
+mod classify_tests {
+    use super::*;
+
+    #[test]
+    fn system_errors_become_what_a_person_can_act_on() {
+        assert_eq!(classify_code(53, true, false), FailKind::Unreachable);
+        assert_eq!(classify_code(1232, true, false), FailKind::Unreachable);
+        assert_eq!(classify_code(64, true, false), FailKind::Unreachable);
+        assert_eq!(classify_code(67, true, false), FailKind::ShareMissing);
+        assert_eq!(classify_code(5, true, false), FailKind::AccessDenied);
+        assert_eq!(classify_code(1326, true, false), FailKind::AccessDenied);
+        assert_eq!(classify_code(1201, true, false), FailKind::Disconnected);
+        assert_eq!(classify_code(3, false, false), FailKind::NotFound);
+        assert_eq!(classify_code(3, true, true), FailKind::Disconnected, "the drive letter itself is gone");
+        assert_eq!(classify_code(21, false, false), FailKind::NotReady);
+        assert_eq!(classify_code(9999, false, false), FailKind::Other);
+        assert_eq!(classify_code(9999, true, false), FailKind::Unreachable);
+    }
 }
