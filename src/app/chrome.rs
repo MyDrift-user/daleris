@@ -56,7 +56,9 @@ impl App {
                     let icon_r = Rect::from_center_size(rect.left_center() + vec2(18.0, 0.0), vec2(16.0, 16.0));
                     match &loc {
                         Loc::ThisPc => {
-                            ui.painter().text(icon_r.center(), Align2::CENTER_CENTER, ic(I_PC), icon_font(14.0), ACCENT());
+                            if !self.draw_this_pc(ui, icon_r) {
+                                ui.painter().text(icon_r.center(), Align2::CENTER_CENTER, ic(I_PC), icon_font(14.0), ACCENT());
+                            }
                         }
                         Loc::Settings => {
                             ui.painter().text(icon_r.center(), Align2::CENTER_CENTER, ic(I_SETTINGS), icon_font(14.0), ACCENT());

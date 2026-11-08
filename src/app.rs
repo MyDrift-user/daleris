@@ -2473,6 +2473,23 @@ impl App {
         }
     }
 
+    /// Windows's own This PC icon, when Windows icons are in use and it's loaded; false otherwise, for the caller to draw
+    /// its own.
+    fn draw_this_pc(&mut self, ui: &Ui, rect: Rect) -> bool {
+        #[cfg(windows)]
+        if self.settings.pack() == "system" && !prefers_bundled_icons() {
+            let px = (rect.width().max(rect.height()) * ui.ctx().pixels_per_point()).round().clamp(16.0, 256.0) as u32;
+            let key = format!("kf:This PC|{px}");
+            let id = windows::Win32::UI::Shell::FOLDERID_ComputerFolder;
+            if let Some(tex) = self.tex(&key, || ImgReq::KnownFolder { key: key.clone(), id, px }) {
+                ui.painter().image(tex, rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                return true;
+            }
+        }
+        let _ = (ui, rect);
+        false
+    }
+
     fn draw_icon(&mut self, ui: &Ui, rect: Rect, path: &Path, ext: &str, is_dir: bool, attrs: u32) {
 
         let dim = attrs & fsx::A_HIDDEN != 0;

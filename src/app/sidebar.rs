@@ -350,6 +350,8 @@ impl App {
         }
         let ic_c = pos2(rect.left() + 18.0, rect.top() + 14.0);
         match (&item.loc, item.glyph) {
+            // This PC with Windows's icon when Windows icons are in use
+            (Some(Loc::ThisPc), Some(_)) if self.draw_this_pc(ui, Rect::from_center_size(ic_c, vec2(18.0, 18.0))) => {}
             (_, Some(g)) => {
                 ui.painter().text(ic_c, Align2::CENTER_CENTER, ic(g), icon_font(14.0), ACCENT());
             }
