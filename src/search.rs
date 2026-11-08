@@ -262,14 +262,43 @@ pub struct Skip {
     pub key: String,
 }
 
+/// The items of a ready-made group, folder names first, then file types.
+pub fn group_items(group: usize) -> Vec<&'static str> {
+    let (_, _, names, types) = SKIP_GROUPS[group];
+    names.iter().chain(types).copied().collect()
+}
+
+/// A group as the settings file keeps it: 1 when every item is left out, 0 when none is, otherwise the items that are.
+pub fn group_value(group: usize, ticked: &[bool]) -> String {
+    match ticked.iter().filter(|t| **t).count() {
+        0 => "0".into(),
+        n if n == ticked.len() => "1".into(),
+        _ => group_items(group).into_iter().zip(ticked).filter(|(_, t)| **t).map(|(i, _)| i).collect::<Vec<_>>().join("|"),
+    }
+}
+
+/// Reads what `group_value` writes, one tick per item of the group.
+pub fn group_ticks(group: usize, value: &str) -> Vec<bool> {
+    let items = group_items(group);
+    match value.trim() {
+        "1" => vec![true; items.len()],
+        "0" | "" => vec![false; items.len()],
+        v => {
+            let chosen: Vec<&str> = v.split('|').map(str::trim).collect();
+            items.iter().map(|i| chosen.iter().any(|c| c.eq_ignore_ascii_case(i))).collect()
+        }
+    }
+}
+
 impl Skip {
-    /// `groups` are on or off in the order of `SKIP_GROUPS`. Patterns that aren't valid are left out.
-    pub fn new(groups: &[bool], hidden: bool, system: bool, folders: &[String], names: &[String], types: &[String], patterns: &[String]) -> Skip {
+    /// `groups` hold a tick per item for each of `SKIP_GROUPS`. Patterns that aren't valid are left out.
+    pub fn new(groups: &[Vec<bool>], hidden: bool, system: bool, folders: &[String], names: &[String], types: &[String], patterns: &[String]) -> Skip {
         // Linux and macOS have no system attribute: there it marks trees Daleris never crawls anyway
         let mut s = Skip { hidden, system: system && cfg!(windows), ..Default::default() };
-        for (_, _, group_names, group_types) in SKIP_GROUPS.iter().zip(groups).filter(|(_, on)| **on).map(|(g, _)| g) {
-            s.names.extend(group_names.iter().map(|n| n.to_lowercase()));
-            s.types.extend(group_types.iter().map(|t| t.to_string()));
+        for ((_, _, group_names, group_types), ticks) in SKIP_GROUPS.iter().zip(groups) {
+            let ticked = |i: usize| ticks.get(i).copied().unwrap_or(false);
+            s.names.extend(group_names.iter().enumerate().filter(|(i, _)| ticked(*i)).map(|(_, n)| n.to_lowercase()));
+            s.types.extend(group_types.iter().enumerate().filter(|(i, _)| ticked(group_names.len() + i)).map(|(_, t)| t.to_string()));
         }
         s.folders.extend(folders.iter().map(|f| path_key(&crate::policy::expand(f))).filter(|f| !f.is_empty()));
         s.names.extend(names.iter().map(|n| n.trim().to_lowercase()));
@@ -812,14 +841,33 @@ mod skip_tests {
         items.iter().map(|s| s.to_string()).collect()
     }
 
-    const DEV: [bool; 3] = [false, false, true];
+    /// only the developer clutter group, all of it
+    fn dev() -> Vec<Vec<bool>> {
+        (0..SKIP_GROUPS.len()).map(|g| group_ticks(g, if g == 2 { "1" } else { "0" })).collect()
+    }
+
+    #[test]
+    fn a_group_can_be_left_out_in_part() {
+        let windows = 1;
+        let ticks = group_ticks(windows, "Program Files|program files (x86)");
+        assert_eq!(ticks.iter().filter(|t| **t).count(), 2, "names match whatever their case");
+        assert_eq!(group_value(windows, &ticks), "Program Files|Program Files (x86)");
+        assert_eq!(group_value(windows, &group_ticks(windows, "1")), "1", "all of it is written as before");
+        assert_eq!(group_value(windows, &group_ticks(windows, "0")), "0");
+        let mut groups: Vec<Vec<bool>> = (0..SKIP_GROUPS.len()).map(|g| group_ticks(g, "0")).collect();
+        groups[windows] = ticks;
+        let skip = Skip::new(&groups, false, false, &[], &[], &[], &[]);
+        let root = if cfg!(windows) { Path::new(r"C:\") } else { Path::new("/") };
+        assert!(skip.skips(root, "Program Files", A_DIR));
+        assert!(!skip.skips(root, "Windows", A_DIR), "the rest of the group is still found");
+    }
 
     #[test]
     fn folders_names_types_and_patterns_are_never_found() {
         let root = if cfg!(windows) { Path::new(r"C:\Work") } else { Path::new("/work") };
         let sep = std::path::MAIN_SEPARATOR;
         let folders = own(&[&format!("{}{sep}Private{sep}", root.display())]);
-        let skip = Skip::new(&DEV, false, false, &folders, &own(&["Payroll"]), &own(&["*.ISO", "bak"]), &own(&[r"\.(key|pem|pfx)$", "([unclosed"]));
+        let skip = Skip::new(&dev(), false, false, &folders, &own(&["Payroll"]), &own(&["*.ISO", "bak"]), &own(&[r"\.(key|pem|pfx)$", "([unclosed"]));
         assert!(skip.skips(root, "private", A_DIR), "a folder, whatever its case and however it ends");
         assert!(!skip.skips(root, "private", 0), "a file of that name isn't the folder");
         assert!(skip.skips(&root.join("deep"), "PAYROLL", A_DIR), "a name, wherever it is");
@@ -856,7 +904,7 @@ mod skip_tests {
         for f in ["node_modules/pkg/index.js", "Payroll/2026/march.xlsx", "src/main.rs", "notes.txt", "secret.key"] {
             std::fs::write(dir.join(f), "x").unwrap();
         }
-        let skip = Skip::new(&DEV, false, false, &[], &[], &[], &own(&[r"[\\/]Payroll[\\/]", r"\.key$"]));
+        let skip = Skip::new(&dev(), false, false, &[], &[], &[], &own(&[r"[\\/]Payroll[\\/]", r"\.key$"]));
         let idx = Index::build(vec![dir.clone()], skip, eframe::egui::Context::default());
         while !idx.is_done() {
             std::thread::sleep(Duration::from_millis(5));

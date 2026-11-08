@@ -553,8 +553,8 @@ pub struct Settings {
     nested_search: bool,
     /// search box '.*' switch: the whole search text is a regular expression
     regex_search: bool,
-    /// what search never finds: the ready-made groups, in the order of `search::SKIP_GROUPS`
-    skip_groups: [bool; 6],
+    /// what search never finds: a tick for each item of the ready-made groups, in the order of `search::SKIP_GROUPS`
+    skip_groups: Vec<Vec<bool>>,
     skip_hidden: bool,
     skip_system: bool,
     /// the person's own lists. What an administrator adds stays in the policy, see `search_skip`.
@@ -667,7 +667,7 @@ impl Settings {
             col_w: HashMap::new(),
             nested_search: true,
             regex_search: false,
-            skip_groups: [false; 6],
+            skip_groups: (0..search::SKIP_GROUPS.len()).map(|g| vec![false; search::group_items(g).len()]).collect(),
             skip_hidden: false,
             skip_system: true,
             skip_folders: Vec::new(),
@@ -803,7 +803,7 @@ impl Settings {
         let on = v == "1";
         let list = || v.split('|').map(str::trim).filter(|k| !k.is_empty()).map(String::from);
         if let Some(i) = search::SKIP_GROUPS.iter().position(|g| g.0 == k) {
-            self.skip_groups[i] = on;
+            self.skip_groups[i] = search::group_ticks(i, v);
             return true;
         }
         match k {
@@ -901,7 +901,7 @@ impl Settings {
             (policy::SKIP_NAMES, self.skip_names.join("|")),
             (policy::SKIP_TYPES, self.skip_types.join("|")),
         ];
-        lines.extend(search::SKIP_GROUPS.iter().zip(self.skip_groups).map(|(g, on)| (g.0, b(on))));
+        lines.extend(search::SKIP_GROUPS.iter().enumerate().map(|(i, g)| (g.0, search::group_value(i, &self.skip_groups[i]))));
         lines
     }
 
@@ -3076,7 +3076,7 @@ mod tests {
         let pol = policy::Policy { fixed: vec![(policy::SKIP_NAMES, "Payroll\nHR".into()), ("search_skip_dev", "1".into())], ..Default::default() };
         s.enforce(&pol);
         assert_eq!(s.skip_names, ["Backup"], "the person's own list stays as it was");
-        assert!(s.skip_groups[2], "a fixed switch is set like any other");
+        assert!(s.skip_groups[2].iter().all(|t| *t), "a fixed group is set like any other value: all of it");
         let skip = s.search_skip(&pol);
         let dir = Path::new("x");
         assert!(skip.skips(dir, "payroll", fsx::A_DIR) && skip.skips(dir, "hr", fsx::A_DIR) && skip.skips(dir, "backup", fsx::A_DIR));

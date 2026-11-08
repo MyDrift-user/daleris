@@ -119,6 +119,30 @@ fn managed_toggle(ui: &mut Ui, on: &mut bool, key: &str, label: &str) -> bool {
     changed
 }
 
+/// A tick box for one settings value, greyed out with the note when a policy fixes it. The arrow's room is kept
+/// free, so it lines up with the groups above it.
+fn managed_check(ui: &mut Ui, on: &mut bool, key: &str, label: &str) -> bool {
+    let fixed = policy::is_fixed(key);
+    let mut changed = false;
+    ui.horizontal(|ui| {
+        ui.add_space(22.0);
+        changed = tick_box(ui, !fixed, egui::Checkbox::new(on, label)).changed();
+        if fixed {
+            managed_note(ui);
+        }
+    });
+    changed
+}
+
+/// A tick box with an outline, so an empty one still shows against the card.
+fn tick_box(ui: &mut Ui, enabled: bool, check: egui::Checkbox) -> egui::Response {
+    ui.scope(|ui| {
+        ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(1.0_f32, FAINT());
+        ui.add_enabled(enabled, check)
+    })
+    .inner
+}
+
 /// A section title for one settings value, with the note when a policy fixes it.
 fn managed_heading(ui: &mut Ui, title: &str, sub: &str, key: &str) {
     heading(ui, title, sub);
@@ -900,20 +924,49 @@ impl App {
     fn search_skip_card(&mut self, ui: &mut Ui) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Never found in search", "Search leaves these out and doesn't look inside folders it leaves out, which also makes it faster.");
+            heading(ui, "Leave out of search", "Search never finds what's ticked here, and doesn't look inside ticked folders, which also makes it faster.");
             let mut ch = false;
-            for (i, (key, name, names, types)) in search::SKIP_GROUPS.iter().enumerate() {
+            for (g, (key, name, _, _)) in search::SKIP_GROUPS.iter().enumerate() {
+                let fixed = policy::is_fixed(key);
+                let items = search::group_items(g);
+                let ticks = &mut self.settings.skip_groups[g];
+                let (all, some) = (ticks.iter().all(|t| *t), ticks.iter().any(|t| *t));
+                let open_id = ui.make_persistent_id(("skip-group", g));
+                let mut open = ui.data(|d| d.get_temp::<bool>(open_id).unwrap_or(false));
                 ui.horizontal(|ui| {
-                    ch |= managed_toggle(ui, &mut self.settings.skip_groups[i], key, name);
-                    let what = names.iter().chain(types.iter()).copied().collect::<Vec<_>>().join("  ");
-                    ui.add(egui::Label::new(egui::RichText::new(what).small().color(FAINT())).truncate());
+                    let arrow = egui::RichText::new(ic(if open { I_CHEV_D } else { I_CHEV_R })).font(icon_font(10.0)).color(DIM());
+                    if ui.add(egui::Button::new(arrow).frame(false)).on_hover_text(if open { "Hide what's in it" } else { "Choose what's in it one by one" }).clicked() {
+                        open = !open;
+                    }
+                    ui.add_enabled_ui(!fixed, |ui| {
+                        // a partly ticked group shows a dash; clicking it ticks all of it
+                        let mut checked = all;
+                        if tick_box(ui, true, egui::Checkbox::new(&mut checked, *name).indeterminate(some && !all)).changed() {
+                            ticks.iter_mut().for_each(|t| *t = checked);
+                            ch = true;
+                        }
+                    });
+                    if fixed {
+                        managed_note(ui);
+                    } else if !open {
+                        ui.add(egui::Label::new(egui::RichText::new(items.join("  ")).small().color(FAINT())).truncate());
+                    }
                 });
+                if open {
+                    for (i, item) in items.iter().enumerate() {
+                        ui.horizontal(|ui| {
+                            ui.add_space(44.0);
+                            ch |= tick_box(ui, !fixed, egui::Checkbox::new(&mut ticks[i], *item)).changed();
+                        });
+                    }
+                }
+                ui.data_mut(|d| d.insert_temp(open_id, open));
             }
             ui.add_space(4.0);
-            ch |= managed_toggle(ui, &mut self.settings.skip_hidden, "search_skip_hidden", "Hidden files and folders, even when hidden items are shown");
+            ch |= managed_check(ui, &mut self.settings.skip_hidden, "search_skip_hidden", "Hidden files and folders, even when hidden items are shown");
             // only Windows marks files as system files
             if cfg!(windows) {
-                ch |= managed_toggle(ui, &mut self.settings.skip_system, "search_skip_system", "System files, such as desktop.ini");
+                ch |= managed_check(ui, &mut self.settings.skip_system, "search_skip_system", "System files, such as desktop.ini");
             }
             let folder_example = if cfg!(windows) { r"%USERPROFILE%\Archive" } else { "~/Archive" };
             for (n, (key, title, sub, example)) in [

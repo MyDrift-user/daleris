@@ -140,9 +140,12 @@ MENU ITEMS
 
 SEARCH
   What search never finds isn't a result, and search doesn't look inside a folder it leaves out. Browsing still
-  shows everything. People set the same switches and lists under Settings > Files & folders > Never found in search.
+  shows everything. People tick the same groups and fill the same lists under Settings > Files & folders >
+  Leave out of search.
   A fixed list is added to people's own rules: they can't remove its items, but they can still add their own.
-  A default list is the list people start with. The switches work like any other value.
+  A default list is the list people start with. The group switches work like any other value and cover the whole
+  group: people can tick a group's items one by one, but a fixed group is all on or all off. To leave out only
+  part of a group for everyone, put those names in SearchSkipFolderNames or SearchSkipFileTypes instead.
   Patterns are matched against the full path, whatever the case. A folder's path ends in \ when it's matched, so
   \\Payroll\\ leaves out every Payroll folder with everything in it, and \.(key|pem|pfx)$ leaves out keys and
   certificates. A pattern that isn't valid is ignored, and Settings shows why.
