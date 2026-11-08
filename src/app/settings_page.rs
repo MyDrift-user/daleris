@@ -901,6 +901,7 @@ impl App {
             // Windows opens a drive that was just connected as a folder, which comes here with "Open folders in Daleris"
             if cfg!(windows) {
                 ch |= managed_toggle(ui, &mut self.settings.open_new_drives, "open_new_drives", "Open a tab for a drive when it's connected, such as a USB stick");
+                ch |= managed_toggle(ui, &mut self.settings.start_new_window, "start_new_window", "Starting Daleris again opens a new window (off: a new tab in the open window)");
             }
             ui.add_space(8.0);
             ui.horizontal(|ui| {

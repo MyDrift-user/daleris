@@ -335,7 +335,8 @@ impl App {
             },
             Act::NewWindow(p) => {
                 if let Ok(exe) = std::env::current_exe() {
-                    let _ = std::process::Command::new(exe).arg("--path").arg(p).spawn();
+                    // its own window, whichever way new folders from outside go
+                    let _ = std::process::Command::new(exe).arg("--new-window").arg("--path").arg(p).spawn();
                 }
             }
             Act::RunCustom(i) => {

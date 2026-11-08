@@ -39,6 +39,8 @@ VALUES
                                       Theme, AccentColor, IconPack and the title bar logo and name don't apply then. Windows only
   OpenNewDrives             DWORD     1 on, 0 off: a tab opens when Windows opens a drive that was just connected, such
                                       as a USB stick. Windows only
+  StartNewWindow            DWORD     1 on, 0 off: starting Daleris again, from Start, the taskbar or Win+E, opens a new
+                                      window; off, a new tab in the open one. Windows only
   DefaultSort               SZ        name, modified, created, type, extension or size: how a folder is sorted until someone chooses
   DefaultSortAscending      DWORD     1 from A, the oldest or the smallest, 0 the other way round
   FoldersFirst              DWORD     1 keeps folders above files by default, 0 mixes them in

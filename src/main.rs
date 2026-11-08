@@ -87,8 +87,11 @@ fn main() -> eframe::Result<()> {
             std::process::exit(code);
         }
     }
+    // started again with nothing to open: a window of its own, unless the person prefers a tab in the open one
     #[cfg(windows)]
-    if picker.is_none() && screenshot.is_none() && !new_window && single_window_took(&wanted) {
+    let plain = wanted.dir.is_none() && !wanted.this_pc;
+    #[cfg(windows)]
+    if picker.is_none() && screenshot.is_none() && !new_window && !(plain && app::starts_in_new_window()) && single_window_took(&wanted) {
         std::process::exit(0);
     }
     // no window at all for a drive Windows opens because it was just connected, when that's turned off

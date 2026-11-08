@@ -82,11 +82,15 @@ fn open(args: &[std::ffi::OsString], feature: daleris_integration::Feature) {
         return;
     }
     let launch = |request: &Request| {
-        if hive.flag(Feature::SingleWindow) && daleris_integration::pipe::send(request) {
+        // Daleris itself decides whether starting it again opens a window or a tab, by a setting of its own
+        let show = matches!(request, Request::Show);
+        if !show && hive.flag(Feature::SingleWindow) && daleris_integration::pipe::send(request) {
             return true;
         }
         let mut c = std::process::Command::new(&exe);
-        c.arg("--new-window");
+        if !show {
+            c.arg("--new-window");
+        }
         match request {
             Request::Show => {}
             Request::ThisPc => {

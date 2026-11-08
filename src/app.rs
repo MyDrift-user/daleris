@@ -524,6 +524,8 @@ pub struct Settings {
     explorer_look: bool,
     /// open a tab when Windows opens a drive that was just connected, such as a USB stick. Windows only
     open_new_drives: bool,
+    /// starting Daleris again opens a new window, not a tab in the open one. Windows only
+    start_new_window: bool,
     /// the sort a folder gets until someone chooses one for it
     sort_key: SortKey,
     sort_asc: bool,
@@ -639,6 +641,12 @@ const THIS_PC_TAB: &str = "::thispc";
 #[cfg(windows)]
 const NEW_DRIVE: Duration = Duration::from_secs(20);
 
+/// Whether starting Daleris again, from Start or the taskbar, opens a window of its own rather than a tab in the open one.
+#[cfg(windows)]
+pub fn starts_in_new_window() -> bool {
+    Settings::load().start_new_window
+}
+
 /// Windows opening a drive because it was just connected, when the person turned that off in Settings.
 #[cfg(windows)]
 pub fn unwanted_new_drive(dir: &Path) -> bool {
@@ -668,6 +676,7 @@ impl Settings {
             hide_dotfiles: false,
             explorer_look: false,
             open_new_drives: true,
+            start_new_window: true,
             sort_key: SortKey::Name,
             sort_asc: true,
             dirs_first: true,
@@ -867,6 +876,7 @@ impl Settings {
             "hide_dots" => self.hide_dotfiles = on,
             "explorer_look" => self.explorer_look = on,
             "open_new_drives" => self.open_new_drives = on,
+            "start_new_window" => self.start_new_window = on,
             "sort_key" => self.sort_key = SortKey::from_word(v).unwrap_or(SortKey::Name),
             "sort_asc" => self.sort_asc = on,
             "dirs_first" => self.dirs_first = on,
@@ -922,6 +932,7 @@ impl Settings {
             ("hide_dots", b(self.hide_dotfiles)),
             ("explorer_look", b(self.explorer_look)),
             ("open_new_drives", b(self.open_new_drives)),
+            ("start_new_window", b(self.start_new_window)),
             ("sort_key", self.sort_key.word().to_string()),
             ("sort_asc", b(self.sort_asc)),
             ("dirs_first", b(self.dirs_first)),
@@ -2990,6 +3001,12 @@ impl App {
                         Key::ArrowRight if m.alt => self.acts.push(Act::Forward),
                         Key::ArrowUp if m.alt => self.acts.push(Act::Up),
                         Key::N if m.command && m.shift => self.acts.push(Act::NewFolder),
+                        // as in Explorer: the folder in front, in a window of its own
+                        Key::N if m.command => {
+                            if let Some(d) = t.dir() {
+                                self.acts.push(Act::NewWindow(d.to_path_buf()));
+                            }
+                        }
                         Key::P if m.alt && !policy::is_fixed("preview") => self.settings.show_preview = !self.settings.show_preview,
                         _ => {}
                     }

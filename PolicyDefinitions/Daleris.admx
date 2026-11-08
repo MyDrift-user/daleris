@@ -41,6 +41,12 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_StartNewWindow" class="Both" displayName="$(string.StartNewWindow)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="StartNewWindow">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Fixed_DefaultSortAscending" class="Both" displayName="$(string.DefaultSortAscending)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="DefaultSortAscending">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -408,6 +414,12 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_OpenNewDrives" class="Both" displayName="$(string.OpenNewDrives)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="OpenNewDrives">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_StartNewWindow" class="Both" displayName="$(string.StartNewWindow)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="StartNewWindow">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

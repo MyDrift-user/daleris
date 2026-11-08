@@ -19,11 +19,12 @@ enum Kind {
 }
 
 /// Registry value name, settings file key, what it holds.
-const VALUES: [(&str, &str, Kind); 56] = [
+const VALUES: [(&str, &str, Kind); 57] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("HideDotfiles", "hide_dots", Kind::Bool),
     ("ExplorerLook", "explorer_look", Kind::Bool),
     ("OpenNewDrives", "open_new_drives", Kind::Bool),
+    ("StartNewWindow", "start_new_window", Kind::Bool),
     ("DefaultSort", "sort_key", Kind::Text),
     ("DefaultSortAscending", "sort_asc", Kind::Bool),
     ("FoldersFirst", "dirs_first", Kind::Bool),
