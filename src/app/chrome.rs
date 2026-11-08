@@ -67,7 +67,7 @@ impl App {
                     let (loc, loading) = if i == self.active { (t.loc.clone(), t.loading) } else { (self.tabs[i].loc.clone(), self.tabs[i].loading) };
                     let active = i == self.active;
                     // the tab is only what's drawn of it: the strip above it is title bar
-                    let (slot, _) = ui.allocate_exact_size(vec2(w, 32.0 + tab_y), Sense::hover());
+                    let (slot, _) = ui.allocate_exact_size(vec2(w, TAB_H + tab_y), Sense::hover());
                     let rect = Rect::from_min_max(slot.min + vec2(0.0, tab_y), slot.max);
                     let resp = ui.interact(rect, ui.scope_id().with(("tab", i)), Sense::click_and_drag());
                     slots.push(rect);
@@ -77,7 +77,7 @@ impl App {
                     if active {
                         ui.painter().rect_filled(rect, CornerRadius { nw: 8, ne: 8, sw: 0, se: 0 }, TOP());
                     } else if resp.hovered() {
-                        ui.painter().rect_filled(rect.shrink2(vec2(0.0, 2.0)), CornerRadius::same(6), HOVER().gamma_multiply(0.6));
+                        ui.painter().rect_filled(tab_hover_box(rect), CornerRadius::same(6), HOVER().gamma_multiply(0.6));
                     }
                     let icon_r = Rect::from_center_size(rect.left_center() + vec2(18.0, 0.0), vec2(16.0, 16.0));
                     match &loc {
@@ -121,7 +121,7 @@ impl App {
                         tab_under_drag = Some(i);
                         if let Loc::Dir(d) = &loc {
                             let ok = self.drop_zone(ui, &resp, d).unwrap_or(list::DropLook::Fine);
-                            list::drop_mark(ui.painter(), rect.shrink2(vec2(0.0, 2.0)), 6, ok);
+                            list::drop_mark(ui.painter(), tab_hover_box(rect), 6, ok);
                         }
                         match self.drag_tab_hover {
                             Some((at, since)) if at == i => {
@@ -152,8 +152,9 @@ impl App {
                 self.tab_dragging(ui, &slots);
                 ui.add_space(2.0);
                 ui.vertical(|ui| {
-                    ui.add_space(tab_y + 1.0);
-                    if icon_button(ui, I_ADD, "New tab (Ctrl+T)\nWith Shift: the same folder again (Ctrl+Shift+T)", true).clicked() {
+                    // its hover the same height as an inactive tab's, clear of the line under the strip
+                    ui.add_space(tab_y + 1.0 + TAB_HOVER_INSET);
+                    if icon_button_sized(ui, I_ADD, vec2(32.0, TAB_H - 2.0 - 2.0 * TAB_HOVER_INSET), "New tab (Ctrl+T)\nWith Shift: the same folder again (Ctrl+Shift+T)", true).clicked() {
                         self.acts.push(Act::NewTab { same: ui.input(|i| i.modifiers.shift) });
                     }
                 });
@@ -1356,6 +1357,18 @@ impl App {
             None => self.acts.push(Act::TabOut(from)),
         }
     }
+}
+
+/// A tab's height, from its top to the bottom of the strip
+const TAB_H: f32 = 32.0;
+
+/// Room above and below a tab's hover, to the top of the tab and to the line under the strip
+const TAB_HOVER_INSET: f32 = 3.0;
+
+/// Where an inactive tab lights up under the pointer: as far below the line along the tab in front's top as above
+/// the line under the strip (each a point thick, see `tab_outline`), so it touches neither.
+fn tab_hover_box(tab: Rect) -> Rect {
+    Rect::from_min_max(pos2(tab.left(), tab.top() + 1.0 + TAB_HOVER_INSET), pos2(tab.right(), tab.bottom() - 1.0 - TAB_HOVER_INSET))
 }
 
 /// The line along the bottom of the tab strip, going up and around the tab in front, as Explorer draws it.

@@ -2866,7 +2866,11 @@ fn highlighted(ui: &Ui, text: &str, terms: &[String], width: f32) -> Arc<egui::G
 }
 
 fn icon_button(ui: &mut Ui, glyph: &'static str, tip: &str, enabled: bool) -> Response {
-    let (rect, resp) = ui.allocate_exact_size(vec2(32.0, 30.0), if enabled { Sense::click() } else { Sense::hover() });
+    icon_button_sized(ui, glyph, vec2(32.0, 30.0), tip, enabled)
+}
+
+fn icon_button_sized(ui: &mut Ui, glyph: &'static str, size: egui::Vec2, tip: &str, enabled: bool) -> Response {
+    let (rect, resp) = ui.allocate_exact_size(size, if enabled { Sense::click() } else { Sense::hover() });
     if enabled && resp.hovered() {
         ui.painter().rect_filled(rect, CornerRadius::same(5), HOVER());
     }
