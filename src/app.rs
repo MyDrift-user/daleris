@@ -757,8 +757,9 @@ impl Settings {
             col_w: HashMap::new(),
             nested_search: true,
             regex_search: false,
-            skip_groups: (0..search::SKIP_GROUPS.len()).map(|g| vec![false; search::group_items(g).len()]).collect(),
-            skip_hidden: false,
+            // all of it but cloud folders, which hold the person's own files
+            skip_groups: search::SKIP_GROUPS.iter().enumerate().map(|(g, (key, ..))| vec![*key != "search_skip_cloud"; search::group_items(g).len()]).collect(),
+            skip_hidden: true,
             skip_system: true,
             skip_folders: Vec::new(),
             skip_names: Vec::new(),
@@ -3502,6 +3503,10 @@ mod tests {
         assert!(s.hide_dotfiles, "dotfiles and dotfolders are hidden unless someone shows them");
         assert!(s.dirs_first && s.sort_asc && s.sort_key == SortKey::Name);
         assert!(s.downloads_newest);
+        for (g, (key, ..)) in search::SKIP_GROUPS.iter().enumerate() {
+            assert!(s.skip_groups[g].iter().all(|&t| t == (*key != "search_skip_cloud")), "search leaves out all of {key} but cloud folders");
+        }
+        assert!(s.skip_hidden && s.skip_system);
     }
 
     #[test]
