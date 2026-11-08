@@ -753,9 +753,6 @@ pub(super) fn field_dropdown(ui: &mut Ui, salt: impl std::hash::Hash + std::fmt:
     ui.painter().text(rect.right_center() - vec2(14.0, 0.0), Align2::CENTER_CENTER, ic(I_CHEV_D), icon_font(10.0), if enabled { DIM() } else { FAINT() });
     let mut picked = None;
     if enabled {
-        if resp.clicked() {
-            egui::Popup::toggle_id(ui.ctx(), popup);
-        }
         // up and down change it without opening it, as in the real dialog
         if resp.has_focus() && !open {
             let (up, down) = ui.input(|i| (i.key_pressed(Key::ArrowUp), i.key_pressed(Key::ArrowDown)));
@@ -779,7 +776,8 @@ pub(super) fn field_dropdown(ui: &mut Ui, salt: impl std::hash::Hash + std::fmt:
                 };
             }
         }
-        egui::Popup::from_response(&resp).id(popup).close_behavior(egui::PopupCloseBehavior::CloseOnClick).show(|ui| {
+        // It opens and closes with a click on the field, which a click-to-close popup must not take for a click outside.
+        egui::Popup::from_toggle_button_response(&resp).id(popup).close_behavior(egui::PopupCloseBehavior::CloseOnClick).show(|ui| {
             ui.set_min_width(width - 12.0);
             ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
             egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
