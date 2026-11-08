@@ -739,7 +739,7 @@ impl Settings {
             menu_rules: HashMap::new(),
             menu_order: Vec::new(),
             custom: Vec::new(),
-            theme: 1,
+            theme: 0,
             accent: ACCENTS.len(),
             icon_pack: if prefers_bundled_icons() { "flat" } else { "system" }.into(),
             density: 1,
@@ -982,7 +982,7 @@ impl Settings {
             "preview" => self.show_preview = on,
             "ext" => self.show_ext = on,
             "view" => self.view = if v == "icons" { View::Icons } else { View::Details },
-            "theme" => self.theme = v.parse().unwrap_or(1),
+            "theme" => self.theme = v.parse().unwrap_or(0),
             "accent2" => self.accent = v.parse().unwrap_or(ACCENTS.len()),
             "native_props" => self.native_props = on,
             "folder_sizes" => self.folder_sizes = on,
@@ -3421,6 +3421,14 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_new_settings_file_follows_windows_theme() {
+        assert_eq!(Settings::defaults().theme, 0);
+        let mut s = Settings::defaults();
+        s.set_value("theme", "x");
+        assert_eq!(s.theme, 0);
+    }
 
     #[test]
     fn explorer_look_is_the_settings_it_is_made_of() {
