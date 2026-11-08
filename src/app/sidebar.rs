@@ -36,6 +36,9 @@ struct SideDrag {
 
 /// Hover text for a drive: where it comes from, and whether it's a FUSE mount.
 fn drive_tip(d: &Drive) -> Option<String> {
+    if d.locked {
+        return Some("Locked by BitLocker. Click to unlock it".into());
+    }
     let fuse = d.is_fuse().then(|| format!("FUSE mount ({})", d.fs));
     match (d.remote.clone(), fuse) {
         (Some(r), Some(f)) => Some(format!("{r}\n{f}")),

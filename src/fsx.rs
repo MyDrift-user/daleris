@@ -374,6 +374,7 @@ pub fn drives_quick() -> Vec<Drive> {
             ready: false,
             checked: false,
             disconnected,
+            locked: false,
         });
     }
     // Windows remembers mappings it couldn't connect at logon, and those have no drive letter until they do.
@@ -392,6 +393,7 @@ pub fn drives_quick() -> Vec<Drive> {
                 ready: false,
                 checked: true,
                 disconnected: true,
+                locked: false,
             });
         }
     }
@@ -425,6 +427,8 @@ pub fn drive_details(d: &mut Drive) {
         d.total = total;
         d.ready = true;
     }
+    // a drive Windows can't read may be one BitLocker keeps locked, which Explorer offers to unlock
+    d.locked = !d.ready && d.kind != DriveKind::Network && bitlocker_locked(&d.root);
 }
 
 // ---------------------------------------------------------------- known folders
@@ -801,4 +805,35 @@ mod arrival_tests {
         eprintln!("C: {c:?}, D: {:?}", super::connected_for(std::path::Path::new(r"D:\")));
         assert!(c.is_some(), "{c:?}");
     }
+
+    #[test]
+    fn drives_in_use_are_not_locked() {
+        assert!(!super::bitlocker_locked(std::path::Path::new(r"C:\")), "the system drive is in use, so it isn't locked");
+    }
+}
+
+/// Whether BitLocker keeps the drive at `root` locked, as Explorer tells for its Unlock drive command.
+pub fn bitlocker_locked(root: &Path) -> bool {
+    use windows::Win32::Foundation::PROPERTYKEY;
+    use windows::Win32::System::Com::StructuredStorage::PropVariantToInt32;
+    use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, PSGetPropertyKeyFromName, SHGetPropertyStoreFromParsingName, GPS_DEFAULT};
+    // what the registry's rule for Unlock drive says: System.Volume.BitLockerProtection is 6
+    const LOCKED: i32 = 6;
+    // the shell's properties need COM on this thread; asking again is harmless
+    crate::shell::init_com();
+    unsafe {
+        let mut key = PROPERTYKEY::default();
+        if PSGetPropertyKeyFromName(windows::core::w!("System.Volume.BitLockerProtection"), &mut key).is_err() {
+            return false;
+        }
+        let w = wide(root.as_os_str());
+        let Ok(store) = SHGetPropertyStoreFromParsingName::<_, _, IPropertyStore>(PCWSTR(w.as_ptr()), None, GPS_DEFAULT) else { return false };
+        store.GetValue(&key).ok().and_then(|v| PropVariantToInt32(&v).ok()) == Some(LOCKED)
+    }
+}
+
+/// Windows's own prompt for a BitLocker drive's password or recovery key.
+pub fn unlock_bitlocker(root: &Path) {
+    let system = std::env::var_os("SystemRoot").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
+    let _ = std::process::Command::new(system.join(r"System32\bdeunlock.exe")).arg(root).spawn();
 }

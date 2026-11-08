@@ -431,6 +431,8 @@ enum Act {
     Reconnect,
     /// Windows's Credential Manager, where the passwords for servers are kept
     CredentialManager,
+    /// Windows's prompt for a BitLocker drive's password
+    Unlock(PathBuf),
     ClearFilter,
 }
 
@@ -1570,6 +1572,12 @@ impl App {
                             // the server answered, and said what's wrong with the account: that's what to show
                             Err(e) if matches!(e.kind, FailKind::SignIn | FailKind::PasswordExpired | FailKind::AccountLocked | FailKind::OtherUser | FailKind::AccessDenied) => r = Err(e),
                             Err(_) => {}
+                        }
+                    }
+                    // a drive that can't be read may be one BitLocker keeps locked, which can be unlocked from here
+                    if let Err(e) = &mut r {
+                        if matches!(e.kind, FailKind::NotReady | FailKind::Other) && !fsx::is_network_path(&p2) && p2.ancestors().last().is_some_and(fsx::bitlocker_locked) {
+                            e.kind = FailKind::Locked;
                         }
                     }
                     let _ = tx.send(Msg::Done { tab: id, generation, err: r.err() });

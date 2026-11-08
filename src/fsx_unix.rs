@@ -251,6 +251,7 @@ fn gvfs_drives(out: &mut Vec<Drive>) {
             ready: false,
             checked: false,
             disconnected: false,
+            locked: false,
         });
     }
 }
@@ -298,6 +299,7 @@ pub fn drives_quick() -> Vec<Drive> {
             ready: false,
             checked: false,
             disconnected: false,
+            locked: false,
         });
     }
     gvfs_drives(&mut out);
@@ -336,6 +338,7 @@ pub fn drives_quick() -> Vec<Drive> {
             ready: m.f_blocks > 0,
             checked: true,
             disconnected: false,
+            locked: false,
         });
     }
     out
@@ -572,3 +575,10 @@ pub fn can_add_to(dir: &Path) -> Result<(), NoWrite> {
         _ => NoWrite::Unreachable,
     })
 }
+
+/// BitLocker is Windows's: never locked here.
+pub fn bitlocker_locked(_root: &Path) -> bool {
+    false
+}
+
+pub fn unlock_bitlocker(_root: &Path) {}

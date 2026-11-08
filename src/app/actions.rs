@@ -381,6 +381,11 @@ impl App {
                 self.start_load(&mut t, false);
             }
             Act::CredentialManager => shell::credential_manager(),
+            Act::Unlock(root) => {
+                fsx::unlock_bitlocker(&root);
+                // it opens by itself once unlocked; look sooner than usual
+                t.retry_at = Some(Instant::now() + Duration::from_secs(2));
+            }
             Act::Reconnect => {
                 if let Some(p) = t.dir().map(Path::to_path_buf) {
                     t.reconnecting = true;

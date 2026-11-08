@@ -287,6 +287,7 @@ impl App {
             FailKind::Disconnected => (format!("Drive {}: isn't connected", letter.unwrap_or('?')), format!("It points to {place}, which isn't connected right now. Connecting it may ask for a password.")),
             FailKind::NotFound => ("This folder isn't there any more".to_string(), "It may have been moved, renamed or deleted.".to_string()),
             FailKind::NotReady => ("This drive isn't ready".to_string(), "There may be no disk in it, or it may be locked.".to_string()),
+            FailKind::Locked => (format!("{} is locked by BitLocker", self.drive_for(&p).map(|d| d.title()).unwrap_or_else(|| "This drive".into())), "Unlock it with its password or recovery key, and it opens here.".to_string()),
             FailKind::Cancelled if network => ("Stopped connecting".to_string(), format!("You stopped waiting for {place}.")),
             FailKind::Cancelled => ("Stopped opening this folder".to_string(), String::new()),
             FailKind::Other => ("This folder can't be opened".to_string(), String::new()),
@@ -312,6 +313,10 @@ impl App {
                 let reconnecting = t.reconnecting;
                 // each says what it does, as "reconnect" and "retry" alone don't
                 let mut buttons: Vec<(&str, Act, bool, String)> = Vec::new();
+                if e.kind == FailKind::Locked {
+                    let root = p.ancestors().last().unwrap_or(&p).to_path_buf();
+                    buttons.push(("Unlock", Act::Unlock(root), true, "Asks for the drive's BitLocker password or recovery key, as File Explorer does".into()));
+                }
                 if reconnect && !reconnecting {
                     if sign_in {
                         buttons.push(("Sign in", Act::Reconnect, true, format!("Asks for a user name and password for {host}, and connects with them")));

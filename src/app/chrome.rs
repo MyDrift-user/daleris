@@ -1160,7 +1160,7 @@ impl App {
             let sub = format!("{} free of {}  ·  {}", fmt_size(d.free), fmt_size(d.total), d.fs);
             ui.painter().text(pos2(x, rect.top() + 48.0), Align2::LEFT_TOP, sub, FontId::proportional(12.0), DIM());
         } else {
-            let sub = d.remote.clone().unwrap_or_else(|| "Not ready".into());
+            let sub = if d.locked { "Locked by BitLocker. Open it to unlock".to_string() } else { d.remote.clone().unwrap_or_else(|| "Not ready".into()) };
             ui.painter().text(pos2(x, rect.top() + 36.0), Align2::LEFT_TOP, sub, FontId::proportional(12.0), DIM());
         }
         if resp.clicked() {

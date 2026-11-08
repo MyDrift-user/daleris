@@ -91,6 +91,9 @@ pub enum FailKind {
     NotFound,
     /// a drive without a disk, or one that's locked
     NotReady,
+    /// a drive BitLocker keeps locked (Windows)
+    #[cfg_attr(not(windows), allow(dead_code))]
+    Locked,
     /// the person stopped waiting
     Cancelled,
     Other,
@@ -110,7 +113,7 @@ impl FolderError {
 
     /// Is this worth trying again without being asked? It may well sort itself out.
     pub fn may_recover(&self) -> bool {
-        matches!(self.kind, FailKind::Unreachable | FailKind::ShareMissing | FailKind::Disconnected | FailKind::NotReady)
+        matches!(self.kind, FailKind::Unreachable | FailKind::ShareMissing | FailKind::Disconnected | FailKind::NotReady | FailKind::Locked)
     }
 }
 
@@ -190,6 +193,8 @@ pub struct Drive {
     pub checked: bool,
     /// a remembered mapping that isn't connected right now (Windows)
     pub disconnected: bool,
+    /// locked by BitLocker until someone unlocks it (Windows)
+    pub locked: bool,
 }
 
 impl Drive {
