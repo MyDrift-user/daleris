@@ -3,7 +3,7 @@
 //! Windows' fixed settings: `Software\Policies\Daleris`, machine first, then user. They always win
 //! and are grayed out in the app. Default settings: the `Recommended` subkey below that, then
 //! `Software\Daleris\Defaults` (for preferences). They apply until the person picks their
-//! own value. Values use the names in `VALUES`; `policy/README.txt` lists them for admins.
+//! own value. Values use the names in `VALUES`; `PolicyDefinitions/README.txt` lists them for admins.
 
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, OnceLock, RwLock};
@@ -286,7 +286,7 @@ pub fn name_of(key: &str) -> Option<&'static str> {
 mod tests {
     use super::*;
 
-    const ADMX: &str = include_str!("../policy/Daleris.admx");
+    const ADMX: &str = include_str!("../PolicyDefinitions/Daleris.admx");
     const LOCKS: [&str; 5] = ["LockRibbon", "LockSidebar", "LockContextMenu", "DisableCustomCommands", "DisableUpdates"];
 
     #[test]
@@ -302,8 +302,8 @@ mod tests {
 
     #[test]
     fn the_templates_name_everything_they_use_in_every_language() {
-        let en = include_str!("../policy/en-US/Daleris.adml");
-        let de = include_str!("../policy/de-DE/Daleris.adml");
+        let en = include_str!("../PolicyDefinitions/en-US/Daleris.adml");
+        let de = include_str!("../PolicyDefinitions/de-DE/Daleris.adml");
         for (from, to) in [("$(string.", r#"<string id=""#), ("$(presentation.", r#"<presentation id=""#)] {
             for used in ADMX.split(from).skip(1).map(|s| &s[..s.find(')').unwrap()]) {
                 for (language, text) in [("en-US", en), ("de-DE", de)] {
@@ -315,9 +315,9 @@ mod tests {
 
     #[test]
     fn the_admin_guide_lists_every_value() {
-        let guide = include_str!("../policy/README.txt");
+        let guide = include_str!("../PolicyDefinitions/README.txt");
         for name in VALUES.iter().map(|(name, _, _)| *name).chain(LOCKS) {
-            assert!(guide.contains(name), "policy/README.txt doesn't mention {name}");
+            assert!(guide.contains(name), "PolicyDefinitions/README.txt doesn't mention {name}");
         }
     }
 

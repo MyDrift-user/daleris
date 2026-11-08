@@ -17,6 +17,6 @@ if ($LASTEXITCODE) { throw "wix failed" }
 Remove-Item dist/*.wixpdb
 Copy-Item target\release\daleris.exe "dist\$base-portable.exe"
 Compress-Archive -Path target\release\daleris.exe, target\release\daleris-open.exe, target\release\daleris-dialogs-x64.dll, target\release\daleris-dialogs-x86.dll, LICENSE, THIRD-PARTY-NOTICES.txt -DestinationPath "dist\$base.zip"
-Compress-Archive -Path policy\* -DestinationPath "dist\daleris-v$env:VERSION-policy-definitions.zip"
+Compress-Archive -Path PolicyDefinitions\* -DestinationPath "dist\daleris-v$env:VERSION-policy-definitions.zip"
 Copy-Item LICENSE "dist\daleris-v$env:VERSION-LICENSE.txt"
 Copy-Item THIRD-PARTY-NOTICES.txt "dist\daleris-v$env:VERSION-THIRD-PARTY-NOTICES.txt"

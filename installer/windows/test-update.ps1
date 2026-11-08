@@ -132,7 +132,7 @@ function Clear-Policy {
 
 try {
   Say 'The templates are valid XML'
-  foreach ($file in 'policy\Daleris.admx', 'policy\en-US\Daleris.adml', 'policy\de-DE\Daleris.adml') { [void][xml](Get-Content -Raw $file) }
+  foreach ($file in 'PolicyDefinitions\Daleris.admx', 'PolicyDefinitions\en-US\Daleris.adml', 'PolicyDefinitions\de-DE\Daleris.adml') { [void][xml](Get-Content -Raw $file) }
 
   Say 'PC-wide MSI, default folder'
   Install-Msi "$oldBase.msi" 'ALLUSERS=1'

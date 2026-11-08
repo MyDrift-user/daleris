@@ -2866,7 +2866,7 @@ mod tests {
     #[test]
     fn a_policy_can_set_every_setting() {
         for (key, _) in Settings::defaults().value_lines() {
-            assert!(policy::covers(key), "no policy sets {key}: add it to VALUES in policy.rs and to policy/");
+            assert!(policy::covers(key), "no policy sets {key}: add it to VALUES in policy.rs and to PolicyDefinitions/");
         }
     }
 }

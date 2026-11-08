@@ -67,7 +67,7 @@ Under **Settings → Windows Explorer** there are separate switches, all off by 
 - A custom title bar, or the standard one
 
 ### 🏢 Ready for IT departments
-You can manage every setting as a fixed value or a default: on Windows through **Group Policy (ADMX/ADML in English and German)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`policy/README.txt`](policy/README.txt).
+You can manage every setting as a fixed value or a default: on Windows through **Group Policy (ADMX/ADML in English and German)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`PolicyDefinitions/README.txt`](PolicyDefinitions/README.txt).
 
 ## ⌨️ Keyboard shortcuts
 
@@ -214,7 +214,7 @@ crates/
   dialogs/                the file dialog DLL
   shell-test/             a test program that does what apps do with the shell
   theme.rs                colours, icons and logo
-policy/                   ADMX / ADML templates
+PolicyDefinitions/        ADMX / ADML templates
 assets/logos/             the logo as SVG; build.ps1 makes the app and installer icons from one
 installer/                setup.exe (Inno Setup) and MSI (WiX) definitions
   linux/, macos/          AppImage, deb, rpm, Arch, dmg and pkg packaging and tests
