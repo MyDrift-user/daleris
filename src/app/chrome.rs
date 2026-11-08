@@ -548,7 +548,7 @@ impl App {
         }
         let index = self.index_for(roots);
         let panel = t.filter.is_active().then(|| t.filter.compile_now());
-        let mut s = Search::new(index, &q, self.settings.show_hidden, self.settings.regex_search, self.settings.hide_dotfiles, panel);
+        let mut s = Search::new(index, &q, self.settings.show_hidden, self.settings.regex_search, self.settings.hides_dotfiles(), panel);
         s.pump();
         t.search = Some(s);
     }
@@ -663,7 +663,7 @@ impl App {
                         }
                     }
                     let mut show_dots = !self.settings.hide_dotfiles;
-                    if ui.add_enabled(free("hide_dots"), egui::Checkbox::new(&mut show_dots, "Dotfiles  (Ctrl+Shift+.)")).changed() {
+                    if cfg!(windows) && ui.add_enabled(free("hide_dots"), egui::Checkbox::new(&mut show_dots, "Dotfiles  (Ctrl+Shift+.)")).changed() {
                         self.acts.push(Act::ToggleDotfiles);
                     }
                     ui.add_enabled(free("ext"), egui::Checkbox::new(&mut self.settings.show_ext, "File name extensions"));

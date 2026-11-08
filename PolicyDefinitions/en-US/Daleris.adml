@@ -11,7 +11,7 @@
       <string id="ExplainFixed">This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>
       <string id="ExplainRecommended">This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
       <string id="ShowHiddenItems">Show hidden and system items</string>
-      <string id="HideDotfiles">Hide dotfiles and dotfolders</string>
+      <string id="HideDotfiles">Hide dotfiles and dotfolders (Windows)</string>
       <string id="DefaultSort">Default sort order</string>
       <string id="DefaultSortAscending">Default sort runs from A, oldest or smallest</string>
       <string id="FoldersFirst">Keep folders above files by default</string>

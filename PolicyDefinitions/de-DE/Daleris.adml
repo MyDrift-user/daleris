@@ -11,7 +11,7 @@
       <string id="ExplainFixed">Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="ExplainRecommended">Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="ShowHiddenItems">Versteckte und Systemelemente anzeigen</string>
-      <string id="HideDotfiles">Dotfiles und Dot-Ordner ausblenden</string>
+      <string id="HideDotfiles">Dotfiles und Dot-Ordner ausblenden (Windows)</string>
       <string id="DefaultSort">Standard-Sortierung</string>
       <string id="DefaultSortAscending">Standard-Sortierung beginnt bei A, beim ältesten oder kleinsten Element</string>
       <string id="FoldersFirst">Ordner standardmäßig über Dateien anzeigen</string>

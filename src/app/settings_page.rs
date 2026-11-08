@@ -825,15 +825,21 @@ impl App {
             ui.set_width(ui.available_width());
             heading(ui, "Files & folders", "");
             let mut ch = false;
-            if managed_toggle(ui, &mut self.settings.show_hidden, "hidden", "Show hidden and system items") {
+            let hidden_label = if cfg!(windows) { "Show hidden and system items" } else { "Show hidden items (names starting with a dot)" };
+            if managed_toggle(ui, &mut self.settings.show_hidden, "hidden", hidden_label) {
                 self.refilter_tabs();
                 ch = true;
             }
-            if managed_toggle(ui, &mut self.settings.hide_dotfiles, "hide_dots", "Hide dotfiles and dotfolders") {
-                self.refilter_tabs();
-                ch = true;
+            // on Linux and macOS a leading dot is what makes a name hidden, so the switch above covers them
+            if cfg!(windows) {
+                if managed_toggle(ui, &mut self.settings.hide_dotfiles, "hide_dots", "Hide dotfiles and dotfolders") {
+                    self.refilter_tabs();
+                    ch = true;
+                }
+                ui.label(egui::RichText::new("Names starting with a dot, such as .git or .env. This works on top of the setting above: an item stays hidden if either one hides it. Ctrl+Shift+. switches it for now.").size(12.0).color(DIM()));
+            } else {
+                ui.label(egui::RichText::new("Ctrl+Shift+. switches it for now.").size(12.0).color(DIM()));
             }
-            ui.label(egui::RichText::new("Names starting with a dot, such as .git or .env. This works on top of the setting above: an item stays hidden if either one hides it. Ctrl+Shift+. switches it for now.").size(12.0).color(DIM()));
             ui.add_space(4.0);
             ch |= managed_toggle(ui, &mut self.settings.show_ext, "ext", "Show file name extensions");
             ch |= managed_toggle(ui, &mut self.settings.show_preview, "preview", "Show the preview pane");

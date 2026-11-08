@@ -42,7 +42,7 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 - List and large icon views, with resizable columns
 - A Sort menu with name, dates, type, extension and size, and **Folders first** as its own switch. Each folder keeps the sort you choose for it, and Downloads opens newest first
 - A filter panel for kind, extension, date, size and name, per tab, showing how much of the folder it leaves on screen
-- Hide dotfiles and dotfolders, on top of the Windows hidden setting
+- On Windows, hide dotfiles and dotfolders too, on top of the hidden setting
 - Folder sizes counted in the background
 - Preview pane for text files and folder summaries, plus a details panel for files
 - Cut, copy, paste, rename and delete, including drag and drop onto folders, tabs, the sidebar and any part of the path

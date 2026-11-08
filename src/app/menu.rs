@@ -380,19 +380,19 @@ impl App {
     pub(super) fn background_entries(&self, m: &MenuCtx, shell: Option<(&ShellMenu, &HashMap<u32, TextureHandle>)>) -> Vec<MEntry> {
         let mut v: Vec<MEntry> = Vec::new();
         let check = |on: bool| if on { I_CHECK } else { " " };
-        v.push(MEntry::sub(
-            "app:view",
-            I_LIST,
-            "View",
-            G_OPEN,
-            vec![
-                MEntry::act("view:details", check(m.view == View::Details), "Details", "", 0, Act::SetView(View::Details)).managed("view"),
-                MEntry::act("view:icons", check(m.view == View::Icons), "Large icons", "", 0, Act::SetView(View::Icons)).managed("view"),
-                MEntry::act("view:preview", check(self.settings.show_preview), "Preview pane", "Alt+P", 1, Act::TogglePreview).managed("preview"),
-                MEntry::act("view:hidden", check(self.settings.show_hidden), "Hidden items", "", 1, Act::ToggleHidden).managed("hidden"),
-                MEntry::act("view:dots", check(!self.settings.hide_dotfiles), "Dotfiles", "Ctrl+Shift+.", 1, Act::ToggleDotfiles).managed("hide_dots"),
-            ],
-        ));
+        let mut view = vec![
+            MEntry::act("view:details", check(m.view == View::Details), "Details", "", 0, Act::SetView(View::Details)).managed("view"),
+            MEntry::act("view:icons", check(m.view == View::Icons), "Large icons", "", 0, Act::SetView(View::Icons)).managed("view"),
+            MEntry::act("view:preview", check(self.settings.show_preview), "Preview pane", "Alt+P", 1, Act::TogglePreview).managed("preview"),
+        ];
+        // on Linux and macOS a leading dot is what makes a name hidden, so Ctrl+Shift+. belongs to hidden items there
+        if cfg!(windows) {
+            view.push(MEntry::act("view:hidden", check(self.settings.show_hidden), "Hidden items", "", 1, Act::ToggleHidden).managed("hidden"));
+            view.push(MEntry::act("view:dots", check(!self.settings.hide_dotfiles), "Dotfiles", "Ctrl+Shift+.", 1, Act::ToggleDotfiles).managed("hide_dots"));
+        } else {
+            view.push(MEntry::act("view:hidden", check(self.settings.show_hidden), "Hidden items", "Ctrl+Shift+.", 1, Act::ToggleHidden).managed("hidden"));
+        }
+        v.push(MEntry::sub("app:view", I_LIST, "View", G_OPEN, view));
         let mut sort: Vec<MEntry> = SortKey::ALL.into_iter().map(|k| MEntry::act(&format!("sort:{}", k.label()), check(m.sort == k), k.label(), "", 0, Act::Sort(k, None))).collect();
         sort.push(MEntry::act("sort:asc", check(m.asc), "Ascending", "", 1, Act::Sort(m.sort, Some(true))));
         sort.push(MEntry::act("sort:desc", check(!m.asc), "Descending", "", 1, Act::Sort(m.sort, Some(false))));

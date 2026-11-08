@@ -759,6 +759,12 @@ impl Settings {
         self.sections.sort_by_key(|s| order.iter().position(|id| *id == s.id).unwrap_or(order.len()));
     }
 
+    /// "Hide dotfiles" only means something on Windows: on Linux and macOS a leading dot is what makes a name hidden,
+    /// so "Show hidden items" already covers them there.
+    fn hides_dotfiles(&self) -> bool {
+        cfg!(windows) && self.hide_dotfiles
+    }
+
     fn row_h(&self) -> f32 {
         [24.0, 28.0, 34.0][self.density.min(2) as usize]
     }
@@ -1926,7 +1932,7 @@ impl App {
     fn rebuild_view(&self, t: &mut Tab) {
         let filter = (t.scope == Scope::ThisFolder && !t.query.trim().is_empty()).then(|| if self.settings.regex_search { Query::regex_whole(&t.query) } else { Query::new(&t.query) });
         self.ensure_order(t);
-        let (show_hidden, hide_dots) = (self.settings.show_hidden, self.settings.hide_dotfiles);
+        let (show_hidden, hide_dots) = (self.settings.show_hidden, self.settings.hides_dotfiles());
         let picker = self.picker.as_ref();
         let panel = t.filter.is_active().then(|| t.filter.compile_now());
         // searching this folder only never finds what search never finds either
@@ -2914,7 +2920,8 @@ impl App {
                                 self.acts.push(Act::Open(p));
                             }
                         }
-                        Key::Period if m.command && m.shift => self.acts.push(Act::ToggleDotfiles),
+                        // on Linux and macOS a leading dot is what hides a name, so this shows hidden items, as in Finder
+                        Key::Period if m.command && m.shift => self.acts.push(if cfg!(windows) { Act::ToggleDotfiles } else { Act::ToggleHidden }),
                         Key::Backspace => self.acts.push(Act::Up),
                         Key::Delete => self.acts.push(Act::Delete(m.shift)),
                         Key::F2 => self.acts.push(Act::StartRename),
@@ -3078,6 +3085,13 @@ mod tests {
         assert!(body.contains("search_skip_pattern=\\.(key|pem)$\n"), "a pattern gets a line of its own");
         s.skip_types = policy::items(policy::SKIP_TYPES, "*.ISO|bak").iter().filter_map(|t| search::file_type(t)).collect();
         assert_eq!(s.skip_types, [".iso", ".bak"]);
+    }
+
+    #[test]
+    fn dotfiles_are_hidden_on_their_own_only_on_windows() {
+        let s = Settings { hide_dotfiles: true, ..Settings::defaults() };
+        assert_eq!(s.hides_dotfiles(), cfg!(windows), "on Linux and macOS, Show hidden items decides");
+        assert!(!Settings::defaults().hides_dotfiles());
     }
 
     #[test]

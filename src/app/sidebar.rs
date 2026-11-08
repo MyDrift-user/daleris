@@ -107,7 +107,7 @@ impl App {
             }
             for p in &sec.pins {
                 let name = Loc::Dir(p.clone()).title();
-                if self.settings.hide_dotfiles && fsx::is_dot_name(&name) {
+                if self.settings.hides_dotfiles() && fsx::is_dot_name(&name) {
                     continue;
                 }
                 push(side_key(p), name, Some(Loc::Dir(p.clone())), None, None, true, None, Some(p.display().to_string()));
