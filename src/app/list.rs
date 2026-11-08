@@ -718,14 +718,16 @@ impl App {
         if over && self.drop_hint.is_none() {
             self.drop_hint = Some(dest.to_path_buf());
         }
+        // decided before letting go is taken: that takes the dragged files, and with them what there is to decide on
+        let ok = over && self.drop_verdict(ui.ctx(), dest).is_some_and(|v| v.is_ok());
         // egui hands over whatever is being dragged to the first one asking, so only ask for files
         let files = egui::DragAndDrop::has_payload_of_type::<DragFiles>(ui.ctx());
         if let Some(drag) = if files { resp.dnd_release_payload::<DragFiles>() } else { None } {
-            if self.drop_verdict(ui.ctx(), dest).is_some_and(|v| v.is_ok()) {
+            if ok {
                 self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dest.to_path_buf(), mode: DropMode::of(ui.input(|i| i.modifiers)) });
             }
         }
-        over.then(|| self.drop_verdict(ui.ctx(), dest).is_some_and(|v| v.is_ok()))
+        over.then_some(ok)
     }
 
     /// What letting go of the dragged files on `dest` would do, or why it can't; None when no files are dragged.
