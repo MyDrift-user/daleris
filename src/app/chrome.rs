@@ -350,7 +350,7 @@ impl App {
         let chip_r = Rect::from_center_size(pos2(regex_r.left() - 14.0, cy), vec2(24.0, 24.0));
         let clear_r = Rect::from_center_size(pos2(chip_r.left() - 14.0, cy), vec2(20.0, 20.0));
         let in_dir = matches!(t.loc, Loc::Dir(_));
-        let nested = t.scope != Scope::ThisFolder;
+        let nested = self.settings.nested_search;
         let text_right = if t.query.is_empty() { chip_r.left() - 6.0 } else { clear_r.left() - 2.0 };
 
         // the text field fills the bar's height and centres its text, so it lines up with the icon
@@ -410,7 +410,9 @@ impl App {
         };
         let sub_fixed = policy::is_fixed("nested_search");
         let tip = if sub_fixed { format!("{tip}\n\n{}", settings_page::MANAGED) } else { tip.to_string() };
-        let sub_clicked = square_toggle(ui, chip_r, "nested-search", nested || !in_dir, in_dir && !sub_fixed, &tip, |p, r, col| {
+        // one setting for every tab, like the regex switch next to it; only "all drives" is a tab's own
+        let all_drives = t.scope == Scope::AllDrives;
+        let sub_clicked = square_toggle(ui, chip_r, "nested-search", self.settings.nested_search || all_drives, !sub_fixed && !all_drives, &tip, |p, r, col| {
             // a folder with a branch below it: "this folder and the ones inside"
             p.text(r.center() + vec2(1.5, -2.5), Align2::CENTER_CENTER, ic(I_FOLDER), icon_font(11.0), col);
             let s = Stroke::new(1.3_f32, col);
@@ -442,15 +444,15 @@ impl App {
             painter.galley(r.min + vec2(8.0, 4.0), g, Color32::WHITE);
         }
         if sub_clicked {
-            t.scope = if nested { Scope::ThisFolder } else { Scope::Subfolders };
-            self.settings.nested_search = t.scope != Scope::ThisFolder;
+            self.settings.nested_search = !self.settings.nested_search;
             self.save_settings();
-            self.query_changed(t);
+            self.follow_subfolder_setting(t);
         }
 
         // help: query syntax, all drives, rescan
         let mut child = ui.new_child(egui::UiBuilder::new().max_rect(help_r).layout(egui::Layout::left_to_right(egui::Align::Center)));
         let before = t.scope;
+        let own_scope = if self.settings.nested_search { Scope::Subfolders } else { Scope::ThisFolder };
         let mut rescan = false;
         child
             .menu_button(egui::RichText::new("?").size(12.5).color(DIM()), |ui| {
@@ -458,7 +460,7 @@ impl App {
                 if in_dir {
                     let mut all = t.scope == Scope::AllDrives;
                     if ui.checkbox(&mut all, "Search all drives instead of this folder").changed() {
-                        t.scope = if all { Scope::AllDrives } else { Scope::Subfolders };
+                        t.scope = if all { Scope::AllDrives } else { own_scope };
                     }
                     ui.separator();
                 }
@@ -497,6 +499,15 @@ impl App {
             }
             self.query_changed(t);
         } else if before != t.scope {
+            self.query_changed(t);
+        }
+    }
+
+    /// Puts a tab's search in line with "Search subfolders too", unless the tab searches every drive.
+    pub(super) fn follow_subfolder_setting(&mut self, t: &mut Tab) {
+        let wanted = if self.settings.nested_search { Scope::Subfolders } else { Scope::ThisFolder };
+        if t.scope != Scope::AllDrives && t.scope != wanted {
+            t.scope = wanted;
             self.query_changed(t);
         }
     }

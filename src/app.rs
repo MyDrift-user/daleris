@@ -2458,6 +2458,8 @@ impl App {
         self.settings.enforce(&policy::current());
         self.explorer_tick(ctx);
         let mut t = std::mem::replace(&mut self.tabs[self.active], Tab::new(0, Loc::ThisPc));
+        // Settings changes every other tab; this one is out of the list while it's drawn, so it catches up here
+        self.follow_subfolder_setting(&mut t);
 
         // folder sizes came in: re-sort (when sorted by size, at most every half second) and update the selection total
         if self.sizer.take_changed() {
