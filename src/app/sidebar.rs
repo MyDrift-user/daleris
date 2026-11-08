@@ -342,7 +342,7 @@ impl App {
             ui.painter().rect_filled(rect, CornerRadius::same(5), ROW_HOVER());
         }
         if let (true, Some(Loc::Dir(d))) = (files_hover, &item.loc) {
-            let ok = self.drop_ok(ui.ctx(), d);
+            let ok = self.drop_look(ui.ctx(), d);
             list::drop_mark(ui.painter(), rect, 5, ok);
         }
         if reorder_hover {

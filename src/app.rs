@@ -412,7 +412,8 @@ enum Act {
     MapDrive,
     Disconnect(char),
     SelectAll,
-    Drop { srcs: Vec<PathBuf>, dest: PathBuf, mode: DropMode },
+    /// `elevate`: the system does it, asking for administrator rights
+    Drop { srcs: Vec<PathBuf>, dest: PathBuf, mode: DropMode, elevate: bool },
     Import(Vec<PathBuf>),
     ShellInvoke(u32),
     CopyContents(PathBuf),

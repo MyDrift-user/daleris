@@ -86,7 +86,7 @@ impl App {
                     if resp.dnd_hover_payload::<DragFiles>().is_some() {
                         tab_under_drag = Some(i);
                         if let Loc::Dir(d) = &loc {
-                            let ok = self.drop_zone(ui, &resp, d).unwrap_or(true);
+                            let ok = self.drop_zone(ui, &resp, d).unwrap_or(list::DropLook::Fine);
                             list::drop_mark(ui.painter(), rect.shrink2(vec2(0.0, 2.0)), 6, ok);
                         }
                         match self.drag_tab_hover {

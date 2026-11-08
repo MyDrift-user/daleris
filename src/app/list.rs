@@ -442,7 +442,7 @@ impl App {
                     ui.painter().rect_filled(inner, CornerRadius::same(4), c);
                 }
                 if drop_target {
-                    let ok = self.drop_ok(ui.ctx(), &row.path);
+                    let ok = self.drop_look(ui.ctx(), &row.path);
                     drop_mark(ui.painter(), inner, 4, ok);
                 }
                 let cy = rect.center().y;
@@ -577,7 +577,7 @@ impl App {
                             ui.painter().rect_filled(inner, CornerRadius::same(6), ROW_HOVER());
                         }
                         if drop_target {
-                            let ok = self.drop_ok(ui.ctx(), &row.path);
+                            let ok = self.drop_look(ui.ctx(), &row.path);
                             drop_mark(ui.painter(), inner, 6, ok);
                         }
                         let img = Rect::from_min_size(inner.min + vec2(10.0, 6.0), vec2(inner.width() - 20.0, 76.0));
@@ -712,22 +712,23 @@ impl App {
     /// A place dragged files can be dropped into `dest`: true while they're over it, so it can light up.
     /// Letting go moves or copies them there.
     /// Files dragged over `resp` go into `dest` when let go. Some(whether they can) while they're over it.
-    pub(super) fn drop_zone(&mut self, ui: &Ui, resp: &Response, dest: &Path) -> Option<bool> {
+    pub(super) fn drop_zone(&mut self, ui: &Ui, resp: &Response, dest: &Path) -> Option<DropLook> {
         let over = resp.dnd_hover_payload::<DragFiles>().is_some();
         // A folder row is handled before the empty space behind it, and takes the drop from it.
         if over && self.drop_hint.is_none() {
             self.drop_hint = Some(dest.to_path_buf());
         }
         // decided before letting go is taken: that takes the dragged files, and with them what there is to decide on
-        let ok = over && self.drop_verdict(ui.ctx(), dest).is_some_and(|v| v.is_ok());
+        let look = if over { self.drop_look(ui.ctx(), dest) } else { DropLook::No };
         // egui hands over whatever is being dragged to the first one asking, so only ask for files
         let files = egui::DragAndDrop::has_payload_of_type::<DragFiles>(ui.ctx());
         if let Some(drag) = if files { resp.dnd_release_payload::<DragFiles>() } else { None } {
-            if ok {
-                self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dest.to_path_buf(), mode: DropMode::of(ui.input(|i| i.modifiers)) });
+            if look != DropLook::No {
+                let elevate = look == DropLook::AsAdmin;
+                self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dest.to_path_buf(), mode: DropMode::of(ui.input(|i| i.modifiers)), elevate });
             }
         }
-        over.then_some(ok)
+        over.then_some(look)
     }
 
     /// What letting go of the dragged files on `dest` would do, or why it can't; None when no files are dragged.
@@ -763,9 +764,15 @@ impl App {
         })
     }
 
-    /// Whether files dragged over this folder could go into it; true when nothing is dragged.
-    pub(super) fn drop_ok(&mut self, ctx: &egui::Context, dest: &Path) -> bool {
-        self.drop_verdict(ctx, dest).is_none_or(|v| v.is_ok())
+    /// How a folder files are dragged over looks: they can go, they can with administrator rights, or they can't.
+    /// Fine when nothing is dragged.
+    pub(super) fn drop_look(&mut self, ctx: &egui::Context, dest: &Path) -> DropLook {
+        match self.drop_verdict(ctx, dest) {
+            None | Some(Ok(_)) => DropLook::Fine,
+            // Windows asks for administrator rights itself when it's given the copy
+            Some(Err(NoDrop::Cant(fsx::NoWrite::NoAccess))) if cfg!(windows) => DropLook::AsAdmin,
+            Some(Err(_)) => DropLook::No,
+        }
     }
 
     /// The label beside the pointer while files are dragged: what letting go would do, and where.
@@ -778,28 +785,41 @@ impl App {
         };
         let n = p.0.len();
         let items = format!("{n} item{}", if n == 1 { "" } else { "s" });
-        let (text, possible) = match &hint {
-            None => (items, true),
+        let (text, look) = match &hint {
+            None => (items, DropLook::Fine),
             Some(dest) => {
                 // a drive by its name, as everywhere else
                 let drive = self.drives.iter().find(|d| fsx::same_path(&d.root, dest)).map(|d| d.title());
                 let name = drive.unwrap_or_else(|| dest.file_name().map_or_else(|| dest.to_string_lossy().to_string(), |n| n.to_string_lossy().to_string()));
-                match self.drop_verdict(ctx, dest) {
-                    None | Some(Ok(Op::Copy)) => (format!("Copy {items} to {name}"), true),
-                    Some(Ok(_)) => (format!("Move {items} to {name}"), true),
-                    Some(Err(why)) => (why_no_drop(why, &name), false),
+                let verb = match drop_plan(&p.0, dest, DropMode::of(ctx.input(|i| i.modifiers))) {
+                    Ok((Op::Move, _)) => "Move",
+                    _ => "Copy",
+                };
+                match (self.drop_look(ctx, dest), self.drop_verdict(ctx, dest)) {
+                    (DropLook::AsAdmin, _) => (format!("{verb} {items} to {name}: needs administrator rights, Windows will ask for them"), DropLook::AsAdmin),
+                    (_, Some(Err(why))) => (why_no_drop(why, &name), DropLook::No),
+                    _ => (format!("{verb} {items} to {name}"), DropLook::Fine),
                 }
             }
         };
+        let possible = look != DropLook::No;
         if !possible {
             ctx.set_cursor_icon(egui::CursorIcon::NoDrop);
         }
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("dragtip")));
-        let g = painter.layout_no_wrap(if possible { text } else { format!("{}  {text}", ic(I_CLOSE)) }, if possible { FontId::proportional(13.0) } else { icon_font(13.0) }, TEXT());
+        let mark = match look {
+            DropLook::Fine => None,
+            DropLook::AsAdmin => Some((I_LOCK, CAUTION())),
+            DropLook::No => Some((I_CLOSE, WARN())),
+        };
+        let g = match mark {
+            None => painter.layout_no_wrap(text, FontId::proportional(13.0), TEXT()),
+            Some((icon, _)) => painter.layout_no_wrap(format!("{}  {text}", ic(icon)), icon_font(13.0), TEXT()),
+        };
         let r = Rect::from_min_size(pos + vec2(14.0, 14.0), g.size() + vec2(16.0, 10.0));
-        painter.rect_filled(r, CornerRadius::same(5), if possible { SEL_STRONG() } else { RAISED() });
-        if !possible {
-            painter.rect_stroke(r, CornerRadius::same(5), Stroke::new(1.0_f32, WARN()), StrokeKind::Inside);
+        painter.rect_filled(r, CornerRadius::same(5), if mark.is_none() { SEL_STRONG() } else { RAISED() });
+        if let Some((_, colour)) = mark {
+            painter.rect_stroke(r, CornerRadius::same(5), Stroke::new(1.0_f32, colour), StrokeKind::Inside);
         }
         painter.galley(r.min + vec2(8.0, 5.0), g, TEXT());
     }
@@ -1007,10 +1027,22 @@ fn why_no_drop(why: NoDrop, name: &str) -> String {
     }
 }
 
-/// The outline of a place files are dragged over: the accent where they can go, the warning colour where they can't.
-pub(super) fn drop_mark(p: &egui::Painter, r: Rect, radius: u8, ok: bool) {
-    if ok {
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum DropLook {
+    Fine,
+    /// only with administrator rights, which Windows asks for
+    AsAdmin,
+    No,
+}
+
+/// The outline of a place files are dragged over: the accent where they can go, orange where Windows will ask for
+/// administrator rights, the warning colour where they can't.
+pub(super) fn drop_mark(p: &egui::Painter, r: Rect, radius: u8, look: DropLook) {
+    if look == DropLook::Fine {
         p.rect_stroke(r, CornerRadius::same(radius), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+    } else if look == DropLook::AsAdmin {
+        p.rect_filled(r, CornerRadius::same(radius), CAUTION().gamma_multiply(0.12));
+        p.rect_stroke(r, CornerRadius::same(radius), Stroke::new(1.5_f32, CAUTION()), StrokeKind::Inside);
     } else {
         p.rect_filled(r, CornerRadius::same(radius), WARN().gamma_multiply(0.12));
         p.rect_stroke(r, CornerRadius::same(radius), Stroke::new(1.5_f32, WARN()), StrokeKind::Inside);

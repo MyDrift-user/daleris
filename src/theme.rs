@@ -22,6 +22,8 @@ pub struct Palette {
     pub green: Color32,
     pub cloud: Color32,
     pub warn: Color32,
+    /// something that works, but asks first, such as for administrator rights
+    pub caution: Color32,
     pub code_bg: Color32,
     /// the ribbon bar under the address bar
     pub ribbon: Color32,
@@ -119,6 +121,7 @@ impl Palette {
                 green: Color32::from_rgb(0x3f, 0xc1, 0x6b),
                 cloud: Color32::from_rgb(0x6c, 0xb4, 0xff),
                 warn: Color32::from_rgb(0xe8, 0x6a, 0x5a),
+                caution: Color32::from_rgb(0xe8, 0xa2, 0x3d),
                 code_bg: Color32::from_rgb(0x16, 0x16, 0x18),
                 ribbon: none,
                 side: none,
@@ -150,6 +153,7 @@ impl Palette {
                 green: Color32::from_rgb(0x1e, 0x8e, 0x45),
                 cloud: Color32::from_rgb(0x1f, 0x74, 0xd1),
                 warn: Color32::from_rgb(0xc4, 0x41, 0x3a),
+                caution: Color32::from_rgb(0xb4, 0x62, 0x0c),
                 code_bg: Color32::from_rgb(0xee, 0xef, 0xf2),
                 ribbon: none,
                 side: none,
@@ -180,7 +184,7 @@ macro_rules! colour_fns {
     };
 }
 colour_fns!(BG => bg, PANEL => panel, CHROME => chrome, RAISED => raised, HOVER => hover, SEL => sel, SEL_STRONG => sel_strong,
-    ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, WARN => warn,
+    ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, WARN => warn, CAUTION => caution,
     RIBBON => ribbon,     SIDE => side, STATUS => status, TILE => tile, ROW_HOVER => row_hover, ROW_SEL => row_sel, ROW_CURSOR => row_cursor, FIELD => field, FIELD_LINE => field_line);
 
 /// Is Windows itself in dark mode (apps setting)?

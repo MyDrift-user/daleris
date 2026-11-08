@@ -288,9 +288,17 @@ impl App {
                 t.sel = self.rows(&t, 0..n).into_iter().map(|r| r.key).collect();
                 self.update_sel_info(&mut t);
             }
-            Act::Drop { srcs, dest, mode } => {
+            Act::Drop { srcs, dest, mode, elevate } => {
                 if let Ok((op, srcs)) = drop_plan(&srcs, &dest, mode) {
-                    self.run_op(op, srcs, Some(dest));
+                    if elevate {
+                        // Windows's own copy asks for administrator rights, as when dropping there in Explorer
+                        let tx = self.tx.clone();
+                        shell::file_op(op, srcs, Some(dest), move |r| {
+                            let _ = tx.send(Msg::OpDone(r));
+                        });
+                    } else {
+                        self.run_op(op, srcs, Some(dest));
+                    }
                 }
             }
             Act::Import(files) => {
