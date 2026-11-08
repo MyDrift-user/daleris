@@ -2602,6 +2602,12 @@ impl App {
 }
 
 impl eframe::App for App {
+    /// The window's own colour behind the panels: at a scale like 125% their edges fall between pixels, and the
+    /// default, nearly black, showed through as a line under the ribbon bar.
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        BG().to_normalized_gamma_f32()
+    }
+
     fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         // Unwinding out of this would end at the window procedure, which Rust turns into an abort: the whole app gone,
         // with whatever was going on in it.
