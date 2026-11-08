@@ -15,6 +15,18 @@ DEFAULT SETTINGS (apply until a person picks their own value, and can always be 
   HKCU\SOFTWARE\Daleris\Defaults
   The first one holding a value wins. A person's own choice stays when a default changes later.
 
+WHICH VALUE APPLIES
+  For each setting, the first of these that says anything:
+    1. a fixed value for that setting itself
+    2. a fixed ExplorerLook, for the settings it's made of (see ExplorerLook below)
+    3. the person's own choice
+    4. a default for that setting itself
+    5. a default ExplorerLook, for the settings it's made of
+    6. Daleris's own default
+  So ExplorerLook never overrules a value set on its own, whichever order they're written in, and anything fixed
+  beats any default. Only what's fixed is grayed out in the app, each setting on its own: with ExplorerLook fixed and
+  RowHeight fixed to 2, rows are comfortable and everything else in Explorer's look is locked on.
+
 USING GPO
   1. Copy Daleris.admx to \\<domain>\SYSVOL\<domain>\Policies\PolicyDefinitions
      (or C:\Windows\PolicyDefinitions on a single machine).
@@ -35,9 +47,13 @@ VALUES
   ShowHiddenItems           DWORD     0 off, 1 on
   HideDotfiles              DWORD     0 off, 1 hides names that start with a dot. An item is hidden if this or ShowHiddenItems hides it.
                                       Windows only: on Linux and macOS those names are hidden items, see ShowHiddenItems
-  ExplorerLook              DWORD     1 sets ExplorerColours, ExplorerLines, ExplorerMica and ExplorerMicaBar on, IconPack
-                                      to system and RowHeight to 0; 0 sets them back to Daleris's own. Fixed, it fixes them
-                                      all. Windows only, where it's on by default. TitleBarLogo and TitleBarName stay apart
+  ExplorerLook              DWORD     Not a setting of its own, but a shorthand for the settings Explorer's look is made of.
+                                      1 stands for ExplorerColours, ExplorerLines, ExplorerMica, ExplorerMicaBar,
+                                      SearchHideSubfolders, SearchHideRegex and SearchHideHelp at 1, IconPack system and
+                                      RowHeight 0; 0 for Daleris's own: those at 0, ExplorerMicaBar 1, IconPack system,
+                                      RowHeight 1. Each of them set on its own wins over it, see WHICH VALUE APPLIES. In the
+                                      app, "Look like Windows Explorer" is on when they all are. On by default on Windows.
+                                      TitleBarLogo and TitleBarName aren't part of it
   ExplorerColours           DWORD     1 on, 0 off: Explorer's colours, following Windows's light or dark mode and accent colour.
                                       Theme and AccentColor don't apply then. Windows only
   ExplorerLines             DWORD     1 on, 0 off: Explorer's lines between the panes and around the tab in front, and the
@@ -81,9 +97,9 @@ VALUES
   SearchRegex               DWORD     0 off, 1 on
   SearchHideSubfolders      DWORD     1 on, 0 off: the search box has no subfolders switch; SearchSubfolders still
                                       decides. Part of ExplorerLook, on by default on Windows
-  SearchHideRegex           DWORD     1 on, 0 off: the search box has no .* switch, and searches aren't regular
-                                      expressions unless SearchRegex is set. Part of ExplorerLook, on by default on
-                                      Windows
+  SearchHideRegex           DWORD     1 on, 0 off: the search box has no .* switch. SearchRegex, or else the person's
+                                      own choice in Settings, still decides whether searches are regular expressions.
+                                      Part of ExplorerLook, on by default on Windows
   SearchHideHelp            DWORD     1 on, 0 off: the search box has no ? button, with the search syntax, Search all
                                       drives and Rescan the index. Part of ExplorerLook, on by default on Windows
   SearchSkipAppData         DWORD     1: search never finds folders named AppData

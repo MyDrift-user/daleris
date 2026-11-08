@@ -353,8 +353,7 @@ impl App {
             }));
             ui.add_space(16.0);
             managed_heading(ui, "Row height", "How tall each row in the file list is.", "density");
-            let explorer = look_fixed(ui);
-            ui.add_enabled_ui(!policy::is_fixed("density") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
+            ui.add_enabled_ui(!policy::is_fixed("density"), |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
                 for (i, l) in ["Compact", "Normal", "Comfortable"].iter().enumerate() {
                     if self.density_card(ui, i as u8, l) {
@@ -399,14 +398,13 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
-            let explorer = look_fixed(ui);
             let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris".into()), ("phosphor".into(), "Phosphor".into())];
             if !prefers_bundled_icons() {
                 packs.insert(0, ("system".into(), "Windows (system icons)".into()));
             }
 
             packs.extend(list_icon_packs().into_iter().map(|p| (p.clone(), p)));
-            let pack_free = !policy::is_fixed("iconpack") && !explorer;
+            let pack_free = !policy::is_fixed("iconpack");
             for (id, name) in packs {
                 let selected = self.settings.pack() == id;
                 let fill = if selected { SEL() } else { RAISED() };
@@ -1296,13 +1294,4 @@ fn theme_card(ui: &mut Ui, name: &str, p: Palette, selected: bool) -> bool {
     painter.rect_stroke(shot, CornerRadius::same(8), Stroke::new(if selected { 2.0_f32 } else { 1.0_f32 }, if selected { ACCENT() } else { LINE() }), StrokeKind::Outside);
     painter.text(pos2(r.left() + 2.0, r.bottom() - 12.0), Align2::LEFT_CENTER, name, FontId::proportional(13.5), if selected { TEXT() } else { DIM() });
     resp.clicked()
-}
-
-/// A policy fixing "Look like Windows Explorer" fixes the settings it's made of too: says so; true then.
-fn look_fixed(ui: &mut Ui) -> bool {
-    let fixed = policy::is_fixed("explorer_look");
-    if fixed {
-        managed_note(ui);
-    }
-    fixed
 }

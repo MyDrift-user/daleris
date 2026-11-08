@@ -29,7 +29,7 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Fixed_ExplorerLook" class="Both" displayName="$(string.ExplorerLook)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerLook">
+    <policy name="Fixed_ExplorerLook" class="Both" displayName="$(string.ExplorerLook)" explainText="$(string.ExplorerLookExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerLook">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
@@ -466,7 +466,7 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
-    <policy name="Rec_ExplorerLook" class="Both" displayName="$(string.ExplorerLook)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerLook">
+    <policy name="Rec_ExplorerLook" class="Both" displayName="$(string.ExplorerLook)" explainText="$(string.ExplorerLookExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerLook">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

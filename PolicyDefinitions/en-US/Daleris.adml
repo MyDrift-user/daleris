@@ -12,7 +12,9 @@
       <string id="ExplainRecommended">This value is a default: it applies until a person picks their own value in the app, and people can always change it.</string>
       <string id="ShowHiddenItems">Show hidden and system items</string>
       <string id="HideDotfiles">Hide dotfiles and dotfolders (Windows)</string>
-      <string id="ExplorerLook">Look like Windows Explorer: all of the settings below (Windows)</string>
+      <string id="ExplorerLook">Look like Windows Explorer: a shorthand for the settings it's made of (Windows)</string>
+      <string id="ExplorerLookExplain_ExplainFixed">Stands for the settings Explorer's look is made of: Explorer's colours, lines, Mica and Mica through the tab in front, Windows's icons, compact rows and no subfolders, regular expression or help switch in the search box. Enabled sets them Explorer's way, Disabled sets them to Daleris's own. A policy for one of them on its own always wins over this, whichever order they are set in. This value is fixed: each of those settings it applies to is grayed out in the app. If it is not configured, people choose for themselves.</string>
+      <string id="ExplorerLookExplain_ExplainRecommended">Stands for the settings Explorer's look is made of: Explorer's colours, lines, Mica and Mica through the tab in front, Windows's icons, compact rows and no subfolders, regular expression or help switch in the search box. Enabled sets them Explorer's way, Disabled sets them to Daleris's own. A policy for one of them on its own always wins over this, whichever order they are set in. This value is a default: each of those settings applies until a person picks their own value in the app, and people can always change them.</string>
       <string id="ExplorerColours">Explorer's colours, following Windows (Windows)</string>
       <string id="ExplorerLines">Explorer's lines between the panes and around the tab in front (Windows)</string>
       <string id="ExplorerMica">Mica behind the tab bar (Windows 11)</string>

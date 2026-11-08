@@ -89,6 +89,24 @@ const VALUES: [(&str, &str, Kind); 67] = [
     ("ExplorerDialogExclusions", "exp_exclude", Kind::Text),
 ];
 
+/// What "Look like Windows Explorer" (`ExplorerLook`) is made of: (settings file key, its value in Explorer's look,
+/// Daleris's own). The look isn't a setting of its own: a policy for it stands for these, each beneath a policy for
+/// that part itself, see `build`.
+pub const EXPLORER_PARTS: [(&str, &str, &str); 9] = [
+    ("explorer_colours", "1", "0"),
+    ("explorer_lines", "1", "0"),
+    ("explorer_mica", "1", "0"),
+    ("explorer_mica_bar", "1", "1"),
+    ("iconpack", "system", "system"),
+    ("density", "0", "1"),
+    ("search_hide_sub", "1", "0"),
+    ("search_hide_regex", "1", "0"),
+    ("search_hide_help", "1", "0"),
+];
+
+/// The settings file key "Look like Windows Explorer" would have, as a policy names it
+pub const EXPLORER_LOOK: &str = "explorer_look";
+
 const SIDEBAR_HIDDEN: &str = "sidebar_hidden";
 // Settings with a form of their own, which policies set as text: see the helpers further down.
 pub const SIDEBAR_PINS: &str = "sidebar_pins";
@@ -127,6 +145,9 @@ pub struct Policy {
     pub no_custom_commands: bool,
     /// no looking for updates at all: the administrator deploys new versions
     pub no_updates: bool,
+    /// what a policy says of "Look like Windows Explorer" as a whole, (fixed, default); its parts are in `fixed` and
+    /// `recommended` already
+    pub explorer_look: (Option<bool>, Option<bool>),
 }
 
 impl Policy {
@@ -241,6 +262,11 @@ pub fn watch(ctx: eframe::egui::Context) {
 fn build(fixed: impl Fn(&str) -> Option<String>, default: impl Fn(&str) -> Option<String>) -> Policy {
     let mut p = Policy::default();
     for (name, key, kind) in VALUES {
+        if key == EXPLORER_LOOK {
+            let on = |raw: Option<String>| raw.and_then(|r| to_setting(kind, r)).map(|v| v == "1");
+            p.explorer_look = (on(fixed(name)), on(default(name)));
+            continue;
+        }
         if let Some(v) = fixed(name).and_then(|raw| to_setting(kind, raw)) {
             p.fixed.push((key, v));
         }
@@ -254,6 +280,16 @@ fn build(fixed: impl Fn(&str) -> Option<String>, default: impl Fn(&str) -> Optio
     p.lock_menu = on("LockContextMenu");
     p.no_custom_commands = on("DisableCustomCommands");
     p.no_updates = on("DisableUpdates");
+    // Explorer's look as a whole stands for each of its parts at its own level: a policy for the part itself wins over
+    // it, and anything fixed over any default, whatever order they come in
+    for (key, look, own) in EXPLORER_PARTS {
+        if let (Some(on), false) = (p.explorer_look.0, p.has_fixed(key)) {
+            p.fixed.push((key, if on { look } else { own }.to_string()));
+        }
+        if let (Some(on), None) = (p.explorer_look.1, p.recommended_value(key)) {
+            p.recommended.push((key, if on { look } else { own }.to_string()));
+        }
+    }
     p
 }
 
@@ -528,6 +564,28 @@ mod tests {
         assert_eq!(p.fixed_items(SKIP_NAMES), ["Payroll", "HR"]);
         assert!(!p.is_fixed(SKIP_NAMES), "the person can still add their own");
         assert!(p.any_fixed());
+    }
+
+    #[test]
+    fn explorers_look_stands_for_its_parts_beneath_their_own_policies() {
+        let at = |pairs: &'static [(&'static str, &'static str)]| move |name: &str| pairs.iter().find(|(n, _)| *n == name).map(|(_, v)| v.to_string());
+        // fixed: the look, and the row height on its own; a default for the icon pack
+        let p = build(at(&[("ExplorerLook", "1"), ("RowHeight", "2")]), at(&[("IconPack", "phosphor"), ("ExplorerLook", "0")]));
+        assert_eq!(p.explorer_look, (Some(true), Some(false)));
+        assert!(!p.has_fixed(EXPLORER_LOOK) && p.recommended_value(EXPLORER_LOOK).is_none(), "the look itself is never applied");
+        assert_eq!(p.fixed_value("density"), Some("2"), "a part's own policy wins over the look's");
+        assert_eq!(p.fixed_value("explorer_colours"), Some("1"));
+        assert_eq!(p.fixed_value("search_hide_regex"), Some("1"));
+        assert!(p.is_fixed("iconpack") && p.fixed_value("iconpack") == Some("system"), "a fixed look wins over a default for a part");
+        assert_eq!(p.recommended_value("iconpack"), Some("phosphor"));
+        assert_eq!(p.recommended_value("explorer_colours"), Some("0"), "beneath what's fixed, the default look stays a default");
+        assert_eq!(p.fixed.iter().filter(|(k, _)| *k == "density").count(), 1, "one value per part, so order can't matter");
+        // a default look under a fixed part: the fixed part, and the rest as defaults the person can change
+        let p = build(at(&[("ExplorerColours", "0")]), at(&[("ExplorerLook", "1")]));
+        assert_eq!(p.fixed_value("explorer_colours"), Some("0"));
+        assert_eq!(p.recommended_value("density"), Some("0"));
+        assert!(!p.is_fixed("density"));
+        assert_eq!(build(at(&[]), at(&[])).explorer_look, (None, None));
     }
 
     #[test]
