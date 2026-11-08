@@ -517,6 +517,8 @@ pub struct Settings {
     hide_dotfiles: bool,
     /// look like Windows Explorer: its colours, its icons, no logo or name in the title bar. Windows only
     explorer_look: bool,
+    /// open a tab when Windows opens a drive that was just connected, such as a USB stick. Windows only
+    open_new_drives: bool,
     /// the sort a folder gets until someone chooses one for it
     sort_key: SortKey,
     sort_asc: bool,
@@ -628,6 +630,21 @@ const THIS_PC_TAB: &str = "::thispc";
 
 /// Should the window start without the Windows frame (our own title bar)?
 /// Decided before the window exists so the frame never has to be swapped at start-up.
+/// How soon after a drive is connected Windows's opening it counts as that, not as someone opening it.
+#[cfg(windows)]
+const NEW_DRIVE: Duration = Duration::from_secs(20);
+
+/// Windows opening a drive because it was just connected, when the person turned that off in Settings.
+#[cfg(windows)]
+pub fn unwanted_new_drive(dir: &Path) -> bool {
+    !Settings::load().open_new_drives && is_new_drive(dir)
+}
+
+#[cfg(windows)]
+fn is_new_drive(dir: &Path) -> bool {
+    dir.parent().is_none() && fsx::connected_for(dir).is_some_and(|d| d < NEW_DRIVE)
+}
+
 pub fn starts_with_custom_titlebar(screenshot: bool) -> bool {
     if std::env::var("DALERIS_TEST_NATIVE_TITLE").is_ok() {
         return false;
@@ -645,6 +662,7 @@ impl Settings {
             show_hidden: false,
             hide_dotfiles: false,
             explorer_look: false,
+            open_new_drives: true,
             sort_key: SortKey::Name,
             sort_asc: true,
             dirs_first: true,
@@ -838,6 +856,7 @@ impl Settings {
             "hidden" => self.show_hidden = on,
             "hide_dots" => self.hide_dotfiles = on,
             "explorer_look" => self.explorer_look = on,
+            "open_new_drives" => self.open_new_drives = on,
             "sort_key" => self.sort_key = SortKey::from_word(v).unwrap_or(SortKey::Name),
             "sort_asc" => self.sort_asc = on,
             "dirs_first" => self.dirs_first = on,
@@ -892,6 +911,7 @@ impl Settings {
             ("hidden", b(self.show_hidden)),
             ("hide_dots", b(self.hide_dotfiles)),
             ("explorer_look", b(self.explorer_look)),
+            ("open_new_drives", b(self.open_new_drives)),
             ("sort_key", self.sort_key.word().to_string()),
             ("sort_asc", b(self.sort_asc)),
             ("dirs_first", b(self.dirs_first)),

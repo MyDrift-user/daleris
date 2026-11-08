@@ -37,6 +37,8 @@ VALUES
                                       Windows only: on Linux and macOS those names are hidden items, see ShowHiddenItems
   ExplorerLook              DWORD     0 off, 1 Explorer's colours, Windows's icons and no logo or name in the title bar.
                                       Theme, AccentColor, IconPack and the title bar logo and name don't apply then. Windows only
+  OpenNewDrives             DWORD     1 on, 0 off: a tab opens when Windows opens a drive that was just connected, such
+                                      as a USB stick. Windows only
   DefaultSort               SZ        name, modified, created, type, extension or size: how a folder is sorted until someone chooses
   DefaultSortAscending      DWORD     1 from A, the oldest or the smallest, 0 the other way round
   FoldersFirst              DWORD     1 keeps folders above files by default, 0 mixes them in

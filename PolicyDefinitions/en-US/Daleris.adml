@@ -13,6 +13,7 @@
       <string id="ShowHiddenItems">Show hidden and system items</string>
       <string id="HideDotfiles">Hide dotfiles and dotfolders (Windows)</string>
       <string id="ExplorerLook">Look like Windows Explorer (Windows)</string>
+      <string id="OpenNewDrives">Open a tab for a drive when it's connected (Windows)</string>
       <string id="DefaultSort">Default sort order</string>
       <string id="DefaultSortAscending">Default sort runs from A, oldest or smallest</string>
       <string id="FoldersFirst">Keep folders above files by default</string>

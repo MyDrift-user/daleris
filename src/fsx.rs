@@ -703,3 +703,65 @@ fn no_write(e: WIN32_ERROR) -> NoWrite {
         _ => NoWrite::Unreachable,
     }
 }
+
+/// How long ago Windows saw the drive at `root` arrive, such as a USB stick being plugged in; None if it can't tell.
+/// Read from the drive's volume device, which Windows makes anew each time the drive is connected.
+pub fn connected_for(root: &Path) -> Option<std::time::Duration> {
+    use windows::Win32::Devices::DeviceAndDriverInstallation::*;
+    use windows::Win32::Devices::Properties::DEVPROPTYPE;
+    use windows::core::GUID;
+    const VOLUMES: GUID = GUID::from_u128(0x53f5630d_b6bf_11d0_94f2_00a0c91efb8b);
+    const LAST_ARRIVAL: DEVPROPKEY = DEVPROPKEY { fmtid: GUID::from_u128(0x83da6326_97a6_4088_9453_a1923f573b29), pid: 102 };
+    let volume_of = |p: &[u16]| {
+        let mut name = [0u16; 64];
+        unsafe { GetVolumeNameForVolumeMountPointW(PCWSTR(p.as_ptr()), &mut name) }.ok().map(|_| from_wide(&name).to_lowercase())
+    };
+    let mut r = root.as_os_str().to_os_string();
+    if !r.to_string_lossy().ends_with('\\') {
+        r.push("\\");
+    }
+    let wanted = volume_of(&wide(&r))?;
+    unsafe {
+        let set = SetupDiGetClassDevsW(Some(&VOLUMES), PCWSTR::null(), None, DIGCF_PRESENT | DIGCF_DEVICEINTERFACE).ok()?;
+        let mut arrived = None;
+        for i in 0.. {
+            let mut iface = SP_DEVICE_INTERFACE_DATA { cbSize: size_of::<SP_DEVICE_INTERFACE_DATA>() as u32, ..Default::default() };
+            if SetupDiEnumDeviceInterfaces(set, None, &VOLUMES, i, &mut iface).is_err() {
+                break;
+            }
+            // the detail is a size, then the device path, in one block
+            let mut buf = vec![0u64; 256];
+            let detail = buf.as_mut_ptr() as *mut SP_DEVICE_INTERFACE_DETAIL_DATA_W;
+            (*detail).cbSize = size_of::<SP_DEVICE_INTERFACE_DETAIL_DATA_W>() as u32;
+            let mut dev = SP_DEVINFO_DATA { cbSize: size_of::<SP_DEVINFO_DATA>() as u32, ..Default::default() };
+            if SetupDiGetDeviceInterfaceDetailW(set, &iface, Some(detail), (buf.len() * 8) as u32, None, Some(&mut dev)).is_err() {
+                continue;
+            }
+            let path = std::slice::from_raw_parts((*detail).DevicePath.as_ptr(), 1000);
+            let mut path = from_wide(path);
+            path.push('\\');
+            if volume_of(&wide(&path)).as_deref() != Some(wanted.as_str()) {
+                continue;
+            }
+            let mut ty = DEVPROPTYPE::default();
+            let mut ft = [0u8; 8];
+            if SetupDiGetDevicePropertyW(set, &dev, &LAST_ARRIVAL, &mut ty, Some(&mut ft), None, 0).is_ok() {
+                arrived = Some(u64::from_le_bytes(ft));
+            }
+            break;
+        }
+        let _ = SetupDiDestroyDeviceInfoList(set);
+        let now = crate::util::now_filetime();
+        arrived.map(|a| std::time::Duration::from_nanos(now.saturating_sub(a).saturating_mul(100)))
+    }
+}
+
+#[cfg(test)]
+mod arrival_tests {
+    #[test]
+    fn the_system_drive_has_an_arrival_time() {
+        let c = super::connected_for(std::path::Path::new(r"C:\"));
+        eprintln!("C: {c:?}, D: {:?}", super::connected_for(std::path::Path::new(r"D:\")));
+        assert!(c.is_some(), "{c:?}");
+    }
+}

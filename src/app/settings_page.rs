@@ -897,6 +897,10 @@ impl App {
             if shell::HAS_NATIVE_PROPERTIES {
                 ch |= managed_toggle(ui, &mut self.settings.native_props, "native_props", "Use the Windows Properties dialog instead of Daleris's");
             }
+            // Windows opens a drive that was just connected as a folder, which comes here with "Open folders in Daleris"
+            if cfg!(windows) {
+                ch |= managed_toggle(ui, &mut self.settings.open_new_drives, "open_new_drives", "Open a tab for a drive when it's connected, such as a USB stick");
+            }
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let fixed = policy::is_fixed("view");

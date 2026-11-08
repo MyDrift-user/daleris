@@ -91,6 +91,11 @@ fn main() -> eframe::Result<()> {
     if picker.is_none() && screenshot.is_none() && !new_window && single_window_took(&wanted) {
         std::process::exit(0);
     }
+    // no window at all for a drive Windows opens because it was just connected, when that's turned off
+    #[cfg(windows)]
+    if picker.is_none() && screenshot.is_none() && wanted.dir.as_deref().is_some_and(app::unwanted_new_drive) {
+        std::process::exit(0);
+    }
     let _ = new_window;
     let is_picker = picker.is_some();
     let window_title = picker.as_ref().map_or("Daleris".to_string(), app::Picker::window_title);

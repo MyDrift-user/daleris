@@ -123,7 +123,14 @@ impl App {
         for request in list {
             log::info!("a new launch asks this window for {request:?}");
             match request {
-                Request::Open(p) => self.open_tab(Loc::Dir(PathBuf::from(p)), true),
+                Request::Open(p) => {
+                    let p = PathBuf::from(p);
+                    if !self.settings.open_new_drives && super::is_new_drive(&p) {
+                        log::info!("{} was just connected, and new drives don't open a tab", p.display());
+                        continue;
+                    }
+                    self.open_tab(Loc::Dir(p), true);
+                }
                 Request::Select(p) => {
                     let p = PathBuf::from(p);
                     if let Some(dir) = p.parent() {

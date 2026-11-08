@@ -13,6 +13,7 @@
       <string id="ShowHiddenItems">Versteckte und Systemelemente anzeigen</string>
       <string id="HideDotfiles">Dotfiles und Dot-Ordner ausblenden (Windows)</string>
       <string id="ExplorerLook">Wie der Windows-Explorer aussehen (Windows)</string>
+      <string id="OpenNewDrives">Einen Tab für ein Laufwerk öffnen, wenn es angeschlossen wird (Windows)</string>
       <string id="DefaultSort">Standard-Sortierung</string>
       <string id="DefaultSortAscending">Standard-Sortierung beginnt bei A, beim ältesten oder kleinsten Element</string>
       <string id="FoldersFirst">Ordner standardmäßig über Dateien anzeigen</string>
