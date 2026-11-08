@@ -20,16 +20,33 @@ impl App {
                     let name_w = if self.settings.shows_name() { ui.fonts_mut(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
                     let logo_w = if self.settings.shows_logo() { 26.0 } else { 0.0 };
                     let (r, resp) = ui.allocate_exact_size(vec2(logo_w + name_w + 8.0, 40.0), Sense::click_and_drag());
+                    // standing in for the settings button: a button, drawn like the tabs' hover
+                    let button = self.settings.brand_opens_settings();
+                    if button && (resp.hovered() || matches!(t.loc, Loc::Settings)) {
+                        let fill = if resp.is_pointer_button_down_on() { HOVER() } else { HOVER().gamma_multiply(0.6) };
+                        ui.painter().rect_filled(Rect::from_min_max(pos2(r.left() - 4.0, r.top() + 6.0), pos2(r.right() - 2.0, r.bottom() - 6.0)), CornerRadius::same(6), fill);
+                    }
                     if self.settings.shows_logo() {
                         paint_logo(ui.painter(), Rect::from_center_size(pos2(r.left() + 11.0, r.center().y), vec2(18.0, 18.0)), ACCENT());
                     }
                     if self.settings.shows_name() {
-                        ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), DIM());
+                        ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), if button && resp.hovered() { TEXT() } else { DIM() });
                     }
-                    self.title_drag(ui, &resp);
+                    if button {
+                        if resp.clicked() {
+                            self.acts.push(Act::OpenSettings(None));
+                        }
+                        // still moves the window when dragged
+                        if resp.drag_started_by(egui::PointerButton::Primary) {
+                            ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
+                        }
+                        let _ = resp.on_hover_text("Settings (Ctrl+,)");
+                    } else {
+                        self.title_drag(ui, &resp);
+                    }
                     left_w = r.width();
                 }
-                let right_w = if custom { 46.0 * 3.0 } else { 0.0 } + if self.settings.title_gear { 40.0 } else { 0.0 };
+                let right_w = if custom { 46.0 * 3.0 } else { 0.0 } + if self.settings.shows_gear() { 40.0 } else { 0.0 };
                 let tab_y = if custom { 8.0 } else { 0.0 };
                 let count = self.tabs.len();
                 let avail = ui.available_width() - 40.0 - right_w - 24.0;
@@ -139,7 +156,7 @@ impl App {
                 } else if rest.double_clicked() {
                     self.acts.push(Act::NewTab);
                 }
-                if self.settings.title_gear {
+                if self.settings.shows_gear() {
                     ui.vertical(|ui| {
                         ui.add_space(if custom { 5.0 } else { 1.0 });
                         if icon_button(ui, I_SETTINGS, "Settings", true).clicked() {

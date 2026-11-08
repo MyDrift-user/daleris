@@ -143,6 +143,12 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_TitleBarBrandSettings" class="Both" displayName="$(string.TitleBarBrandSettings)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="TitleBarBrandSettings">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Fixed_ReopenTabs" class="Both" displayName="$(string.ReopenTabs)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ReopenTabs">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -546,6 +552,12 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_TitleBarSettingsButton" class="Both" displayName="$(string.TitleBarSettingsButton)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="TitleBarSettingsButton">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_TitleBarBrandSettings" class="Both" displayName="$(string.TitleBarBrandSettings)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="TitleBarBrandSettings">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

@@ -375,12 +375,24 @@ impl App {
             ui.add_enabled_ui(self.settings.title_custom, |ui| {
                 let mut ch = managed_toggle(ui, &mut self.settings.title_logo, "title_logo", "Show the logo");
                 ch |= managed_toggle(ui, &mut self.settings.title_name, "title_name2", "Show the app name");
+                let shown = self.settings.title_logo || self.settings.title_name;
+                ui.indent("brand_parts", |ui| {
+                    ui.add_enabled_ui(shown, |ui| {
+                        ch |= managed_toggle(ui, &mut self.settings.title_brand_settings, "title_brand_settings", "Click them to open Settings, in place of the settings button");
+                    });
+                });
                 if ch {
                     self.save_settings();
                 }
             });
-            if managed_toggle(ui, &mut self.settings.title_gear, "title_gear", "Show the settings button (Settings also opens with Ctrl+,)") {
-                self.save_settings();
+            let brand = self.settings.brand_opens_settings();
+            ui.add_enabled_ui(!brand, |ui| {
+                if managed_toggle(ui, &mut self.settings.title_gear, "title_gear", "Show the settings button (Settings also opens with Ctrl+,)") {
+                    self.save_settings();
+                }
+            });
+            if brand {
+                ui.label(egui::RichText::new("The logo and name are the settings button.").size(12.0).color(DIM()));
             }
         });
         ui.add_space(14.0);

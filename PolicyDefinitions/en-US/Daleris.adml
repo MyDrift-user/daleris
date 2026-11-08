@@ -36,6 +36,7 @@
       <string id="TitleBarLogo">Show the logo in the title bar</string>
       <string id="TitleBarName">Show the app name in the title bar</string>
       <string id="TitleBarSettingsButton">Show the settings button</string>
+      <string id="TitleBarBrandSettings">The logo and name open Settings, in place of the settings button</string>
       <string id="ReopenTabs">Reopen tabs at startup</string>
       <string id="WindowsPropertiesDialog">Use the Windows Properties dialog</string>
       <string id="FolderSizes">Show folder sizes</string>

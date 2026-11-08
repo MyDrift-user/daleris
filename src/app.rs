@@ -594,6 +594,8 @@ pub struct Settings {
     title_logo: bool,
     title_name: bool,
     title_gear: bool,
+    /// the logo and name in the title bar open Settings, in place of the settings button
+    title_brand_settings: bool,
     sections: Vec<SectionCfg>,
     side_hidden: HashSet<String>,
     side_order: HashMap<String, Vec<String>>,
@@ -751,6 +753,7 @@ impl Settings {
             title_logo: true,
             title_name: false,
             title_gear: true,
+            title_brand_settings: false,
             sections: default_sections(),
             side_hidden: HashSet::new(),
             side_order: HashMap::new(),
@@ -897,6 +900,16 @@ impl Settings {
         self.title_name
     }
 
+    /// The logo and name are the settings button: only while one of them is in the Daleris title bar.
+    fn brand_opens_settings(&self) -> bool {
+        self.title_brand_settings && self.title_custom && (self.title_logo || self.title_name)
+    }
+
+    /// The settings button in the title bar, unless the logo and name stand in for it
+    fn shows_gear(&self) -> bool {
+        self.title_gear && !self.brand_opens_settings()
+    }
+
     /// "Hide dotfiles" only means something on Windows: on Linux and macOS a leading dot is what makes a name hidden,
     /// so "Show hidden items" already covers them there.
     fn hides_dotfiles(&self) -> bool {
@@ -1006,6 +1019,7 @@ impl Settings {
             "title_logo" => self.title_logo = on,
             "title_name2" => self.title_name = on,
             "title_gear" => self.title_gear = on,
+            "title_brand_settings" => self.title_brand_settings = on,
             "restore_tabs2" => self.restore_tabs = on,
             "auto_update" => self.auto_update = on,
             "exp_folders" => self.exp_folders = on,
@@ -1052,6 +1066,7 @@ impl Settings {
             ("title_logo", b(self.title_logo)),
             ("title_name2", b(self.title_name)),
             ("title_gear", b(self.title_gear)),
+            ("title_brand_settings", b(self.title_brand_settings)),
             ("restore_tabs2", b(self.restore_tabs)),
             ("auto_update", b(self.auto_update)),
             ("native_props", b(self.native_props)),
@@ -3455,6 +3470,20 @@ mod tests {
         assert!(waits.iter().all(|&w| w <= 30.0));
         let total: f64 = waits.iter().sum();
         assert!((180.0..=300.0).contains(&total), "{total}");
+    }
+
+    #[test]
+    fn the_logo_and_name_stand_in_for_the_settings_button_only_while_shown() {
+        let mut s = Settings::defaults();
+        assert!(s.shows_gear() && !s.brand_opens_settings(), "a settings button of its own by default");
+        assert!(s.set_value("title_brand_settings", "1"));
+        assert!(s.brand_opens_settings() && !s.shows_gear());
+        s.title_logo = false;
+        assert!(!s.brand_opens_settings() && s.shows_gear(), "with nothing to click, the button comes back");
+        s.title_name = true;
+        assert!(s.brand_opens_settings());
+        s.title_custom = false;
+        assert!(!s.brand_opens_settings() && s.shows_gear(), "the standard title bar has no logo");
     }
 
     #[test]

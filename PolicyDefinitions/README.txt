@@ -70,6 +70,8 @@ VALUES
   TitleBarLogo              DWORD     0 off, 1 on
   TitleBarName              DWORD     0 off, 1 on
   TitleBarSettingsButton    DWORD     0 off, 1 on
+  TitleBarBrandSettings     DWORD     1 on, 0 off: with TitleBarLogo or TitleBarName, they open Settings and the settings
+                                      button isn't shown
   ReopenTabs                DWORD     0 off, 1 on
   WindowsPropertiesDialog   DWORD     0 Daleris's, 1 the Windows dialog
   FolderSizes               DWORD     0 off, 1 on

@@ -36,6 +36,7 @@
       <string id="TitleBarLogo">Logo in der Titelleiste anzeigen</string>
       <string id="TitleBarName">App-Namen in der Titelleiste anzeigen</string>
       <string id="TitleBarSettingsButton">Einstellungen-Schaltfläche anzeigen</string>
+      <string id="TitleBarBrandSettings">Logo und Name öffnen die Einstellungen, statt der Einstellungen-Schaltfläche</string>
       <string id="ReopenTabs">Tabs beim Start wieder öffnen</string>
       <string id="WindowsPropertiesDialog">Windows-Eigenschaftendialog verwenden</string>
       <string id="FolderSizes">Ordnergrößen anzeigen</string>

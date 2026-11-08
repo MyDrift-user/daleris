@@ -19,7 +19,7 @@ enum Kind {
 }
 
 /// Registry value name, settings file key, what it holds.
-const VALUES: [(&str, &str, Kind); 62] = [
+const VALUES: [(&str, &str, Kind); 63] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("HideDotfiles", "hide_dots", Kind::Bool),
     ("ExplorerLook", "explorer_look", Kind::Bool),
@@ -45,6 +45,7 @@ const VALUES: [(&str, &str, Kind); 62] = [
     ("TitleBarLogo", "title_logo", Kind::Bool),
     ("TitleBarName", "title_name2", Kind::Bool),
     ("TitleBarSettingsButton", "title_gear", Kind::Bool),
+    ("TitleBarBrandSettings", "title_brand_settings", Kind::Bool),
     ("ReopenTabs", "restore_tabs2", Kind::Bool),
     ("WindowsPropertiesDialog", "native_props", Kind::Bool),
     ("FolderSizes", "folder_sizes", Kind::Bool),
