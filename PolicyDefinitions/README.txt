@@ -60,6 +60,8 @@ VALUES
   DefaultView               DWORD     0 details, 1 large icons
   Theme                     DWORD     0 follow Windows, 1 dark, 2 light
   AccentColor               DWORD     7 Windows accent colour, 0 to 6 the colours in Settings, left to right
+  Language                  SZ        system (the default: the language Windows is shown in, or English if Daleris
+                                      hasn't got it), en, de or it
   IconPack                  SZ        system (Windows icons, Windows only), flat (Daleris), phosphor, or the name of a
                                       folder in %APPDATA%\Daleris\icon packs
   RowHeight                 DWORD     0 compact, 1 normal, 2 comfortable

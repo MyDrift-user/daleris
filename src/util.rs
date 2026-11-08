@@ -119,16 +119,22 @@ pub fn fmt_size(n: u64) -> String {
     if v >= 100.0 {
         format!("{:.0} {}", v, U[u])
     } else {
-        format!("{:.1} {}", v, U[u])
+        format!("{} {}", decimal(format!("{v:.1}")), U[u])
     }
 }
 
+/// A number as written in the language shown: "2.5" becomes "2,5" in German and Italian.
+fn decimal(s: String) -> String {
+    s.replace('.', &crate::i18n::decimal().to_string())
+}
+
+/// 1,234,567 in English, 1.234.567 in German and Italian.
 pub fn fmt_count(n: usize) -> String {
     let s = n.to_string();
     let mut out = String::with_capacity(s.len() + s.len() / 3);
     for (i, c) in s.chars().enumerate() {
         if i > 0 && (s.len() - i) % 3 == 0 {
-            out.push(',');
+            out.push(crate::i18n::thousands());
         }
         out.push(c);
     }
@@ -138,21 +144,26 @@ pub fn fmt_count(n: usize) -> String {
 pub fn fmt_duration(d: std::time::Duration) -> String {
     let ms = d.as_secs_f64() * 1000.0;
     if ms < 10.0 {
-        format!("{ms:.2} ms")
+        format!("{} ms", decimal(format!("{ms:.2}")))
     } else if ms < 1000.0 {
         format!("{ms:.0} ms")
     } else {
-        format!("{:.1} s", ms / 1000.0)
+        format!("{} s", decimal(format!("{:.1}", ms / 1000.0)))
     }
 }
 
-/// FILETIME (100ns ticks since 1601) to local "2026-11-02 09:12".
+/// FILETIME (100ns ticks since 1601) to a local date and time as written in the language shown: "2026-11-02 09:12",
+/// "02.11.2026 09:12" in German, "02/11/2026 09:12" in Italian.
 pub fn fmt_filetime(ft: u64) -> String {
     if ft == 0 {
         return String::new();
     }
     let st = filetime_local(ft);
-    format!("{:04}-{:02}-{:02} {:02}:{:02}", st.year, st.month, st.day, st.hour, st.minute)
+    match crate::i18n::current() {
+        crate::i18n::Lang::En => format!("{:04}-{:02}-{:02} {:02}:{:02}", st.year, st.month, st.day, st.hour, st.minute),
+        crate::i18n::Lang::De => format!("{:02}.{:02}.{:04} {:02}:{:02}", st.day, st.month, st.year, st.hour, st.minute),
+        crate::i18n::Lang::It => format!("{:02}/{:02}/{:04} {:02}:{:02}", st.day, st.month, st.year, st.hour, st.minute),
+    }
 }
 
 /// A calendar date and time in the local time zone.

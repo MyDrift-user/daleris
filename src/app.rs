@@ -13,6 +13,7 @@ use crate::dirsize::DirSize;
 use crate::bg;
 use crate::fsx::{self, Cloud, CloudRoot, Drive, DriveKind, Entry, FailKind, FolderError, Place};
 use crate::listing::{self, folder_key, DateRange, ListFilter, SizeRange, SortKey, SortRow, SortSpec};
+use crate::i18n::{tr, tr_dyn, tx};
 use crate::policy;
 use crate::search::{self, Index, Query, Search};
 use crate::shell::{self, ImgReq, Loader, Op};
@@ -585,6 +586,8 @@ pub struct Settings {
     custom: Vec<CustomCmd>,
     /// 0 = follow Windows, 1 = dark, 2 = light
     theme: u8,
+    /// the language text is shown in: "system" for the system's, or "en", "de", "it", see `i18n::CHOICES`
+    language: String,
     /// index into ACCENTS; ACCENTS.len() = Windows accent colour
     accent: usize,
     /// "system", "flat" (the Daleris pack), "phosphor", or the name of a folder in the icon packs folder
@@ -771,6 +774,7 @@ impl Settings {
             menu_order: Vec::new(),
             custom: Vec::new(),
             theme: 0,
+            language: "system".into(),
             accent: ACCENTS.len(),
             icon_pack: if prefers_bundled_icons() { "flat" } else { "system" }.into(),
             density: if cfg!(windows) { 0 } else { 1 },
@@ -1024,6 +1028,7 @@ impl Settings {
             "ext" => self.show_ext = on,
             "view" => self.view = if v == "icons" { View::Icons } else { View::Details },
             "theme" => self.theme = v.parse().unwrap_or(0),
+            "language" => self.language = if crate::i18n::CHOICES.iter().any(|(c, _)| *c == v) { v.to_string() } else { "system".into() },
             "accent2" => self.accent = v.parse().unwrap_or(ACCENTS.len()),
             "native_props" => self.native_props = on,
             "folder_sizes" => self.folder_sizes = on,
@@ -1089,6 +1094,7 @@ impl Settings {
             ("ext", b(self.show_ext)),
             ("view", if self.view == View::Icons { "icons".to_string() } else { "details".to_string() }),
             ("theme", self.theme.to_string()),
+            ("language", self.language.clone()),
             ("accent2", self.accent.to_string()),
             ("iconpack", self.icon_pack.clone()),
             ("density", self.density.to_string()),
@@ -1430,6 +1436,8 @@ pub struct App {
     icon_retry: HashMap<String, (f64, u8)>,
     /// Windows icons asked for and not back yet: when last asked and how often. A call can hang for good.
     icon_asked: HashMap<String, (f64, u8)>,
+    /// the language text was last shown in, once it has been set
+    language_shown: Option<crate::i18n::Lang>,
     type_names: HashMap<String, String>,
     thumb_order: VecDeque<String>,
     indexes: Vec<Arc<Index>>,
@@ -1571,6 +1579,7 @@ impl App {
             icons: HashMap::new(),
             icon_retry: HashMap::new(),
             icon_asked: HashMap::new(),
+            language_shown: None,
             type_names: HashMap::new(),
             thumb_order: VecDeque::new(),
             indexes: Vec::new(),
@@ -1633,6 +1642,7 @@ impl App {
             serving: Arc::new(AtomicBool::new(false)),
             jump_told: None,
         };
+        app.follow_language();
         app.apply_theme();
         app.refresh_drives();
         app.refresh_clouds();
@@ -2907,6 +2917,7 @@ impl App {
         self.follow_windows_theme(ctx);
         self.sync_settings(ctx);
         self.settings.enforce(&policy::current());
+        self.follow_language();
         self.explorer_tick(ctx);
         let mut t = std::mem::replace(&mut self.tabs[self.active], Tab::new(0, Loc::ThisPc));
         // Settings changes every other tab; this one is out of the list while it's drawn, so it catches up here
@@ -3169,6 +3180,18 @@ impl App {
 
     /// Every window shares one settings file: save when leaving a window, and pick up
     /// what another window changed when coming back, so a window never undoes those changes.
+    /// Shows text in the language set, and tells the Ctrl + G watcher, which says things in it too. Cheap enough for
+    /// every frame.
+    fn follow_language(&mut self) {
+        let lang = crate::i18n::Lang::from_setting(&self.settings.language);
+        if self.language_shown != Some(lang) {
+            crate::i18n::set(lang);
+            crate::integration::set_language(lang.code());
+            self.language_shown = Some(lang);
+            self.ctx.request_repaint();
+        }
+    }
+
     fn sync_settings(&mut self, ctx: &egui::Context) {
         let policy_changed = policy::take_changed();
         let focused = ctx.input(|i| i.viewport().focused).unwrap_or(true);

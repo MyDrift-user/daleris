@@ -16,10 +16,12 @@ enum Kind {
     /// 0 details, 1 large icons
     View,
     Text,
+    /// one of these words, in any case
+    OneOf(&'static [&'static str]),
 }
 
 /// Registry value name, settings file key, what it holds.
-const VALUES: [(&str, &str, Kind); 66] = [
+const VALUES: [(&str, &str, Kind); 67] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("HideDotfiles", "hide_dots", Kind::Bool),
     ("ExplorerColours", "explorer_colours", Kind::Bool),
@@ -38,6 +40,7 @@ const VALUES: [(&str, &str, Kind); 66] = [
     ("DefaultView", "view", Kind::View),
     ("Theme", "theme", Kind::Max(2)),
     ("AccentColor", "accent2", Kind::Max(7)),
+    ("Language", "language", Kind::OneOf(&["system", "en", "de", "it"])),
     ("IconPack", "iconpack", Kind::Text),
     ("RowHeight", "density", Kind::Max(2)),
     ("CustomTitleBar", "title_custom", Kind::Bool),
@@ -402,6 +405,10 @@ fn to_setting(kind: Kind, raw: String) -> Option<String> {
             Some(1) => Some("icons".into()),
             _ => None,
         },
+        Kind::OneOf(words) => {
+            let w = raw.trim().to_ascii_lowercase();
+            words.contains(&w.as_str()).then_some(w)
+        }
         Kind::Text => Some(raw),
     }
 }
@@ -535,5 +542,8 @@ mod tests {
         assert_eq!(p.fixed_value("theme"), None);
         assert_eq!(p.fixed_value("density"), None);
         assert_eq!(p.fixed_value("auto_update"), Some("1"));
+        let lang = |v: &str| build(|name| (name == "Language").then(|| v.to_string()), |_| None).fixed_value("language").map(str::to_string);
+        assert_eq!(lang(" DE "), Some("de".into()), "a language in any case");
+        assert_eq!(lang("fr"), None, "only one Daleris has");
     }
 }

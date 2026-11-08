@@ -225,6 +225,29 @@ impl App {
         });
     }
 
+    /// Which language Daleris shows its text in. Each language is named in itself, so anyone can find their own.
+    fn language_card(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            managed_heading(ui, tr("Language"), tr("The language Daleris shows its text in. What Windows shows in it, such as the menus apps add, stays in Windows's language."), "language");
+            let system = crate::i18n::CHOICES.iter().find(|(c, _)| *c == crate::i18n::system().code()).map_or("", |(_, n)| *n);
+            let name = |code: &str| match crate::i18n::CHOICES.iter().find(|(c, _)| *c == code) {
+                Some(("system", _)) | None => format!("{} ({system})", if cfg!(windows) { tr("Same as Windows") } else { tr("Same as the system") }),
+                Some((_, n)) => n.to_string(),
+            };
+            ui.add_enabled_ui(!policy::is_fixed("language"), |ui| {
+                egui::ComboBox::from_id_salt("language").width(240.0).selected_text(name(&self.settings.language)).show_ui(ui, |ui| {
+                    for (code, _) in crate::i18n::CHOICES {
+                        if ui.selectable_label(self.settings.language == code, name(code)).clicked() {
+                            self.settings.language = code.into();
+                            self.save_settings();
+                        }
+                    }
+                });
+            });
+        });
+    }
+
     /// Explorer's lines and Mica. Windows only.
     fn window_card(&mut self, ui: &mut Ui) {
         card().show(ui, |ui| {
@@ -348,6 +371,8 @@ impl App {
     // ------------------------------------------------------------------ appearance
 
     fn page_appearance(&mut self, ui: &mut Ui) {
+        self.language_card(ui);
+        ui.add_space(14.0);
         if cfg!(windows) {
             self.looks_card(ui);
             ui.add_space(14.0);

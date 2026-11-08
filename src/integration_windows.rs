@@ -264,6 +264,14 @@ pub fn dialog_log_file() -> Option<PathBuf> {
     reg::logs_dir().map(|d| d.join(reg::DIALOG_LOG))
 }
 
+/// Tells the Ctrl + G watcher which language to say things in: "en", "de" or "it". Written only when it changes.
+pub fn set_language(code: &str) {
+    let hive = Hive::real();
+    if hive.read_text(reg::OWN_KEY, reg::LANGUAGE).as_deref() != Some(code) {
+        hive.write_text(reg::OWN_KEY, reg::LANGUAGE, code);
+    }
+}
+
 pub fn clear_jump_folder() {
     let hive = Hive::real();
     if hive.read_text(reg::OWN_KEY, reg::JUMP_PID).as_deref() == Some(std::process::id().to_string().as_str()) {

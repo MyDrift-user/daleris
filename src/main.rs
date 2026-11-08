@@ -1,5 +1,8 @@
 #![windows_subsystem = "windows"]
 
+// first, so `trf!` and `trn!` can be used everywhere below
+#[macro_use]
+mod i18n;
 mod app;
 mod bg;
 mod dirsize;

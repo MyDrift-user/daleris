@@ -32,6 +32,8 @@ const POLICY_KEY: &str = r"Software\Policies\Daleris";
 pub const JUMP_FOLDER: &str = "JumpFolder";
 pub const JUMP_PID: &str = "JumpFolderPid";
 pub const JUMP_PROBLEM: &str = "JumpProblem";
+/// The language the window shows its text in, "en", "de" or "it", for the watcher's messages: see `daleris-open`.
+pub const LANGUAGE: &str = "Language";
 /// The file dialog DLL's log, in `logs_dir`.
 pub const DIALOG_LOG: &str = "file-dialogs.log";
 

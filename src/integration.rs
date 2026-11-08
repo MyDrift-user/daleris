@@ -31,6 +31,7 @@ mod imp {
     pub fn restore() {}
     pub fn set_jump_folder(_: Option<&std::path::Path>) {}
     pub fn clear_jump_folder() {}
+    pub fn set_language(_: &str) {}
     pub fn dialog_log_file() -> Option<std::path::PathBuf> {
         None
     }
