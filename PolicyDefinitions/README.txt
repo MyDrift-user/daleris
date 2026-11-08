@@ -18,7 +18,7 @@ DEFAULT SETTINGS (apply until a person picks their own value, and can always be 
 USING GPO
   1. Copy Daleris.admx to \\<domain>\SYSVOL\<domain>\Policies\PolicyDefinitions
      (or C:\Windows\PolicyDefinitions on a single machine).
-  2. Copy the en-US and de-DE folders next to it, keeping their Daleris.adml files inside.
+  2. Copy the en-US, de-DE and it-IT folders next to it, keeping their Daleris.adml files inside.
   3. Find "Daleris" under Administrative Templates, for computers and for users.
      "Fixed settings" and "Default settings" hold the same list.
 

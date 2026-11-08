@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policyDefinitionResources xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" revision="1.0" schemaVersion="1.0" xmlns="http://schemas.microsoft.com/GroupPolicy/2006/07/PolicyDefinitions">
+  <displayName>Daleris</displayName>
+  <description>Daleris</description>
+  <resources>
+    <stringTable>
+      <string id="SUPPORTED_ANY">Daleris su Windows</string>
+      <string id="Daleris">Daleris</string>
+      <string id="CatFixed">Impostazioni fisse (gli utenti non possono cambiarle)</string>
+      <string id="CatRecommended">Impostazioni predefinite (gli utenti possono cambiarle)</string>
+      <string id="ExplainFixed">Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplainRecommended">Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ShowHiddenItems">Mostra gli elementi nascosti e di sistema</string>
+      <string id="HideDotfiles">Nascondi i file e le cartelle che iniziano con un punto (Windows)</string>
+      <string id="ExplorerColours">I colori di Esplora file, come impostati in Windows (Windows)</string>
+      <string id="ExplorerLines">Le linee di Esplora file tra i riquadri e attorno alla scheda in primo piano (Windows)</string>
+      <string id="ExplorerMica">Mica dietro la barra delle schede (Windows 11)</string>
+      <string id="ExplorerMicaBar">Con Mica, lasciarla trasparire un po' dalla scheda in primo piano e dalla barra degli indirizzi (Windows 11)</string>
+      <string id="OpenNewDrives">Apri una scheda per un'unità quando viene collegata (Windows)</string>
+      <string id="StartNewWindow">Avviare di nuovo Daleris apre una nuova finestra (Windows)</string>
+      <string id="ShareTransferNotes">Mostra agli altri sulle condivisioni di rete cosa copi, sposti, elimini e hai aperto</string>
+      <string id="DefaultSort">Ordinamento predefinito</string>
+      <string id="DefaultSortAscending">L'ordinamento predefinito parte da A, dal più vecchio o dal più piccolo</string>
+      <string id="FoldersFirst">Mantieni per impostazione predefinita le cartelle sopra i file</string>
+      <string id="DownloadsNewestFirst">Mostra Download dal più recente, con le cartelle mescolate ai file</string>
+      <string id="Sort_name">Nome</string>
+      <string id="Sort_modified">Ultima modifica</string>
+      <string id="Sort_created">Data creazione</string>
+      <string id="Sort_type">Tipo</string>
+      <string id="Sort_extension">Estensione</string>
+      <string id="Sort_size">Dimensione</string>
+      <string id="ShowPreviewPane">Mostra il riquadro di anteprima</string>
+      <string id="ShowFileExtensions">Mostra le estensioni dei nomi file</string>
+      <string id="CustomTitleBar">Usa la barra del titolo di Daleris</string>
+      <string id="TitleBarLogo">Mostra il logo nella barra del titolo</string>
+      <string id="TitleBarName">Mostra il nome dell'app nella barra del titolo</string>
+      <string id="TitleBarSettingsButton">Mostra il pulsante delle impostazioni</string>
+      <string id="TitleBarBrandSettings">Il logo e il nome aprono Impostazioni, al posto del pulsante delle impostazioni</string>
+      <string id="ReopenTabs">Riapri le schede all'avvio</string>
+      <string id="WindowsPropertiesDialog">Usa la finestra Proprietà di Windows</string>
+      <string id="FolderSizes">Mostra le dimensioni delle cartelle</string>
+      <string id="SearchSubfolders">Cerca nelle sottocartelle</string>
+      <string id="SearchRegex">Tratta le ricerche come espressioni regolari</string>
+      <string id="SearchHideSubfolders">Nascondi l'interruttore delle sottocartelle nella casella di ricerca</string>
+      <string id="SearchHideRegex">Nascondi l'interruttore delle espressioni regolari nella casella di ricerca</string>
+      <string id="SearchHideHelp">Nascondi il pulsante della guida (?) nella casella di ricerca</string>
+      <string id="CatSearch">Ricerca</string>
+      <string id="SearchSkipAppData">Non trovare mai i dati delle app nella ricerca</string>
+      <string id="SearchSkipAppDataExplain_ExplainFixed">La ricerca esclude le cartelle denominate AppData e tutto il loro contenuto. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipAppDataExplain_ExplainRecommended">La ricerca esclude le cartelle denominate AppData e tutto il loro contenuto. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipWindows">Non trovare mai Windows e i programmi installati nella ricerca</string>
+      <string id="SearchSkipWindowsExplain_ExplainFixed">La ricerca esclude le cartelle denominate Windows, Program Files, Program Files (x86), ProgramData, $Recycle.Bin, System Volume Information, $WinREAgent e Recovery, e tutto il loro contenuto. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipWindowsExplain_ExplainRecommended">La ricerca esclude le cartelle denominate Windows, Program Files, Program Files (x86), ProgramData, $Recycle.Bin, System Volume Information, $WinREAgent e Recovery, e tutto il loro contenuto. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipDeveloperFiles">Non trovare mai i file di sviluppo nella ricerca</string>
+      <string id="SearchSkipDeveloperFilesExplain_ExplainFixed">La ricerca esclude le cartelle denominate node_modules, .git, .svn, target, __pycache__, .cache, .cargo, .rustup, .npm, .gradle, .venv e venv, e tutto il loro contenuto. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipDeveloperFilesExplain_ExplainRecommended">La ricerca esclude le cartelle denominate node_modules, .git, .svn, target, __pycache__, .cache, .cargo, .rustup, .npm, .gradle, .venv e venv, e tutto il loro contenuto. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipCloudFolders">Non trovare mai le cartelle cloud nella ricerca</string>
+      <string id="SearchSkipCloudFoldersExplain_ExplainFixed">La ricerca esclude le cartelle denominate OneDrive, Dropbox, Google Drive e iCloudDrive, e tutto il loro contenuto. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipCloudFoldersExplain_ExplainRecommended">La ricerca esclude le cartelle denominate OneDrive, Dropbox, Google Drive e iCloudDrive, e tutto il loro contenuto. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipTempFiles">Non trovare mai i file temporanei e di log nella ricerca</string>
+      <string id="SearchSkipTempFilesExplain_ExplainFixed">La ricerca esclude i file che terminano con .tmp, .temp, .log, .bak e .dmp. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipTempFilesExplain_ExplainRecommended">La ricerca esclude i file che terminano con .tmp, .temp, .log, .bak e .dmp. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipProgramParts">Non trovare mai i componenti dei programmi nella ricerca</string>
+      <string id="SearchSkipProgramPartsExplain_ExplainFixed">La ricerca esclude i file che terminano con .dll, .sys, .mui, .cat, .pdb, .obj e .lib. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipProgramPartsExplain_ExplainRecommended">La ricerca esclude i file che terminano con .dll, .sys, .mui, .cat, .pdb, .obj e .lib. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipHidden">Non trovare mai gli elementi nascosti nella ricerca</string>
+      <string id="SearchSkipHiddenExplain_ExplainFixed">La ricerca esclude i file e le cartelle nascosti, e tutto il contenuto delle cartelle nascoste, anche quando gli utenti mostrano gli elementi nascosti. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipHiddenExplain_ExplainRecommended">La ricerca esclude i file e le cartelle nascosti, e tutto il contenuto delle cartelle nascoste, anche quando gli utenti mostrano gli elementi nascosti. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipSystem">Non trovare mai i file di sistema nella ricerca</string>
+      <string id="SearchSkipSystemExplain_ExplainFixed">La ricerca esclude i file e le cartelle che Windows contrassegna come file di sistema, come desktop.ini, e tutto il contenuto di tali cartelle. Attivo salvo diversa impostazione. Solo Windows. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipSystemExplain_ExplainRecommended">La ricerca esclude i file e le cartelle che Windows contrassegna come file di sistema, come desktop.ini, e tutto il contenuto di tali cartelle. Attivo salvo diversa impostazione. Solo Windows. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SearchSkipFolders">Non trovare mai queste cartelle nella ricerca</string>
+      <string id="SearchSkipFoldersExplain_ExplainFixed">Cartelle che la ricerca esclude, con tutto il loro contenuto, una per riga. Le variabili d'ambiente come %USERPROFILE% funzionano. Questo elenco è fisso: si aggiunge alle regole degli utenti e vale per tutti coloro a cui si applica. Gli utenti non possono rimuoverne le voci nell'app, ma possono comunque aggiungerne di proprie. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipFoldersExplain_ExplainRecommended">Cartelle che la ricerca esclude, con tutto il loro contenuto, una per riga. Le variabili d'ambiente come %USERPROFILE% funzionano. Questo elenco è predefinito: è l'elenco da cui partono gli utenti, che possono sempre cambiarlo.</string>
+      <string id="SearchSkipFolderNames">Non trovare mai le cartelle con questi nomi nella ricerca</string>
+      <string id="SearchSkipFolderNamesExplain_ExplainFixed">Nomi di cartelle che la ricerca esclude ovunque si trovino, con tutto il loro contenuto, uno per riga. Maiuscole e minuscole non contano. Questo elenco è fisso: si aggiunge alle regole degli utenti e vale per tutti coloro a cui si applica. Gli utenti non possono rimuoverne le voci nell'app, ma possono comunque aggiungerne di proprie. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipFolderNamesExplain_ExplainRecommended">Nomi di cartelle che la ricerca esclude ovunque si trovino, con tutto il loro contenuto, uno per riga. Maiuscole e minuscole non contano. Questo elenco è predefinito: è l'elenco da cui partono gli utenti, che possono sempre cambiarlo.</string>
+      <string id="SearchSkipFileTypes">Non trovare mai questi tipi di file nella ricerca</string>
+      <string id="SearchSkipFileTypesExplain_ExplainFixed">Tipi di file che la ricerca esclude, uno per riga, scritti come .iso, iso o *.iso. Questo elenco è fisso: si aggiunge alle regole degli utenti e vale per tutti coloro a cui si applica. Gli utenti non possono rimuoverne le voci nell'app, ma possono comunque aggiungerne di proprie. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipFileTypesExplain_ExplainRecommended">Tipi di file che la ricerca esclude, uno per riga, scritti come .iso, iso o *.iso. Questo elenco è predefinito: è l'elenco da cui partono gli utenti, che possono sempre cambiarlo.</string>
+      <string id="SearchSkipPatterns">Non trovare mai nella ricerca i percorsi che corrispondono a questi modelli</string>
+      <string id="SearchSkipPatternsExplain_ExplainFixed">Espressioni regolari, una per riga, confrontate con il percorso completo di ogni file e cartella. Maiuscole e minuscole non contano. Qui il percorso di una cartella termina con una barra rovesciata, quindi \\Payroll\\ esclude ogni cartella Payroll con tutto il suo contenuto, e \.(key|pem|pfx)$ esclude chiavi e certificati. I modelli non validi vengono ignorati. Questo elenco è fisso: si aggiunge alle regole degli utenti e vale per tutti coloro a cui si applica. Gli utenti non possono rimuoverne le voci nell'app, ma possono comunque aggiungerne di proprie. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SearchSkipPatternsExplain_ExplainRecommended">Espressioni regolari, una per riga, confrontate con il percorso completo di ogni file e cartella. Maiuscole e minuscole non contano. Qui il percorso di una cartella termina con una barra rovesciata, quindi \\Payroll\\ esclude ogni cartella Payroll con tutto il suo contenuto, e \.(key|pem|pfx)$ esclude chiavi e certificati. I modelli non validi vengono ignorati. Questo elenco è predefinito: è l'elenco da cui partono gli utenti, che possono sempre cambiarlo.</string>
+      <string id="AutomaticUpdates">Installa automaticamente gli aggiornamenti</string>
+      <string id="AutomaticUpdatesExplain_ExplainFixed">Indica se le nuove versioni si installano da sole. Se disattivato, gli utenti possono comunque cercare un aggiornamento e installarlo da Impostazioni; per impedire anche questo, usa "Disattiva gli aggiornamenti". L'attività che aggiorna un'installazione per tutto il PC legge solo Configurazione computer, quindi per queste installazioni impostalo lì. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="AutomaticUpdatesExplain_ExplainRecommended">Indica se le nuove versioni si installano da sole. L'attività che aggiorna un'installazione per tutto il PC legge solo Configurazione computer, quindi per queste installazioni impostalo lì. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="DefaultView">Visualizzazione predefinita</string>
+      <string id="Details">Dettagli</string>
+      <string id="LargeIcons">Icone grandi</string>
+      <string id="Theme">Tema</string>
+      <string id="FollowWindows">Come Windows</string>
+      <string id="Dark">Scuro</string>
+      <string id="Light">Chiaro</string>
+      <string id="AccentColor">Colore principale</string>
+      <string id="AccentWindows">Colore principale di Windows</string>
+      <string id="RowHeight">Altezza righe</string>
+      <string id="Compact">Compatta</string>
+      <string id="Normal">Normale</string>
+      <string id="Comfortable">Ampia</string>
+      <string id="Accent0">Blu</string>
+      <string id="Accent1">Verde acqua</string>
+      <string id="Accent2">Viola</string>
+      <string id="Accent3">Rosa</string>
+      <string id="Accent4">Arancione</string>
+      <string id="Accent5">Verde</string>
+      <string id="Accent6">Rosso</string>
+      <string id="IconPack">Pacchetto di icone</string>
+      <string id="IconPackExplain_ExplainFixed">system (icone di Windows), flat (Daleris), phosphor o il nome della cartella di un pacchetto di icone. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="IconPackExplain_ExplainRecommended">system (icone di Windows), flat (Daleris), phosphor o il nome della cartella di un pacchetto di icone. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="NewTabOpens">Dove si apre una nuova scheda</string>
+      <string id="NewTabOpensExplain_ExplainFixed">home, same (la cartella della scheda in primo piano), thispc (Questo PC) o il percorso di una cartella. Con Maiusc, una nuova scheda apre sempre la cartella della scheda in primo piano. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="NewTabOpensExplain_ExplainRecommended">home, same (la cartella della scheda in primo piano), thispc (Questo PC) o il percorso di una cartella. Con Maiusc, una nuova scheda apre sempre la cartella della scheda in primo piano. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="RibbonLeft">Barra dei comandi: lato sinistro</string>
+      <string id="RibbonLeftExplain_ExplainFixed">Voci separate da barre verticali. Ciò che non è elencato su nessuno dei due lati non viene mostrato. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="RibbonLeftExplain_ExplainRecommended">Voci separate da barre verticali. Ciò che non è elencato su nessuno dei due lati non viene mostrato. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="RibbonRight">Barra dei comandi: lato destro</string>
+      <string id="RibbonRightExplain_ExplainFixed">Voci separate da barre verticali. Ciò che non è elencato su nessuno dei due lati non viene mostrato. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="RibbonRightExplain_ExplainRecommended">Voci separate da barre verticali. Ciò che non è elencato su nessuno dei due lati non viene mostrato. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="RibbonHidden">Barra dei comandi: voci nascoste</string>
+      <string id="RibbonHiddenExplain_ExplainFixed">Voci separate da barre verticali. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="RibbonHiddenExplain_ExplainRecommended">Voci separate da barre verticali. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SidebarHiddenSections">Barra laterale: sezioni nascoste</string>
+      <string id="SidebarHiddenSectionsExplain_ExplainFixed">Una qualsiasi tra quick, cloud, pc, network, separate da barre verticali. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SidebarHiddenSectionsExplain_ExplainRecommended">Una qualsiasi tra quick, cloud, pc, network, separate da barre verticali. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SidebarPins">Barra laterale: cartelle aggiunte</string>
+      <string id="SidebarPinsExplain_ExplainFixed">Cartelle aggiunte alla barra laterale, separate da barre verticali. Scrivi sezione&gt;cartella per aggiungerla a una sezione (quick, cloud, pc, network), o solo la cartella per Accesso rapido. Le variabili d'ambiente come %USERPROFILE% funzionano. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SidebarPinsExplain_ExplainRecommended">Cartelle aggiunte alla barra laterale, separate da barre verticali. Scrivi sezione&gt;cartella per aggiungerla a una sezione (quick, cloud, pc, network), o solo la cartella per Accesso rapido. Le variabili d'ambiente come %USERPROFILE% funzionano. Questo valore è predefinito: vale la prima volta che Daleris viene eseguito, e gli utenti possono sempre cambiarlo.</string>
+      <string id="SidebarOrder">Barra laterale: ordine delle sezioni</string>
+      <string id="SidebarOrderExplain_ExplainFixed">Nomi delle sezioni in ordine, separati da barre verticali: quick, cloud, pc, network. Le sezioni non elencate seguono nel loro ordine consueto. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="SidebarOrderExplain_ExplainRecommended">Nomi delle sezioni in ordine, separati da barre verticali: quick, cloud, pc, network. Le sezioni non elencate seguono nel loro ordine consueto. Questo valore è predefinito: vale la prima volta che Daleris viene eseguito, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ContextMenuHidden">Menu di scelta rapida: voci nascoste</string>
+      <string id="ContextMenuHiddenExplain_ExplainFixed">Voci che il menu di scelta rapida non mostra mai, separate da barre verticali. Le voci di Daleris si chiamano app:, come app:terminal o app:runadmin; quelle di Windows v: e il loro verbo, come v:open, oppure l: e la loro etichetta in minuscolo, come l:apri con. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ContextMenuHiddenExplain_ExplainRecommended">Voci che il menu di scelta rapida non mostra mai, separate da barre verticali. Le voci di Daleris si chiamano app:, come app:terminal o app:runadmin; quelle di Windows v: e il loro verbo, come v:open, oppure l: e la loro etichetta in minuscolo, come l:apri con. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ContextMenuMoreOptions">Menu di scelta rapida: voci in Mostra altre opzioni</string>
+      <string id="ContextMenuMoreOptionsExplain_ExplainFixed">Voci spostate nel sottomenu Mostra altre opzioni, separate da barre verticali. Le voci di Daleris si chiamano app:, come app:terminal o app:runadmin; quelle di Windows v: e il loro verbo, come v:open, oppure l: e la loro etichetta in minuscolo, come l:apri con. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ContextMenuMoreOptionsExplain_ExplainRecommended">Voci spostate nel sottomenu Mostra altre opzioni, separate da barre verticali. Le voci di Daleris si chiamano app:, come app:terminal o app:runadmin; quelle di Windows v: e il loro verbo, come v:open, oppure l: e la loro etichetta in minuscolo, come l:apri con. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ContextMenuOrder">Menu di scelta rapida: ordine delle voci</string>
+      <string id="ContextMenuOrderExplain_ExplainFixed">Voci nell'ordine in cui le mostra il menu di scelta rapida, separate da barre verticali. Le voci non elencate seguono nel loro ordine consueto. Le voci di Daleris si chiamano app:, come app:terminal o app:runadmin; quelle di Windows v: e il loro verbo, come v:open, oppure l: e la loro etichetta in minuscolo, come l:apri con. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ContextMenuOrderExplain_ExplainRecommended">Voci nell'ordine in cui le mostra il menu di scelta rapida, separate da barre verticali. Le voci non elencate seguono nel loro ordine consueto. Le voci di Daleris si chiamano app:, come app:terminal o app:runadmin; quelle di Windows v: e il loro verbo, come v:open, oppure l: e la loro etichetta in minuscolo, come l:apri con. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="CustomCommands">Menu di scelta rapida: comandi personalizzati</string>
+      <string id="CustomCommandsExplain_ExplainFixed">Comandi aggiunti al menu di scelta rapida, separati da barre verticali. Ognuno è nome&gt;comando, o nome&gt;elementi&gt;comando, dove elementi è all, files, folders, background o ext:jpg,png. Nel comando, {path}, {paths}, {name} e {dir} indicano gli elementi su cui si è fatto clic con il pulsante destro. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="CustomCommandsExplain_ExplainRecommended">Comandi aggiunti al menu di scelta rapida, separati da barre verticali. Ognuno è nome&gt;comando, o nome&gt;elementi&gt;comando, dove elementi è all, files, folders, background o ext:jpg,png. Nel comando, {path}, {paths}, {name} e {dir} indicano gli elementi su cui si è fatto clic con il pulsante destro. Questo valore è predefinito: vale la prima volta che Daleris viene eseguito, e gli utenti possono sempre cambiarlo.</string>
+      <string id="DisableUpdates">Disattiva gli aggiornamenti</string>
+      <string id="DisableUpdatesExplain">Daleris non cerca aggiornamenti e non li installa, nemmeno da Impostazioni. Usa questa opzione se distribuisci tu le nuove versioni. L'attività che aggiorna un'installazione per tutto il PC legge solo Configurazione computer, quindi per queste installazioni impostala lì.</string>
+      <string id="LockRibbon">Blocca la barra dei comandi</string>
+      <string id="LockRibbonExplain">La barra dei comandi resta come definita dai criteri qui presenti e non può essere personalizzata.</string>
+      <string id="LockSidebar">Blocca la barra laterale</string>
+      <string id="LockSidebarExplain">Non è possibile riordinare o nascondere le sezioni e le posizioni della barra laterale, né aggiungervi cartelle.</string>
+      <string id="LockContextMenu">Blocca il menu di scelta rapida</string>
+      <string id="LockContextMenuExplain">Il menu di scelta rapida non può essere personalizzato.</string>
+      <string id="DisableCustomCommands">Disattiva i comandi personalizzati</string>
+      <string id="DisableCustomCommandsExplain">I comandi aggiunti dagli utenti non vengono mostrati né eseguiti, e non se ne possono aggiungere.</string>
+      <string id="ExplorerOpenFolders">Apri le cartelle in Daleris</string>
+      <string id="ExplorerOpenFoldersExplain_ExplainFixed">Le cartelle aperte dal desktop, da Start e dalla maggior parte delle app si aprono in Daleris. Solo Windows. Se disattivato, ciò che questa opzione ha scritto per un utente viene rimosso al successivo avvio di Daleris per quell'utente, o prima se è in esecuzione; anche il programma di avvio e la DLL vi si attengono subito. Se attivato, ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerOpenFoldersExplain_ExplainRecommended">Le cartelle aperte dal desktop, da Start e dalla maggior parte delle app si aprono in Daleris. Solo Windows. Ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerWinE">Win + E apre Daleris</string>
+      <string id="ExplorerWinEExplain_ExplainFixed">Win + E apre Daleris, tramite l'impostazione che Windows legge per questa scelta rapida da tastiera. Solo Windows. Se disattivato, ciò che questa opzione ha scritto per un utente viene rimosso al successivo avvio di Daleris per quell'utente, o prima se è in esecuzione; anche il programma di avvio e la DLL vi si attengono subito. Se attivato, ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerWinEExplain_ExplainRecommended">Win + E apre Daleris, tramite l'impostazione che Windows legge per questa scelta rapida da tastiera. Solo Windows. Ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerWinEHook">Win + E apre Daleris tramite un hook della tastiera</string>
+      <string id="ExplorerWinEHookExplain_ExplainFixed">Un piccolo programma in background intercetta Win + E, per le build di Windows che ignorano l'impostazione. Viene eseguito dall'accesso. Solo Windows. Se disattivato, ciò che questa opzione ha scritto per un utente viene rimosso al successivo avvio di Daleris per quell'utente, o prima se è in esecuzione; anche il programma di avvio e la DLL vi si attengono subito. Se attivato, ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerWinEHookExplain_ExplainRecommended">Un piccolo programma in background intercetta Win + E, per le build di Windows che ignorano l'impostazione. Viene eseguito dall'accesso. Solo Windows. Ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerSelectFile">"Mostra nella cartella" seleziona il file</string>
+      <string id="ExplorerSelectFileExplain_ExplainFixed">Quando un'app mostra un file nella sua cartella tramite l'apposita chiamata di Windows, il file viene selezionato. Richiede che le cartelle si aprano in Daleris. Solo Windows. Se disattivato, ciò che questa opzione ha scritto per un utente viene rimosso al successivo avvio di Daleris per quell'utente, o prima se è in esecuzione; anche il programma di avvio e la DLL vi si attengono subito. Se attivato, ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerSelectFileExplain_ExplainRecommended">Quando un'app mostra un file nella sua cartella tramite l'apposita chiamata di Windows, il file viene selezionato. Richiede che le cartelle si aprano in Daleris. Solo Windows. Ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerSingleWindow">Apri le nuove cartelle come schede nella finestra in esecuzione</string>
+      <string id="ExplorerSingleWindowExplain_ExplainFixed">Le cartelle aperte dall'esterno diventano schede nella finestra già aperta. Solo Windows. Se disattivato, ciò che questa opzione ha scritto per un utente viene rimosso al successivo avvio di Daleris per quell'utente, o prima se è in esecuzione; anche il programma di avvio e la DLL vi si attengono subito. Se attivato, ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerSingleWindowExplain_ExplainRecommended">Le cartelle aperte dall'esterno diventano schede nella finestra già aperta. Solo Windows. Ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerFileDialogs">Le finestre Apri e Salva usano Daleris</string>
+      <string id="ExplorerFileDialogsExplain_ExplainFixed">Le app che chiedono a Windows una finestra di dialogo file moderna ottengono Daleris, tramite una registrazione COM per utente che carica una DLL nell'app quando apre la finestra. Anche i controlli aggiunti dall'app vengono mostrati da Daleris. Giochi, launcher, anti-cheat e software di sicurezza ottengono sempre la finestra di Windows. Solo Windows. Se disattivato, ciò che questa opzione ha scritto per un utente viene rimosso al successivo avvio di Daleris per quell'utente, o prima se è in esecuzione; anche il programma di avvio e la DLL vi si attengono subito. Se attivato, ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerFileDialogsExplain_ExplainRecommended">Le app che chiedono a Windows una finestra di dialogo file moderna ottengono Daleris, tramite una registrazione COM per utente che carica una DLL nell'app quando apre la finestra. Giochi, launcher, anti-cheat e software di sicurezza ottengono sempre la finestra di Windows. Solo Windows. Ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerDialogJump">Ctrl + G porta una finestra di dialogo file di Windows alla cartella di Daleris</string>
+      <string id="ExplorerDialogJumpExplain_ExplainFixed">Mentre una finestra di dialogo file di Windows è in primo piano, Ctrl + G porta la finestra alla cartella mostrata da Daleris, o segnala che Daleris non è aperto. Per questo, dall'accesso viene eseguito un piccolo programma in background. Non carica nulla nell'app. Solo Windows. Se disattivato, ciò che questa opzione ha scritto per un utente viene rimosso al successivo avvio di Daleris per quell'utente, o prima se è in esecuzione; anche il programma di avvio e la DLL vi si attengono subito. Se attivato, ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerDialogJumpExplain_ExplainRecommended">Mentre una finestra di dialogo file di Windows è in primo piano, Ctrl + G porta la finestra alla cartella mostrata da Daleris, o segnala che Daleris non è aperto. Per questo, dall'accesso viene eseguito un piccolo programma in background. Non carica nulla nell'app. Solo Windows. Ha effetto solo dopo che Daleris è stato eseguito per quell'utente. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerDialogExclusions">App che mantengono la finestra di dialogo file di Windows</string>
+      <string id="ExplorerDialogExclusionsExplain_ExplainFixed">Nomi di programmi o cartelle, separati da barre verticali. !name.exe consente a Daleris di mostrare le finestre di dialogo di un browser. Giochi, anti-cheat e software di sicurezza restano sempre esclusi, qualunque cosa ci sia scritto qui. Solo Windows. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerDialogExclusionsExplain_ExplainRecommended">Nomi di programmi o cartelle, separati da barre verticali. !name.exe consente a Daleris di mostrare le finestre di dialogo di un browser. Giochi, anti-cheat e software di sicurezza restano sempre esclusi, qualunque cosa ci sia scritto qui. Solo Windows. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+      <string id="ExplorerDialogLog">Registra le decisioni sulle finestre di dialogo file</string>
+      <string id="ExplorerDialogLogExplain_ExplainFixed">La DLL delle finestre di dialogo file scrive in %LOCALAPPDATA%\Daleris\logs\file-dialogs.log quali app hanno chiesto una finestra di dialogo e cosa ha deciso. Solo Windows. Questo valore è fisso: vale per tutti coloro a cui si applica e appare in grigio nell'app. Se non è configurato, ciascuno sceglie da sé.</string>
+      <string id="ExplorerDialogLogExplain_ExplainRecommended">La DLL delle finestre di dialogo file scrive in %LOCALAPPDATA%\Daleris\logs\file-dialogs.log quali app hanno chiesto una finestra di dialogo e cosa ha deciso. Solo Windows. Questo valore è predefinito: vale finché un utente non sceglie un proprio valore nell'app, e gli utenti possono sempre cambiarlo.</string>
+    </stringTable>
+    <presentationTable>
+      <presentation id="DefaultSort"><dropdownList refId="DefaultSort" noSort="true" /></presentation>
+      <presentation id="DefaultView"><dropdownList refId="DefaultView" noSort="true" /></presentation>
+      <presentation id="Theme"><dropdownList refId="Theme" noSort="true" /></presentation>
+      <presentation id="AccentColor"><dropdownList refId="AccentColor" noSort="true" /></presentation>
+      <presentation id="RowHeight"><dropdownList refId="RowHeight" noSort="true" /></presentation>
+      <presentation id="IconPack"><textBox refId="IconPack"><label>Pacchetto di icone</label></textBox></presentation>
+      <presentation id="NewTabOpens"><textBox refId="NewTabOpens"><label>Dove si apre una nuova scheda</label></textBox></presentation>
+      <presentation id="RibbonLeft"><textBox refId="RibbonLeft"><label>Barra dei comandi: lato sinistro</label></textBox></presentation>
+      <presentation id="RibbonRight"><textBox refId="RibbonRight"><label>Barra dei comandi: lato destro</label></textBox></presentation>
+      <presentation id="RibbonHidden"><textBox refId="RibbonHidden"><label>Barra dei comandi: voci nascoste</label></textBox></presentation>
+      <presentation id="SidebarHiddenSections"><textBox refId="SidebarHiddenSections"><label>Barra laterale: sezioni nascoste</label></textBox></presentation>
+      <presentation id="SidebarPins"><textBox refId="SidebarPins"><label>Barra laterale: cartelle aggiunte</label></textBox></presentation>
+      <presentation id="SidebarOrder"><textBox refId="SidebarOrder"><label>Barra laterale: ordine delle sezioni</label></textBox></presentation>
+      <presentation id="ContextMenuHidden"><textBox refId="ContextMenuHidden"><label>Menu di scelta rapida: voci nascoste</label></textBox></presentation>
+      <presentation id="ContextMenuMoreOptions"><textBox refId="ContextMenuMoreOptions"><label>Menu di scelta rapida: voci in Mostra altre opzioni</label></textBox></presentation>
+      <presentation id="ContextMenuOrder"><textBox refId="ContextMenuOrder"><label>Menu di scelta rapida: ordine delle voci</label></textBox></presentation>
+      <presentation id="CustomCommands"><textBox refId="CustomCommands"><label>Menu di scelta rapida: comandi personalizzati</label></textBox></presentation>
+      <presentation id="ExplorerDialogExclusions"><textBox refId="ExplorerDialogExclusions"><label>App che mantengono la finestra di dialogo file di Windows</label></textBox></presentation>
+      <presentation id="SearchSkipFolders"><multiTextBox refId="SearchSkipFolders">Cartelle, una per riga</multiTextBox></presentation>
+      <presentation id="SearchSkipFolderNames"><multiTextBox refId="SearchSkipFolderNames">Nomi di cartelle, uno per riga</multiTextBox></presentation>
+      <presentation id="SearchSkipFileTypes"><multiTextBox refId="SearchSkipFileTypes">Tipi di file, uno per riga</multiTextBox></presentation>
+      <presentation id="SearchSkipPatterns"><multiTextBox refId="SearchSkipPatterns">Espressioni regolari, una per riga</multiTextBox></presentation>
+    </presentationTable>
+  </resources>
+</policyDefinitionResources>

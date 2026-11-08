@@ -2,6 +2,8 @@
 Type=Application
 Name=Daleris
 Comment=A fast file explorer
+Comment[de]=Ein schneller Dateimanager
+Comment[it]=Un gestore di file veloce
 Exec=daleris %f
 Icon=daleris
 Terminal=false

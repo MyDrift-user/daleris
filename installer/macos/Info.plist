@@ -7,6 +7,8 @@
   <key>CFBundleIdentifier</key><string>io.github.mydrift-user.daleris</string>
   <key>CFBundleExecutable</key><string>daleris</string>
   <key>CFBundleIconFile</key><string>icon</string>
+  <key>CFBundleDevelopmentRegion</key><string>en</string>
+  <key>CFBundleLocalizations</key><array><string>en</string><string>de</string><string>it</string></array>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleVersion</key><string>__VERSION__</string>
   <key>CFBundleShortVersionString</key><string>__VERSION__</string>

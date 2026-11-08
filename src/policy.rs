@@ -473,9 +473,10 @@ mod tests {
     fn the_templates_name_everything_they_use_in_every_language() {
         let en = include_str!("../PolicyDefinitions/en-US/Daleris.adml");
         let de = include_str!("../PolicyDefinitions/de-DE/Daleris.adml");
+        let it = include_str!("../PolicyDefinitions/it-IT/Daleris.adml");
         for (from, to) in [("$(string.", r#"<string id=""#), ("$(presentation.", r#"<presentation id=""#)] {
             for used in ADMX.split(from).skip(1).map(|s| &s[..s.find(')').unwrap()]) {
-                for (language, text) in [("en-US", en), ("de-DE", de)] {
+                for (language, text) in [("en-US", en), ("de-DE", de), ("it-IT", it)] {
                     assert!(text.contains(&format!(r#"{to}{used}""#)), "{language} has no {used}");
                 }
             }
