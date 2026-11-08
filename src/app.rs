@@ -340,6 +340,8 @@ enum NoDrop {
     IntoItself,
     /// Moving things to the folder they're already in.
     AlreadyThere,
+    /// nothing can be added there now
+    Cant(fsx::NoWrite),
 }
 
 /// What dropping `srcs` on `dest` does, and to which of them.
@@ -1258,6 +1260,8 @@ pub struct App {
     drives_busy: Arc<AtomicBool>,
     /// network drives that haven't said how they are yet, since when
     drive_wait: HashMap<char, Instant>,
+    /// what dropping into a folder would run into, checked once per drag
+    drop_checks: HashMap<PathBuf, Arc<std::sync::OnceLock<Result<(), fsx::NoWrite>>>>,
     drive_poll: Instant,
     /// the preview that's wanted now, so that ones nobody wants any more don't run
     preview_wanted: Arc<std::sync::atomic::AtomicU64>,
@@ -1378,6 +1382,7 @@ impl App {
             sys_check: 0.0,
             drives_busy: Arc::new(AtomicBool::new(false)),
             drive_wait: HashMap::new(),
+            drop_checks: HashMap::new(),
             drive_poll: Instant::now(),
             preview_wanted: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             ops: Vec::new(),

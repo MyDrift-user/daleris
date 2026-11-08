@@ -328,8 +328,9 @@ impl App {
         } else if resp.hovered() || files_hover {
             ui.painter().rect_filled(rect, CornerRadius::same(5), ROW_HOVER());
         }
-        if files_hover {
-            ui.painter().rect_stroke(rect, CornerRadius::same(5), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+        if let (true, Some(Loc::Dir(d))) = (files_hover, &item.loc) {
+            let ok = self.drop_ok(ui.ctx(), d);
+            list::drop_mark(ui.painter(), rect, 5, ok);
         }
         if reorder_hover {
             ui.painter().line_segment([rect.left_top(), rect.right_top()], Stroke::new(2.0_f32, ACCENT()));

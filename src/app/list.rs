@@ -400,7 +400,8 @@ impl App {
                     ui.painter().rect_filled(inner, CornerRadius::same(4), c);
                 }
                 if drop_target {
-                    ui.painter().rect_stroke(inner, CornerRadius::same(4), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+                    let ok = self.drop_ok(ui.ctx(), &row.path);
+                    drop_mark(ui.painter(), inner, 4, ok);
                 }
                 let cy = rect.center().y;
                 let mut x = rect.left() + COL_LEFT;
@@ -534,7 +535,8 @@ impl App {
                             ui.painter().rect_filled(inner, CornerRadius::same(6), ROW_HOVER());
                         }
                         if drop_target {
-                            ui.painter().rect_stroke(inner, CornerRadius::same(6), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+                            let ok = self.drop_ok(ui.ctx(), &row.path);
+                            drop_mark(ui.painter(), inner, 6, ok);
                         }
                         let img = Rect::from_min_size(inner.min + vec2(10.0, 6.0), vec2(inner.width() - 20.0, 76.0));
                         self.draw_thumb(ui, img, &row.path, &row.ext, row.is_dir, row.attrs, row.mtime);
@@ -667,7 +669,8 @@ impl App {
 
     /// A place dragged files can be dropped into `dest`: true while they're over it, so it can light up.
     /// Letting go moves or copies them there.
-    pub(super) fn drop_zone(&mut self, ui: &Ui, resp: &Response, dest: &Path) -> bool {
+    /// Files dragged over `resp` go into `dest` when let go. Some(whether they can) while they're over it.
+    pub(super) fn drop_zone(&mut self, ui: &Ui, resp: &Response, dest: &Path) -> Option<bool> {
         let over = resp.dnd_hover_payload::<DragFiles>().is_some();
         // A folder row is handled before the empty space behind it, and takes the drop from it.
         if over && self.drop_hint.is_none() {
@@ -676,32 +679,84 @@ impl App {
         // egui hands over whatever is being dragged to the first one asking, so only ask for files
         let files = egui::DragAndDrop::has_payload_of_type::<DragFiles>(ui.ctx());
         if let Some(drag) = if files { resp.dnd_release_payload::<DragFiles>() } else { None } {
-            self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dest.to_path_buf(), mode: DropMode::of(ui.input(|i| i.modifiers)) });
+            if self.drop_verdict(ui.ctx(), dest).is_some_and(|v| v.is_ok()) {
+                self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dest.to_path_buf(), mode: DropMode::of(ui.input(|i| i.modifiers)) });
+            }
         }
-        over
+        over.then(|| self.drop_verdict(ui.ctx(), dest).is_some_and(|v| v.is_ok()))
+    }
+
+    /// What letting go of the dragged files on `dest` would do, or why it can't; None when no files are dragged.
+    pub(super) fn drop_verdict(&mut self, ctx: &egui::Context, dest: &Path) -> Option<Result<Op, NoDrop>> {
+        let drag = egui::DragAndDrop::payload::<DragFiles>(ctx)?;
+        let op = match drop_plan(&drag.0, dest, DropMode::of(ctx.input(|i| i.modifiers))) {
+            Ok((op, _)) => op,
+            Err(e) => return Some(Err(e)),
+        };
+        // what's known about its drive already, without asking a drive that may not answer
+        if let Some(d) = self.drives.iter().find(|d| fsx::is_under(dest, &d.root)) {
+            if self.drive_offline(d) {
+                return Some(Err(NoDrop::Cant(fsx::NoWrite::Unreachable)));
+            }
+            if d.checked && !d.ready {
+                return Some(Err(NoDrop::Cant(fsx::NoWrite::NotReady)));
+            }
+        }
+        let check = self.drop_checks.entry(dest.to_path_buf()).or_insert_with(|| {
+            let cell = Arc::new(std::sync::OnceLock::new());
+            let (c, d, ctx) = (cell.clone(), dest.to_path_buf(), ctx.clone());
+            // one at a time per server, so a dead one holds up nothing else
+            bg::submit(dest, "drop-check", move || {
+                let _ = c.set(fsx::can_add_to(&d));
+                ctx.request_repaint();
+            });
+            cell
+        });
+        // until it's known, it looks possible: most places are
+        Some(match check.get() {
+            Some(Err(why)) => Err(NoDrop::Cant(*why)),
+            _ => Ok(op),
+        })
+    }
+
+    /// Whether files dragged over this folder could go into it; true when nothing is dragged.
+    pub(super) fn drop_ok(&mut self, ctx: &egui::Context, dest: &Path) -> bool {
+        self.drop_verdict(ctx, dest).is_none_or(|v| v.is_ok())
     }
 
     /// The label beside the pointer while files are dragged: what letting go would do, and where.
     pub(super) fn drag_overlay(&mut self, ctx: &egui::Context) {
         let hint = self.drop_hint.take();
-        let (Some(p), Some(pos)) = (egui::DragAndDrop::payload::<DragFiles>(ctx), ctx.pointer_interact_pos()) else { return };
+        let (Some(p), Some(pos)) = (egui::DragAndDrop::payload::<DragFiles>(ctx), ctx.pointer_interact_pos()) else {
+            // the next drag asks again: rights and drives change
+            self.drop_checks.clear();
+            return;
+        };
         let n = p.0.len();
         let items = format!("{n} item{}", if n == 1 { "" } else { "s" });
         let (text, possible) = match &hint {
             None => (items, true),
             Some(dest) => {
-                let name = dest.file_name().map_or_else(|| dest.to_string_lossy().to_string(), |n| n.to_string_lossy().to_string());
-                match drop_plan(&p.0, dest, DropMode::of(ctx.input(|i| i.modifiers))) {
-                    Ok((op, _)) => (format!("{} {items} to {name}", if op == Op::Copy { "Copy" } else { "Move" }), true),
-                    Err(NoDrop::IntoItself) => ("A folder can't go inside itself".to_string(), false),
-                    Err(NoDrop::AlreadyThere) => (format!("Already in {name}"), false),
+                // a drive by its name, as everywhere else
+                let drive = self.drives.iter().find(|d| fsx::same_path(&d.root, dest)).map(|d| d.title());
+                let name = drive.unwrap_or_else(|| dest.file_name().map_or_else(|| dest.to_string_lossy().to_string(), |n| n.to_string_lossy().to_string()));
+                match self.drop_verdict(ctx, dest) {
+                    None | Some(Ok(Op::Copy)) => (format!("Copy {items} to {name}"), true),
+                    Some(Ok(_)) => (format!("Move {items} to {name}"), true),
+                    Some(Err(why)) => (why_no_drop(why, &name), false),
                 }
             }
         };
+        if !possible {
+            ctx.set_cursor_icon(egui::CursorIcon::NoDrop);
+        }
         let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("dragtip")));
-        let g = painter.layout_no_wrap(text, FontId::proportional(13.0), if possible { TEXT() } else { DIM() });
+        let g = painter.layout_no_wrap(if possible { text } else { format!("{}  {text}", ic(I_CLOSE)) }, if possible { FontId::proportional(13.0) } else { icon_font(13.0) }, TEXT());
         let r = Rect::from_min_size(pos + vec2(14.0, 14.0), g.size() + vec2(16.0, 10.0));
         painter.rect_filled(r, CornerRadius::same(5), if possible { SEL_STRONG() } else { RAISED() });
+        if !possible {
+            painter.rect_stroke(r, CornerRadius::same(5), Stroke::new(1.0_f32, WARN()), StrokeKind::Inside);
+        }
         painter.galley(r.min + vec2(8.0, 5.0), g, TEXT());
     }
 
@@ -891,5 +946,29 @@ impl App {
             ui.add_space(14.0);
             ui.label(egui::RichText::new("Select a file to preview it.").color(FAINT()));
         });
+    }
+}
+
+/// Why the dragged files can't go into the folder called `name`, beside the pointer.
+fn why_no_drop(why: NoDrop, name: &str) -> String {
+    use fsx::NoWrite::*;
+    match why {
+        NoDrop::IntoItself => "A folder can't go inside itself".into(),
+        NoDrop::AlreadyThere => format!("Already in {name}"),
+        NoDrop::Cant(NoAccess) => format!("You don't have permission to add to {name}"),
+        NoDrop::Cant(ReadOnly) => format!("{name} is read-only"),
+        NoDrop::Cant(NotReady) => format!("{name} isn't ready: no disk in the drive, or it's locked"),
+        NoDrop::Cant(Unreachable) => format!("{name} can't be reached right now"),
+        NoDrop::Cant(SignIn) => format!("{name} needs you to sign in again"),
+    }
+}
+
+/// The outline of a place files are dragged over: the accent where they can go, the warning colour where they can't.
+pub(super) fn drop_mark(p: &egui::Painter, r: Rect, radius: u8, ok: bool) {
+    if ok {
+        p.rect_stroke(r, CornerRadius::same(radius), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+    } else {
+        p.rect_filled(r, CornerRadius::same(radius), WARN().gamma_multiply(0.12));
+        p.rect_stroke(r, CornerRadius::same(radius), Stroke::new(1.5_f32, WARN()), StrokeKind::Inside);
     }
 }

@@ -548,3 +548,16 @@ pub fn watch(path: &Path, on_change: impl Fn() + Send + 'static) -> Watcher {
 pub fn reconnect_for(_path: &Path, _owner: isize, _ask: bool) -> Result<(), FolderError> {
     Err(FolderError::new(FailKind::Other, "This isn't a mapped drive"))
 }
+
+/// Whether files can be added to `dir`. Can take as long as a server takes to not answer, so not on the window's thread.
+pub fn can_add_to(dir: &Path) -> Result<(), NoWrite> {
+    let Ok(c) = CString::new(dir.as_os_str().as_bytes()) else { return Err(NoWrite::Unreachable) };
+    if unsafe { libc::access(c.as_ptr(), libc::W_OK | libc::X_OK) } == 0 {
+        return Ok(());
+    }
+    Err(match std::io::Error::last_os_error().raw_os_error() {
+        Some(libc::EROFS) => NoWrite::ReadOnly,
+        Some(libc::EACCES) | Some(libc::EPERM) => NoWrite::NoAccess,
+        _ => NoWrite::Unreachable,
+    })
+}

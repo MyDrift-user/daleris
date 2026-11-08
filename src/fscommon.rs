@@ -53,6 +53,19 @@ pub fn is_dot_name(name: &str) -> bool {
     name.starts_with('.')
 }
 
+/// Why nothing can be added to a folder right now.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum NoWrite {
+    NoAccess,
+    ReadOnly,
+    /// a drive without a disk, or one that's locked
+    NotReady,
+    Unreachable,
+    /// the server wants a sign-in that isn't there or isn't right (Windows tells; Linux and macOS don't)
+    #[cfg_attr(not(windows), allow(dead_code))]
+    SignIn,
+}
+
 /// Why a folder can't be shown, in terms a person can do something about.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum FailKind {

@@ -647,3 +647,59 @@ mod classify_tests {
         assert_eq!(classify_code(9999, true, false), FailKind::Unreachable);
     }
 }
+
+/// Whether files can be added to `dir`: its permissions checked against Daleris's own rights, as Windows checks them,
+/// changing nothing. Opening the folder to find out would skip the check when Daleris runs as administrator. Can take as
+/// long as a server takes to not answer, so not on the window's thread.
+pub fn can_add_to(dir: &Path) -> Result<(), NoWrite> {
+    use windows::Win32::Security::Authorization::{GetNamedSecurityInfoW, SE_FILE_OBJECT};
+    use windows::Win32::Security::*;
+    use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
+    let w = long_path(dir);
+    let mut sd = PSECURITY_DESCRIPTOR::default();
+    let what = OWNER_SECURITY_INFORMATION | GROUP_SECURITY_INFORMATION | DACL_SECURITY_INFORMATION;
+    let rc = unsafe { GetNamedSecurityInfoW(PCWSTR(w.as_ptr()), SE_FILE_OBJECT, what, None, None, None, None, &mut sd) };
+    match rc {
+        ERROR_SUCCESS => {}
+        // not allowed to read the permissions says nothing about adding files
+        ERROR_ACCESS_DENIED => return read_only_volume(&w),
+        e => return Err(no_write(e)),
+    }
+    let allowed = unsafe {
+        let (mut token, mut imp) = (HANDLE::default(), HANDLE::default());
+        let ok = OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY | TOKEN_DUPLICATE, &mut token).is_ok() && DuplicateToken(token, SecurityImpersonation, &mut imp).is_ok();
+        let mapping = GENERIC_MAPPING { GenericRead: FILE_GENERIC_READ.0, GenericWrite: FILE_GENERIC_WRITE.0, GenericExecute: FILE_GENERIC_EXECUTE.0, GenericAll: FILE_ALL_ACCESS.0 };
+        let mut privileges = [0u8; 256];
+        let mut len = privileges.len() as u32;
+        let (mut granted, mut status) = (0u32, windows::core::BOOL(1));
+        let checked = ok && AccessCheck(sd, imp, FILE_ADD_FILE.0 | FILE_ADD_SUBDIRECTORY.0, &mapping, Some(privileges.as_mut_ptr() as *mut PRIVILEGE_SET), &mut len, &mut granted, &mut status).is_ok();
+        let _ = CloseHandle(token);
+        let _ = CloseHandle(imp);
+        let _ = windows::Win32::Foundation::LocalFree(Some(HLOCAL(sd.0)));
+        // if it can't be checked, it may well work
+        !checked || status.as_bool()
+    };
+    if !allowed {
+        return Err(NoWrite::NoAccess);
+    }
+    read_only_volume(&w)
+}
+
+/// A disc, or a drive Windows only reads.
+fn read_only_volume(path: &[u16]) -> Result<(), NoWrite> {
+    const FILE_READ_ONLY_VOLUME: u32 = 0x0008_0000;
+    let mut root = [0u16; 1024];
+    let mut flags = 0u32;
+    let got = unsafe { GetVolumePathNameW(PCWSTR(path.as_ptr()), &mut root).is_ok() && GetVolumeInformationW(PCWSTR(root.as_ptr()), None, None, None, Some(&mut flags), None).is_ok() };
+    if got && flags & FILE_READ_ONLY_VOLUME != 0 { Err(NoWrite::ReadOnly) } else { Ok(()) }
+}
+
+fn no_write(e: WIN32_ERROR) -> NoWrite {
+    match e {
+        ERROR_WRITE_PROTECT => NoWrite::ReadOnly,
+        ERROR_NOT_READY => NoWrite::NotReady,
+        ERROR_LOGON_FAILURE | ERROR_NOT_AUTHENTICATED | ERROR_INVALID_PASSWORD | ERROR_SESSION_CREDENTIAL_CONFLICT | ERROR_ACCOUNT_RESTRICTION | ERROR_PASSWORD_EXPIRED | ERROR_ACCOUNT_DISABLED => NoWrite::SignIn,
+        ERROR_ACCESS_DENIED => NoWrite::NoAccess,
+        _ => NoWrite::Unreachable,
+    }
+}

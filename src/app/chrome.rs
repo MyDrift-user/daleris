@@ -86,8 +86,8 @@ impl App {
                     if resp.dnd_hover_payload::<DragFiles>().is_some() {
                         tab_under_drag = Some(i);
                         if let Loc::Dir(d) = &loc {
-                            self.drop_zone(ui, &resp, d);
-                            ui.painter().rect_stroke(rect.shrink2(vec2(0.0, 2.0)), CornerRadius::same(6), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+                            let ok = self.drop_zone(ui, &resp, d).unwrap_or(true);
+                            list::drop_mark(ui.painter(), rect.shrink2(vec2(0.0, 2.0)), 6, ok);
                         }
                         match self.drag_tab_hover {
                             Some((at, since)) if at == i => {
@@ -302,8 +302,8 @@ impl App {
             }
             // each part of the path takes dropped files into that folder
             if let Loc::Dir(d) = loc {
-                if self.drop_zone(ui, &b, d) {
-                    child.painter().rect_stroke(b.rect, CornerRadius::same(4), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+                if let Some(ok) = self.drop_zone(ui, &b, d) {
+                    list::drop_mark(child.painter(), b.rect, 4, ok);
                 }
             }
         }
@@ -1114,10 +1114,11 @@ impl App {
     fn place_tile(&mut self, ui: &mut Ui, name: &str, path: &Path) {
         let (rect, resp) = ui.allocate_exact_size(vec2(200.0, 56.0), Sense::click());
         let path = path.to_path_buf();
-        let drop_here = self.drop_zone(ui, &resp, &path);
+        let drop = self.drop_zone(ui, &resp, &path);
+        let drop_here = drop.is_some();
         ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { ROW_HOVER() } else { TILE() });
-        if drop_here {
-            ui.painter().rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+        if let Some(ok) = drop {
+            list::drop_mark(ui.painter(), rect, 8, ok);
         }
         self.draw_icon(ui, Rect::from_center_size(rect.left_center() + vec2(28.0, 0.0), vec2(32.0, 32.0)), &path, "", true, fsx::A_READONLY);
         let g = truncated(ui, name, FontId::proportional(14.0), TEXT(), rect.width() - 64.0);
@@ -1132,10 +1133,12 @@ impl App {
 
     fn drive_card(&mut self, ui: &mut Ui, d: &Drive) {
         let (rect, resp) = ui.allocate_exact_size(vec2(290.0, 72.0), Sense::click());
-        let drop_here = !self.drive_offline(d) && self.drop_zone(ui, &resp, &d.root);
+        // an offline drive takes nothing, and says why
+        let drop = self.drop_zone(ui, &resp, &d.root);
+        let drop_here = drop.is_some();
         ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { ROW_HOVER() } else { TILE() });
-        if drop_here {
-            ui.painter().rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+        if let Some(ok) = drop {
+            list::drop_mark(ui.painter(), rect, 8, ok);
         }
         self.draw_icon(ui, Rect::from_center_size(rect.left_center() + vec2(30.0, 0.0), vec2(36.0, 36.0)), &d.root, "", true, 0);
         let x = rect.left() + 60.0;
