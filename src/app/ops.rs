@@ -78,14 +78,33 @@ impl App {
                             }
                         });
                     });
-                    ui.add_space(6.0);
-                    let (bar, line) = progress_text(j.kind, &p);
-                    ui.add(egui::ProgressBar::new(bar.unwrap_or(0.0)).desired_height(6.0).animate(bar.is_none()));
+                    let r = readout(j.kind, &p);
+                    // what's being worked on, and which of how many
+                    ui.horizontal(|ui| {
+                        let name = if j.question().is_some() { "Waiting for your answer".to_string() } else { p.current.clone() };
+                        ui.add(egui::Label::new(egui::RichText::new(name).color(DIM())).truncate());
+                        if !r.count.is_empty() {
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.label(egui::RichText::new(&r.count).small().color(FAINT()));
+                            });
+                        }
+                    });
                     ui.add_space(4.0);
-                    let line = if j.question().is_some() { "Waiting for your answer".to_string() } else { line };
-                    ui.label(egui::RichText::new(line).small().color(DIM()));
-                    if !p.current.is_empty() {
-                        ui.add(egui::Label::new(egui::RichText::new(&p.current).small().color(FAINT())).truncate());
+                    ui.add(egui::ProgressBar::new(r.frac.unwrap_or(0.0)).desired_height(6.0).animate(r.frac.is_none()));
+                    ui.add_space(6.0);
+                    // two columns: how much on the left, how far and how long on the right
+                    let pair = |ui: &mut Ui, left: &str, right: &str, strong: bool| {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(left).color(if strong { TEXT() } else { DIM() }));
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                ui.label(egui::RichText::new(right).color(if strong { TEXT() } else { DIM() }));
+                            });
+                        });
+                    };
+                    let percent = r.frac.map(|f| format!("{:.0} %", f * 100.0)).unwrap_or_default();
+                    pair(ui, &r.amount, &percent, true);
+                    if r.speed.is_some() || r.left.is_some() {
+                        pair(ui, r.speed.as_deref().unwrap_or(""), r.left.as_deref().unwrap_or(""), false);
                     }
                 });
                 ui.add_space(8.0);
@@ -273,25 +292,39 @@ fn job_title(j: &Job) -> String {
     }
 }
 
-/// How far along it is (None while that isn't known yet), and a line saying so.
-fn progress_text(kind: Kind, p: &Progress) -> (Option<f32>, String) {
+/// What the card shows about how far along a job is, each in its own place.
+struct Readout {
+    /// None while that isn't known yet
+    frac: Option<f32>,
+    /// "1.2 GB of 4.8 GB", or "3 of 12 files"
+    amount: String,
+    /// "file 3 of 12", beside the name being worked on
+    count: String,
+    speed: Option<String>,
+    left: Option<String>,
+}
+
+fn readout(kind: Kind, p: &Progress) -> Readout {
+    let n = |v: u64| crate::util::fmt_count(v as usize);
+    // only worth saying when there's more than one
+    let count = if p.files_total > 1 { format!("file {} of {}", n((p.files_done + 1).min(p.files_total)), n(p.files_total)) } else { String::new() };
     if p.stage == Stage::Counting {
-        return (None, "Finding out how much there is".into());
+        return Readout { frac: None, amount: "Finding out how much there is".into(), count: String::new(), speed: None, left: None };
     }
     if kind == Kind::Delete || p.bytes_total == 0 {
         let frac = if p.files_total == 0 { 1.0 } else { p.files_done as f32 / p.files_total as f32 };
-        return (Some(frac), format!("{} of {} files", crate::util::fmt_count(p.files_done as usize), crate::util::fmt_count(p.files_total as usize)));
+        return Readout { frac: Some(frac), amount: format!("{} of {} files", n(p.files_done), n(p.files_total)), count: String::new(), speed: None, left: None };
     }
-    let frac = p.bytes_done as f32 / p.bytes_total as f32;
-    let mut line = format!("{} of {}", crate::util::fmt_size(p.bytes_done), crate::util::fmt_size(p.bytes_total));
+    let frac = (p.bytes_done as f32 / p.bytes_total as f32).clamp(0.0, 1.0);
+    let amount = format!("{} of {}", crate::util::fmt_size(p.bytes_done), crate::util::fmt_size(p.bytes_total));
     let secs = p.started.elapsed().as_secs_f64();
-    if secs > 1.0 && p.bytes_done > 0 {
+    let (speed, left) = if secs > 1.0 && p.bytes_done > 0 {
         let speed = p.bytes_done as f64 / secs;
-        line += &format!(" · {}/s", crate::util::fmt_size(speed as u64));
-        let left = (p.bytes_total.saturating_sub(p.bytes_done)) as f64 / speed;
-        line += &format!(" · {}", time_left(left));
-    }
-    (Some(frac.clamp(0.0, 1.0)), line)
+        (Some(format!("{}/s", crate::util::fmt_size(speed as u64))), Some(time_left(p.bytes_total.saturating_sub(p.bytes_done) as f64 / speed)))
+    } else {
+        (None, None)
+    };
+    Readout { frac: Some(frac), amount, count, speed, left }
 }
 
 fn time_left(secs: f64) -> String {
