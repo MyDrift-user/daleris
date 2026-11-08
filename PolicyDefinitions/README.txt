@@ -84,6 +84,8 @@ VALUES
   SearchHideRegex           DWORD     1 on, 0 off: the search box has no .* switch, and searches aren't regular
                                       expressions unless SearchRegex is set. Part of ExplorerLook, on by default on
                                       Windows
+  SearchHideHelp            DWORD     1 on, 0 off: the search box has no ? button, with the search syntax, Search all
+                                      drives and Rescan the index. Part of ExplorerLook, on by default on Windows
   SearchSkipAppData         DWORD     1: search never finds folders named AppData
   SearchSkipWindows         DWORD     1: search never finds folders named Windows, Program Files, Program Files (x86),
                                       ProgramData, $Recycle.Bin, System Volume Information, $WinREAgent or Recovery

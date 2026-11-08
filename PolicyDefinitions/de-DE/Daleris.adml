@@ -44,6 +44,7 @@
       <string id="SearchRegex">Suche als regulären Ausdruck behandeln</string>
       <string id="SearchHideSubfolders">Unterordner-Schalter im Suchfeld ausblenden</string>
       <string id="SearchHideRegex">Schalter für reguläre Ausdrücke im Suchfeld ausblenden</string>
+      <string id="SearchHideHelp">Hilfe-Schaltfläche (?) im Suchfeld ausblenden</string>
       <string id="CatSearch">Suche</string>
       <string id="SearchSkipAppData">App-Daten nie in der Suche finden</string>
       <string id="SearchSkipAppDataExplain_ExplainFixed">Die Suche lässt Ordner namens AppData samt Inhalt aus. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>

@@ -216,6 +216,7 @@ impl App {
                         s.regex_off_if_hidden();
                         changed = true;
                     }
+                    changed |= managed_toggle(ui, &mut s.search_hide_help, "search_hide_help", "No help button (?) in the search box");
                     if changed {
                         self.apply_theme();
                         self.refilter_tabs();

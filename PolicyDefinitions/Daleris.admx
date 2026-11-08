@@ -191,6 +191,12 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_SearchHideHelp" class="Both" displayName="$(string.SearchHideHelp)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchHideHelp">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Fixed_SearchSkipAppData" class="Both" displayName="$(string.SearchSkipAppData)" explainText="$(string.SearchSkipAppDataExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipAppData">
       <parentCategory ref="FixedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -617,6 +623,12 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_SearchHideRegex" class="Both" displayName="$(string.SearchHideRegex)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchHideRegex">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchHideHelp" class="Both" displayName="$(string.SearchHideHelp)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchHideHelp">
       <parentCategory ref="RecommendedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

@@ -1017,6 +1017,8 @@ impl App {
                     ch = true;
                 }
             });
+            ch |= managed_toggle(ui, &mut self.settings.search_hide_help, "search_hide_help", "Hide the help button (?) in the search box");
+            ui.label(egui::RichText::new("It has the search syntax, Search all drives and Rescan the index.").size(12.0).color(DIM()));
             if ch {
                 self.save_settings();
             }
