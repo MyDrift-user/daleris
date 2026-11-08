@@ -1000,6 +1000,9 @@ impl App {
                 self.refilter_tabs();
                 ch = true;
             }
+            ui.indent("search_sub_parts", |ui| {
+                ch |= managed_toggle(ui, &mut self.settings.search_hide_sub, "search_hide_sub", "Hide its switch in the search box");
+            });
             if managed_toggle(ui, &mut self.settings.regex_search, "regex_search", "Treat searches as regular expressions") {
                 self.refilter_tabs();
                 ch = true;

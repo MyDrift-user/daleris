@@ -209,6 +209,7 @@ impl App {
                         s.density = if compact { 0 } else { super::OWN_DENSITY };
                         changed = true;
                     }
+                    changed |= managed_toggle(ui, &mut s.search_hide_sub, "search_hide_sub", "No subfolders switch in the search box");
                     if changed {
                         self.apply_theme();
                     }

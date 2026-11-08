@@ -375,15 +375,23 @@ impl App {
         let cy = rect.center().y;
         ui.painter().text(pos2(rect.left() + 16.0, cy), Align2::CENTER_CENTER, ic(I_SEARCH), icon_font(13.0), DIM());
 
-        // right side, from the edge inwards: help (?), the Subfolders switch, the clear (×) button
-        // right side, from the edge inwards: help (?), regex (.*), subfolders, clear (×)
-        let help_r = Rect::from_center_size(pos2(rect.right() - 15.0, cy), vec2(24.0, 24.0));
-        let regex_r = Rect::from_center_size(pos2(help_r.left() - 13.0, cy), vec2(24.0, 24.0));
-        let chip_r = Rect::from_center_size(pos2(regex_r.left() - 14.0, cy), vec2(24.0, 24.0));
-        let clear_r = Rect::from_center_size(pos2(chip_r.left() - 14.0, cy), vec2(20.0, 20.0));
+        // right side, from the edge inwards: help (?), regex (.*), subfolders, clear (×); each of the first three can be
+        // switched off in Settings, and the rest move up
+        let mut edge = rect.right() - 3.0;
+        let mut slot = |show: bool, gap: f32| {
+            show.then(|| {
+                let r = Rect::from_center_size(pos2(edge - gap, cy), vec2(24.0, 24.0));
+                edge = r.left();
+                r
+            })
+        };
+        let help_r = slot(true, 12.0);
+        let regex_r = slot(true, if help_r.is_some() { 13.0 } else { 12.0 });
+        let chip_r = slot(!self.settings.search_hide_sub, if help_r.is_some() || regex_r.is_some() { 14.0 } else { 12.0 });
+        let clear_r = Rect::from_center_size(pos2(edge - 14.0, cy), vec2(20.0, 20.0));
         let in_dir = matches!(t.loc, Loc::Dir(_));
         let nested = self.settings.nested_search;
-        let text_right = if t.query.is_empty() { chip_r.left() - 6.0 } else { clear_r.left() - 2.0 };
+        let text_right = if t.query.is_empty() { edge - 6.0 } else { clear_r.left() - 2.0 };
 
         // the text field fills the bar's height and centres its text, so it lines up with the icon
         let edit_r = Rect::from_min_max(pos2(rect.left() + 30.0, rect.top() + 2.0), pos2(text_right, rect.bottom() - 2.0));
@@ -444,14 +452,14 @@ impl App {
         let tip = if sub_fixed { format!("{tip}\n\n{}", settings_page::MANAGED) } else { tip.to_string() };
         // one setting for every tab, like the regex switch next to it; only "all drives" is a tab's own
         let all_drives = t.scope == Scope::AllDrives;
-        let sub_clicked = square_toggle(ui, chip_r, "nested-search", self.settings.nested_search || all_drives, !sub_fixed && !all_drives, &tip, |p, r, col| {
+        let sub_clicked = chip_r.is_some_and(|chip_r| square_toggle(ui, chip_r, "nested-search", self.settings.nested_search || all_drives, !sub_fixed && !all_drives, &tip, |p, r, col| {
             // a folder with a branch below it: "this folder and the ones inside"
             p.text(r.center() + vec2(1.5, -2.5), Align2::CENTER_CENTER, ic(I_FOLDER), icon_font(11.0), col);
             let s = Stroke::new(1.3_f32, col);
             let a = r.center() + vec2(-6.0, -1.0);
             p.line_segment([a, a + vec2(0.0, 7.0)], s);
             p.line_segment([a + vec2(0.0, 7.0), a + vec2(4.0, 7.0)], s);
-        });
+        }));
         // square switch: regular expressions
         let rx_tip = match &t.query_error {
             Some(e) => format!("Regular expression: {}\n\nInvalid: {e}", if self.settings.regex_search { "on" } else { "off" }),
@@ -460,9 +468,9 @@ impl App {
         };
         let rx_fixed = policy::is_fixed("regex_search");
         let rx_tip = if rx_fixed { format!("{rx_tip}\n\n{}", settings_page::MANAGED) } else { rx_tip };
-        if square_toggle(ui, regex_r, "regex-search", self.settings.regex_search, !rx_fixed, &rx_tip, |p, r, col| {
+        if regex_r.is_some_and(|regex_r| square_toggle(ui, regex_r, "regex-search", self.settings.regex_search, !rx_fixed, &rx_tip, |p, r, col| {
             p.text(r.center() + vec2(0.0, -1.0), Align2::CENTER_CENTER, ".*", FontId::monospace(15.0), col);
-        }) {
+        })) {
             self.settings.regex_search = !self.settings.regex_search;
             self.save_settings();
             self.query_changed(t);
@@ -482,6 +490,7 @@ impl App {
         }
 
         // help: query syntax, all drives, rescan
+        let Some(help_r) = help_r else { return };
         let mut child = ui.new_child(egui::UiBuilder::new().max_rect(help_r).layout(egui::Layout::left_to_right(egui::Align::Center)));
         let before = t.scope;
         let own_scope = if self.settings.nested_search { Scope::Subfolders } else { Scope::ThisFolder };

@@ -614,6 +614,8 @@ pub struct Settings {
     nested_search: bool,
     /// search box '.*' switch: the whole search text is a regular expression
     regex_search: bool,
+    /// no subfolders switch in the search box, as in Explorer; "Search subfolders too" still decides
+    search_hide_sub: bool,
     /// what search never finds: a tick for each item of the ready-made groups, in the order of `search::SKIP_GROUPS`
     skip_groups: Vec<Vec<bool>>,
     skip_hidden: bool,
@@ -768,6 +770,7 @@ impl Settings {
             col_w: HashMap::new(),
             nested_search: true,
             regex_search: false,
+            search_hide_sub: cfg!(windows),
             // all of it but cloud folders, which hold the person's own files
             skip_groups: search::SKIP_GROUPS.iter().enumerate().map(|(g, (key, ..))| vec![*key != "search_skip_cloud"; search::group_items(g).len()]).collect(),
             skip_hidden: true,
@@ -879,6 +882,7 @@ impl Settings {
             && ((self.explorer_mica && self.explorer_mica_bar) || !shell::has_mica())
             && (self.icon_pack == "system" || prefers_bundled_icons())
             && self.density == 0
+            && self.search_hide_sub
     }
 
     /// Set every setting that makes up Explorer's look its way, or, for off, back to Daleris's own. Explorer's look is
@@ -890,6 +894,7 @@ impl Settings {
         self.explorer_mica_bar = true;
         self.icon_pack = if prefers_bundled_icons() { "flat" } else { "system" }.into();
         self.density = if on { 0 } else { OWN_DENSITY };
+        self.search_hide_sub = on;
     }
 
     fn pack(&self) -> &str {
@@ -1007,6 +1012,7 @@ impl Settings {
             "folder_sizes" => self.folder_sizes = on,
             "nested_search" => self.nested_search = on,
             "regex_search" => self.regex_search = on,
+            "search_hide_sub" => self.search_hide_sub = on,
             "search_skip_hidden" => self.skip_hidden = on,
             "search_skip_system" => self.skip_system = on,
             policy::SKIP_FOLDERS => self.skip_folders = policy::items(k, v),
@@ -1079,6 +1085,7 @@ impl Settings {
             ("folder_sizes", b(self.folder_sizes)),
             ("nested_search", b(self.nested_search)),
             ("regex_search", b(self.regex_search)),
+            ("search_hide_sub", b(self.search_hide_sub)),
             ("rleft", self.ribbon_left.join("|")),
             ("rright", self.ribbon_right.join("|")),
             ("rhide", off.join("|")),
@@ -3538,10 +3545,11 @@ mod tests {
         assert!(s.title_logo && !s.title_name);
         s.set_value("explorer_look", "0");
         assert!(!s.looks_like_explorer());
-        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica && s.density == OWN_DENSITY);
+        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica && s.density == OWN_DENSITY && !s.search_hide_sub);
         assert!(s.set_value("explorer_look", "1"));
         assert!(s.looks_like_explorer());
         assert!(s.explorer_colours && s.explorer_lines && s.density == 0 && s.title_logo, "the logo isn't part of the look");
+        assert!(s.search_hide_sub, "Explorer's search box has no subfolders switch");
         // one part set back and it no longer looks like Explorer, while the rest stay
         s.density = 1;
         assert!(!s.looks_like_explorer());
