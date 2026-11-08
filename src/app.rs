@@ -2478,11 +2478,11 @@ impl App {
     fn draw_this_pc(&mut self, ui: &Ui, rect: Rect) -> bool {
         #[cfg(windows)]
         if self.settings.pack() == "system" && !prefers_bundled_icons() {
-            let px = (rect.width().max(rect.height()) * ui.ctx().pixels_per_point()).round().clamp(16.0, 256.0) as u32;
+            let px = icon_px(ui, rect);
             let key = format!("kf:This PC|{px}");
             let id = windows::Win32::UI::Shell::FOLDERID_ComputerFolder;
             if let Some(tex) = self.tex(&key, || ImgReq::KnownFolder { key: key.clone(), id, px }) {
-                ui.painter().image(tex, rect, Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
+                ui.painter().image(tex, self.on_pixels(ui, rect, &key), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
                 return true;
             }
         }
@@ -2544,7 +2544,7 @@ impl App {
             return;
         }
         // the size it's drawn at, in pixels, so Windows's icon is fetched for it rather than stretched
-        let px = (rect.width().max(rect.height()) * ui.ctx().pixels_per_point()).round().clamp(16.0, 256.0) as u32;
+        let px = icon_px(ui, rect);
         // Known folders use the icon Explorer shows (their shell identity), not the disk folder's.
         let (key, req) = match place.filter(|_| !fsx::is_network_path(path)) {
             Some((name, kf)) => {
@@ -2554,10 +2554,20 @@ impl App {
             None => self.icon_key(path, ext, is_dir, attrs, px),
         };
         if let Some(id) = self.tex(&key, || req) {
-            ui.painter().image(id, rect, uv, tint);
+            ui.painter().image(id, self.on_pixels(ui, rect, &key), uv, tint);
         } else {
             self.draw_builtin(ui, rect, &target);
         }
+    }
+
+    /// Where to draw a loaded icon: at its own size in pixels, in the middle of `rect`, on whole pixels, so it's never
+    /// resampled, as Explorer draws them.
+    fn on_pixels(&self, ui: &Ui, rect: Rect, key: &str) -> Rect {
+        let Some(Slot::Ready(t)) = self.icons.get(key) else { return rect };
+        let ppp = ui.ctx().pixels_per_point();
+        let size = vec2(t.size()[0] as f32, t.size()[1] as f32) / ppp;
+        let min = rect.center() - size / 2.0;
+        Rect::from_min_size(pos2((min.x * ppp).round() / ppp, (min.y * ppp).round() / ppp), size)
     }
 
     fn draw_thumb(&mut self, ui: &Ui, rect: Rect, path: &Path, row_ext: &str, is_dir: bool, attrs: u32, mtime: u64) {
@@ -3395,4 +3405,14 @@ mod tests {
             assert!(policy::covers(key), "no policy sets {key}: add it to VALUES in policy.rs and to PolicyDefinitions/");
         }
     }
+}
+
+/// The size in pixels to fetch a Windows icon at for `rect`: Windows's own small icon size when it's close, as Explorer
+/// uses for its lists and sidebar, so it's drawn as made; otherwise the size it's drawn at.
+fn icon_px(ui: &Ui, rect: Rect) -> u32 {
+    let ppp = ui.ctx().pixels_per_point();
+    let want = (rect.width().max(rect.height()) * ppp).round();
+    let small = (16.0 * ppp).round();
+    let px = if (want - small) >= 0.0 && (want - small) <= 0.25 * small { small } else { want };
+    px.clamp(16.0, 256.0) as u32
 }
