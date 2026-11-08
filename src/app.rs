@@ -27,6 +27,7 @@ mod integration_page;
 mod list;
 mod menu;
 mod picker;
+mod ops;
 mod props;
 mod settings_page;
 mod sidebar;
@@ -1234,6 +1235,10 @@ pub struct App {
     /// the preview that's wanted now, so that ones nobody wants any more don't run
     preview_wanted: Arc<std::sync::atomic::AtomicU64>,
     /// the 'Connect to server' dialog (Linux/macOS): url, user, password
+    /// copies, moves and deletes that are running, see `ops`
+    ops: Vec<Arc<crate::fileops::Job>>,
+    /// what's about to be deleted for good, once the person says so
+    confirm_delete: Option<Vec<PathBuf>>,
     connect: Option<(String, String, String)>,
     /// this process is an app's Open or Save dialog. See picker.rs.
     picker: Option<Picker>,
@@ -1348,6 +1353,8 @@ impl App {
             drive_wait: HashMap::new(),
             drive_poll: Instant::now(),
             preview_wanted: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            ops: Vec::new(),
+            confirm_delete: None,
             connect: None,
             picker,
             explorer_applied: None,
@@ -2537,6 +2544,7 @@ impl App {
         self.drag_overlay(ctx);
         self.toast_overlay(ctx);
         self.update_notice(ctx);
+        self.file_ops(ctx);
 
         self.tabs[self.active] = t;
         for a in std::mem::take(&mut self.acts) {
@@ -2809,7 +2817,7 @@ impl App {
     // ------------------------------------------------------------------ keyboard
 
     fn keyboard(&mut self, ctx: &egui::Context, t: &mut Tab) {
-        if self.popup.is_some() {
+        if self.popup.is_some() || self.op_dialog_open() {
             return; // the open menu owns Enter / Escape
         }
         // Escape while dragging files puts them down where they were

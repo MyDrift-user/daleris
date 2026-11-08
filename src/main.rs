@@ -3,6 +3,7 @@
 mod app;
 mod bg;
 mod dirsize;
+mod fileops;
 mod fscommon;
 #[cfg(windows)]
 mod fsx;

@@ -131,7 +131,11 @@ impl App {
             Act::Delete(permanent) => {
                 let paths = self.selected_paths(&t);
                 if !paths.is_empty() {
-                    self.run_op(if permanent { Op::Delete } else { Op::Recycle }, paths, None);
+                    if permanent {
+                        self.ask_delete(paths);
+                    } else {
+                        self.run_op(Op::Recycle, paths, None);
+                    }
                 }
             }
             Act::NewFolder | Act::NewTextFile => {
@@ -407,11 +411,20 @@ impl App {
         self.run_op(if cut { Op::Move } else { Op::Copy }, files, Some(dest));
     }
 
-    fn run_op(&self, op: Op, files: Vec<PathBuf>, dest: Option<PathBuf>) {
-        let tx = self.tx.clone();
-        shell::file_op(op, files, dest, move |r| {
-            let _ = tx.send(Msg::OpDone(r));
-        });
+    /// Copies, moves and deletes run in Daleris's own window; only the Recycle Bin is left to the system.
+    fn run_op(&mut self, op: Op, files: Vec<PathBuf>, dest: Option<PathBuf>) {
+        let kind = match op {
+            Op::Copy => crate::fileops::Kind::Copy,
+            Op::Move => crate::fileops::Kind::Move,
+            Op::Recycle => {
+                let tx = self.tx.clone();
+                shell::file_op(op, files, dest, move |r| {
+                    let _ = tx.send(Msg::OpDone(r));
+                });
+                return;
+            }
+        };
+        self.start_job(kind, files, dest);
     }
 
     fn commit_rename(&mut self, t: &mut Tab, r: Rename) {

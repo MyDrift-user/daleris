@@ -424,7 +424,6 @@ pub enum Op {
     Copy,
     Move,
     Recycle,
-    Delete,
 }
 
 fn multi_sz(paths: &[PathBuf]) -> Vec<u16> {
@@ -437,8 +436,8 @@ fn multi_sz(paths: &[PathBuf]) -> Vec<u16> {
     v
 }
 
-/// Runs on a worker thread; Windows shows its own progress / conflict dialogs and
-/// the operation can be undone from Explorer (Ctrl+Z) like any shell operation.
+/// Runs on a worker thread. Daleris uses it for the Recycle Bin, and for what's left of a copy or move when the person
+/// lets Windows finish it, so Windows can ask for administrator rights.
 pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOnce(Result<(), String>) + Send + 'static) {
     let owner = main_hwnd().0 as isize;
     crate::bg::spawn("shell-op", move || {
@@ -450,15 +449,16 @@ pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOn
         if op == Op::Copy && same_dir {
             flags |= FOF_RENAMEONCOLLISION.0;
         }
-        if op == Op::Delete {
-            flags &= !FOF_ALLOWUNDO.0;
+        // Daleris says itself what went wrong; Windows still warns before something too big for the bin is deleted for good
+        if op == Op::Recycle {
+            flags |= FOF_SILENT.0 | FOF_NOCONFIRMATION.0 | FOF_NOERRORUI.0 | FOF_WANTNUKEWARNING.0;
         }
         let mut s = SHFILEOPSTRUCTW {
             hwnd: HWND(owner as *mut _),
             wFunc: match op {
                 Op::Copy => FO_COPY,
                 Op::Move => FO_MOVE,
-                Op::Recycle | Op::Delete => FO_DELETE,
+                Op::Recycle => FO_DELETE,
             },
             pFrom: PCWSTR(from.as_ptr()),
             pTo: to.as_ref().map(|t| PCWSTR(t.as_ptr())).unwrap_or(PCWSTR::null()),

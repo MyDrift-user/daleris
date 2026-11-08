@@ -314,7 +314,6 @@ pub enum Op {
     Copy,
     Move,
     Recycle,
-    Delete,
 }
 
 /// "name (2).ext" when the name is taken.
@@ -392,7 +391,6 @@ pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOn
         let r = (|| -> Result<(), String> {
             match op {
                 Op::Recycle => trash(&src),
-                Op::Delete => src.iter().try_for_each(|p| remove_tree(p).map_err(|e| format!("{}: {e}", p.display()))),
                 Op::Copy | Op::Move => {
                     let dest = dest.ok_or("no destination")?;
                     for p in &src {
