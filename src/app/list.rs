@@ -257,19 +257,44 @@ impl App {
         let share = place.trim_start_matches('\\').split('\\').nth(1).unwrap_or("").to_string();
         let letter = self.drive_for(&p).filter(|d| d.kind == DriveKind::Network).map(|d| d.letter);
         let network = remote.is_some();
+        let host = if server.is_empty() { place.clone() } else { format!("\\\\{server}") };
+        // other drives on the same server, which is where another account's connection usually is
+        let same_server: Vec<String> = self
+            .drives
+            .iter()
+            .filter(|d| Some(d.letter) != letter && !d.disconnected && d.remote.as_deref().is_some_and(|r| !server.is_empty() && r.trim_start_matches('\\').split('\\').next().is_some_and(|s| s.eq_ignore_ascii_case(&server))))
+            .map(|d| format!("{}:", d.letter))
+            .collect();
         let (title, body) = match e.kind {
-            FailKind::Unreachable => (format!("Can't reach {}", if server.is_empty() { place.clone() } else { format!("\\\\{server}") }), "The server isn't answering. It may be switched off, or this PC may not be on its network or VPN.".to_string()),
+            FailKind::Unreachable => (format!("Can't reach {host}"), "The server isn't answering. It may be switched off, or this PC may not be on its network or VPN.".to_string()),
             FailKind::ShareMissing => (format!("\\\\{server} has no share called {share}"), "The server answered, but this share isn't there. It may have been renamed or removed.".to_string()),
-            FailKind::AccessDenied if network => ("You don't have access to this folder".to_string(), format!("{place} turned down your account. Someone with rights to it can let you in, or you can connect with another account.")),
+            FailKind::AccessDenied if network => ("You don't have access to this folder".to_string(), format!("{host} knows your account, but doesn't let it into this folder. Someone with rights to it can let you in, or you can sign in with another account.")),
             FailKind::AccessDenied => ("You don't have access to this folder".to_string(), "Your account isn't allowed to open it.".to_string()),
-            FailKind::Disconnected => (format!("Drive {}: isn't connected", letter.unwrap_or('?')), format!("It points to {place}, which couldn't be reached. Reconnecting may ask for a password.")),
+            FailKind::SignIn => (format!("{host} didn't accept the sign-in"), "The user name or password Windows tried for it is wrong, or has changed since it was saved. Sign in again with the right one.".to_string()),
+            FailKind::PasswordExpired => (format!("The password for {host} has expired"), "Change it first: on a PC in the same domain, press Ctrl+Alt+Del and choose Change a password. Then sign in again.".to_string()),
+            FailKind::AccountLocked => ("The account is locked".to_string(), format!("{host} locked or switched off the account Windows tried, often after too many wrong passwords. Ask whoever runs it, or wait until it unlocks.")),
+            FailKind::OtherUser => (
+                format!("Connected to {host} as someone else already"),
+                format!(
+                    "Windows uses one account per server at a time, and this PC is connected to it with another one{}. Close that connection first, or reach the server by another of its names, such as its IP address. Windows's saved passwords may also hold more than one account for it.",
+                    match same_server.as_slice() {
+                        [] => String::new(),
+                        [one] => format!(", through drive {one}"),
+                        more => format!(", through drives {}", more.join(", ")),
+                    }
+                ),
+            ),
+            FailKind::Disconnected => (format!("Drive {}: isn't connected", letter.unwrap_or('?')), format!("It points to {place}, which isn't connected right now. Connecting it may ask for a password.")),
             FailKind::NotFound => ("This folder isn't there any more".to_string(), "It may have been moved, renamed or deleted.".to_string()),
             FailKind::NotReady => ("This drive isn't ready".to_string(), "There may be no disk in it, or it may be locked.".to_string()),
             FailKind::Cancelled if network => ("Stopped connecting".to_string(), format!("You stopped waiting for {place}.")),
             FailKind::Cancelled => ("Stopped opening this folder".to_string(), String::new()),
             FailKind::Other => ("This folder can't be opened".to_string(), String::new()),
         };
-        let reconnect = letter.is_some() && matches!(e.kind, FailKind::Disconnected | FailKind::AccessDenied | FailKind::Unreachable);
+        let sign_in_trouble = matches!(e.kind, FailKind::SignIn | FailKind::PasswordExpired | FailKind::AccountLocked | FailKind::OtherUser);
+        // a mapped drive connects again; a share, mapped or not, can be signed in to with another account
+        let sign_in = network && matches!(e.kind, FailKind::SignIn | FailKind::PasswordExpired | FailKind::AccountLocked | FailKind::AccessDenied);
+        let reconnect = (letter.is_some() && matches!(e.kind, FailKind::Disconnected | FailKind::Unreachable)) || sign_in;
         page_column(ui, |ui| {
             let (r, _) = ui.allocate_exact_size(vec2(44.0, 44.0), Sense::hover());
             let col = if e.kind == FailKind::Cancelled { DIM() } else { WARN() };
@@ -285,23 +310,35 @@ impl App {
             ui.horizontal_wrapped(|ui| {
                 // centred by hand, as a wrapping row always starts at the left
                 let reconnecting = t.reconnecting;
-                let mut buttons: Vec<(&str, Act, bool)> = Vec::new();
+                // each says what it does, as "reconnect" and "retry" alone don't
+                let mut buttons: Vec<(&str, Act, bool, String)> = Vec::new();
                 if reconnect && !reconnecting {
-                    buttons.push(("Reconnect", Act::Reconnect, matches!(e.kind, FailKind::Disconnected)));
+                    if sign_in {
+                        buttons.push(("Sign in", Act::Reconnect, true, format!("Asks for a user name and password for {host}, and connects with them")));
+                    } else {
+                        let d = letter.map(|l| format!("drive {l}:")).unwrap_or_else(|| "the drive".into());
+                        buttons.push(("Connect", Act::Reconnect, e.kind == FailKind::Disconnected, format!("Connects {d} to {place} again. Windows asks for a password if it needs one")));
+                    }
                 }
-                buttons.push(("Retry", Act::Retry, buttons.is_empty() || !matches!(e.kind, FailKind::Disconnected)));
+                if cfg!(windows) && sign_in_trouble {
+                    buttons.push(("Saved passwords", Act::CredentialManager, buttons.is_empty(), format!("Opens Credential Manager, where Windows keeps the accounts and passwords it uses for {host}, to correct or remove them")));
+                }
+                let primary = buttons.is_empty();
+                buttons.push(("Try again", Act::Retry, primary, "Looks at the folder again, without connecting or signing in".into()));
                 if !t.back.is_empty() {
-                    buttons.push(("Back", Act::Back, false));
+                    buttons.push(("Back", Act::Back, false, "Goes back to the last place you were".into()));
                 }
-                if p.parent().is_some() && !matches!(e.kind, FailKind::Unreachable | FailKind::Disconnected) {
-                    buttons.push(("Go up", Act::Up, false));
-                } else {
-                    buttons.push(("This PC", Act::Navigate(Loc::ThisPc), false));
+                // a server that isn't there is no reason to go up, or to This PC: Back, or another tab, is where to go
+                let up_helps = p.parent().is_some() && if network { matches!(e.kind, FailKind::AccessDenied | FailKind::NotFound) } else { !matches!(e.kind, FailKind::Unreachable | FailKind::Disconnected) };
+                if up_helps {
+                    buttons.push(("Go up", Act::Up, false, "Opens the folder this one is in".into()));
+                } else if !network {
+                    buttons.push(("This PC", Act::Navigate(Loc::ThisPc), false, "Shows your drives".into()));
                 }
-                let widths: f32 = buttons.iter().map(|(l, _, _)| ui.fonts_mut(|f| f.layout_no_wrap(l.to_string(), FontId::proportional(13.5), TEXT()).size().x).max(64.0) + 32.0 + 8.0).sum();
+                let widths: f32 = buttons.iter().map(|(l, ..)| ui.fonts_mut(|f| f.layout_no_wrap(l.to_string(), FontId::proportional(13.5), TEXT()).size().x).max(64.0) + 32.0 + 8.0).sum();
                 ui.add_space(((ui.available_width() - widths) / 2.0).max(0.0));
-                for (label, act, primary) in buttons {
-                    if action_button(ui, label, primary).clicked() {
+                for (label, act, primary, tip) in buttons {
+                    if action_button(ui, label, primary).on_hover_text(tip).clicked() {
                         self.acts.push(act);
                     }
                 }

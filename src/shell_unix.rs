@@ -137,6 +137,9 @@ pub fn open_url(url: &str) {
     open(Path::new(url));
 }
 
+/// Windows only: there's no such place on Linux or macOS.
+pub fn credential_manager() {}
+
 /// Starts a program with these arguments in `dir`. The New menu only offers templates here, so this is rarely used.
 pub fn run_program(program: &str, args: &str, dir: &Path) {
     let _ = std::process::Command::new(program).args(args.split_whitespace()).current_dir(dir).spawn();

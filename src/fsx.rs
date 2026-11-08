@@ -50,6 +50,10 @@ pub fn is_server_root(p: &Path) -> Option<String> {
 
 /// Stream a directory's entries in batches so the first rows paint immediately.
 pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry>)) -> Result<(), FolderError> {
+    // tests see what each failure looks like without a server that fails that way
+    if let Some(code) = std::env::var("DALERIS_TEST_FAIL").ok().and_then(|c| c.parse().ok()).filter(|_| is_network_path(path)) {
+        return Err(classify(path, code, "(a test)".into()));
+    }
     if let Some(server) = is_server_root(path) {
         emit(list_shares(&server)?);
         return Ok(());
@@ -120,7 +124,12 @@ fn classify_code(code: u32, network: bool, letter_gone: bool) -> FailKind {
         // the network isn't there, or the server doesn't answer
         53 | 51 | 54 | 59 | 64 | 121 | 1231 | 1232 | 1222 | 1311 => FailKind::Unreachable,
         67 => FailKind::ShareMissing,
-        5 | 86 | 1219 | 1326 | 1327 | 1328 | 1330 | 1331 | 1909 => FailKind::AccessDenied,
+        // what Windows says about the account it tried, so the person knows what to change
+        1219 => FailKind::OtherUser,
+        86 | 1326 | 1244 => FailKind::SignIn,
+        1330 | 1907 => FailKind::PasswordExpired,
+        1909 | 1331 => FailKind::AccountLocked,
+        5 | 1327 | 1328 => FailKind::AccessDenied,
         1201 | 2250 | 1200 => FailKind::Disconnected,
         2 | 3 | 15 | 161 | 267 => FailKind::NotFound,
         21 | 1005 | 1006 | 1392 => FailKind::NotReady,
@@ -619,11 +628,31 @@ pub fn watch(path: &Path, on_change: impl Fn() + Send + 'static) -> Watcher {
     Watcher { stop }
 }
 
-/// Connects the mapped drive `path` is on again, if it's on one. `owner` is the window a password prompt belongs to.
+/// Connects the mapped drive `path` is on again, or, for a `\\server\share` path, signs in to the share. `owner` is the
+/// window a password prompt belongs to. With `ask` on a share, Windows always asks which account to use.
 pub fn reconnect_for(path: &Path, owner: isize, ask: bool) -> Result<(), FolderError> {
     match drive_letter(path) {
         Some(l) => reconnect_drive(l, HWND(owner as *mut _), ask),
+        None if ask && is_network_path(path) => sign_in_to_share(path, HWND(owner as *mut _)),
         None => Err(FolderError::new(FailKind::Other, "This isn't a mapped drive")),
+    }
+}
+
+/// Asks for a user name and password for the share `path` is in, and connects with them.
+fn sign_in_to_share(path: &Path, owner: HWND) -> Result<(), FolderError> {
+    use windows::Win32::NetworkManagement::WNet::*;
+    let s = path.to_string_lossy();
+    let mut parts = s.trim_start_matches('\\').split('\\');
+    let (Some(server), Some(share)) = (parts.next(), parts.next()) else {
+        return Err(FolderError::new(FailKind::Other, "This isn't a network share"));
+    };
+    let mut remote = wide(format!(r"\\{server}\{share}"));
+    let res = NETRESOURCEW { dwType: RESOURCETYPE_DISK, lpRemoteName: windows::core::PWSTR(remote.as_mut_ptr()), ..Default::default() };
+    let rc = unsafe { WNetAddConnection3W(Some(owner), &res, PCWSTR::null(), PCWSTR::null(), CONNECT_INTERACTIVE | CONNECT_PROMPT) };
+    match rc.0 {
+        0 => Ok(()),
+        1223 => Err(FolderError::new(FailKind::Cancelled, "")),
+        code => Err(classify(path, code, windows::core::Error::from_hresult(rc.to_hresult()).message())),
     }
 }
 
@@ -638,7 +667,10 @@ mod classify_tests {
         assert_eq!(classify_code(64, true, false), FailKind::Unreachable);
         assert_eq!(classify_code(67, true, false), FailKind::ShareMissing);
         assert_eq!(classify_code(5, true, false), FailKind::AccessDenied);
-        assert_eq!(classify_code(1326, true, false), FailKind::AccessDenied);
+        assert_eq!(classify_code(1326, true, false), FailKind::SignIn);
+        assert_eq!(classify_code(1219, true, false), FailKind::OtherUser, "connected as someone else already");
+        assert_eq!(classify_code(1330, true, false), FailKind::PasswordExpired);
+        assert_eq!(classify_code(1909, true, false), FailKind::AccountLocked);
         assert_eq!(classify_code(1201, true, false), FailKind::Disconnected);
         assert_eq!(classify_code(3, false, false), FailKind::NotFound);
         assert_eq!(classify_code(3, true, true), FailKind::Disconnected, "the drive letter itself is gone");

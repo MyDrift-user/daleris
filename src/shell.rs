@@ -354,6 +354,11 @@ pub fn open(path: &Path) {
     });
 }
 
+/// Credential Manager, where a server's saved account can be corrected or removed.
+pub fn credential_manager() {
+    run_program("control.exe", "/name Microsoft.CredentialManager", &std::env::temp_dir());
+}
+
 /// Starts a program with these arguments in `dir`, as Explorer runs a New menu command.
 pub fn run_program(program: &str, args: &str, dir: &Path) {
     let (p, a, d) = (wide(program), wide(args), wide(dir.as_os_str()));

@@ -74,6 +74,18 @@ pub enum FailKind {
     /// the server answers, and has no such share
     ShareMissing,
     AccessDenied,
+    /// the server turned down the user name or password Windows tried. Windows only, as are the next three
+    #[cfg_attr(not(windows), allow(dead_code))]
+    SignIn,
+    /// the password has expired, or has to be changed before it can be used
+    #[cfg_attr(not(windows), allow(dead_code))]
+    PasswordExpired,
+    /// the account is locked, after too many wrong passwords, or switched off
+    #[cfg_attr(not(windows), allow(dead_code))]
+    AccountLocked,
+    /// this PC is connected to the server with another account already, and Windows allows one per server
+    #[cfg_attr(not(windows), allow(dead_code))]
+    OtherUser,
     /// a mapped drive that isn't connected
     Disconnected,
     NotFound,

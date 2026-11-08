@@ -429,6 +429,8 @@ enum Act {
     Retry,
     /// connect the mapped drive this folder is on, asking for a password if it takes one
     Reconnect,
+    /// Windows's Credential Manager, where the passwords for servers are kept
+    CredentialManager,
     ClearFilter,
 }
 
@@ -1558,9 +1560,16 @@ impl App {
                     };
                     let mut r = list();
                     // Windows doesn't always connect a mapped drive by itself. No prompt here: nobody asked for one.
-                    if matches!(&r, Err(e) if e.kind == FailKind::Disconnected) && !cancel.load(Ordering::Relaxed) && fsx::reconnect_for(&p2, 0, false).is_ok() {
-                        let _ = tx.send(Msg::DrivesChanged);
-                        r = list();
+                    if matches!(&r, Err(e) if e.kind == FailKind::Disconnected) && !cancel.load(Ordering::Relaxed) {
+                        match fsx::reconnect_for(&p2, 0, false) {
+                            Ok(()) => {
+                                let _ = tx.send(Msg::DrivesChanged);
+                                r = list();
+                            }
+                            // the server answered, and said what's wrong with the account: that's what to show
+                            Err(e) if matches!(e.kind, FailKind::SignIn | FailKind::PasswordExpired | FailKind::AccountLocked | FailKind::OtherUser | FailKind::AccessDenied) => r = Err(e),
+                            Err(_) => {}
+                        }
                     }
                     let _ = tx.send(Msg::Done { tab: id, generation, err: r.err() });
                     ctx.request_repaint();

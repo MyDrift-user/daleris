@@ -380,6 +380,7 @@ impl App {
                 t.retry_wait = FIRST_RETRY;
                 self.start_load(&mut t, false);
             }
+            Act::CredentialManager => shell::credential_manager(),
             Act::Reconnect => {
                 if let Some(p) = t.dir().map(Path::to_path_buf) {
                     t.reconnecting = true;
