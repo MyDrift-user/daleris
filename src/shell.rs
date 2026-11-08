@@ -43,16 +43,14 @@ pub fn has_mica() -> bool {
 /// see-through at start for it to show.
 pub fn set_backdrop(hwnd: isize, mica: bool, dark: bool) {
     use windows::Win32::Graphics::Dwm::*;
-    use windows::Win32::UI::Controls::MARGINS;
+    // the see-through window lets the backdrop through by itself; extending the frame over the window as well would
+    // have Windows draw its own caption buttons over Daleris's
     let hwnd = HWND(hwnd as *mut _);
     let dark = windows::core::BOOL::from(dark);
     let kind = if mica { DWMSBT_MAINWINDOW } else { DWMSBT_NONE };
     unsafe {
         let _ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark as *const _ as *const _, 4);
         let _ = DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &kind as *const _ as *const _, 4);
-        // the whole window is frame to the system, so the backdrop reaches behind all of it
-        let m = if mica { -1 } else { 0 };
-        let _ = DwmExtendFrameIntoClientArea(hwnd, &MARGINS { cxLeftWidth: m, cxRightWidth: m, cyTopHeight: m, cyBottomHeight: m });
     }
 }
 
