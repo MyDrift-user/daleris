@@ -88,8 +88,8 @@ pub struct Job {
     progress: Mutex<Progress>,
     question: Mutex<Option<Question>>,
     answers: (Mutex<Sender<Answer>>, Mutex<Receiver<Answer>>),
-    /// the item being written at its destination, as the list shows it
-    arriving: Mutex<Option<PathBuf>>,
+    /// the top-level item being worked on, as the list shows it
+    in_hand: Mutex<Option<InHand>>,
     cancel: AtomicBool,
 }
 
@@ -115,7 +115,7 @@ impl Job {
             }),
             question: Mutex::new(None),
             answers: (Mutex::new(tx), Mutex::new(rx)),
-            arriving: Mutex::new(None),
+            in_hand: Mutex::new(None),
             cancel: AtomicBool::new(false),
         }
     }
@@ -133,9 +133,13 @@ impl Job {
         let _ = self.answers.0.lock().unwrap().send(a);
     }
 
-    /// The top-level item being copied or moved into place right now, under its final name.
-    pub fn arriving(&self) -> Option<PathBuf> {
-        self.arriving.lock().unwrap().clone()
+    /// The top-level item being worked on right now: where from, where to under its final name (none for a delete), and
+    /// how far along it is.
+    pub fn in_hand(&self) -> Option<(PathBuf, Option<PathBuf>, f32)> {
+        let h = self.in_hand.lock().unwrap().clone()?;
+        let done = self.bytes_done().saturating_sub(h.start_bytes);
+        let frac = if h.bytes == 0 { 0.0 } else { (done as f32 / h.bytes as f32).clamp(0.0, 1.0) };
+        Some((h.src, h.dst, frac))
     }
 
     pub fn cancel(&self) {
@@ -175,7 +179,7 @@ impl Job {
 
     /// Does the whole job, asking `ask` whenever it needs a decision.
     pub fn run(&self, ask: &dyn Fn(Question) -> Answer) {
-        let mut r = Run { job: self, ask, rule: None, skip_errors: false, conflicts_left: 0 };
+        let mut r = Run { job: self, ask, rule: None, skip_errors: false, conflicts_left: 0, item_bytes: 0 };
         let outcome = if self.kind == Kind::Delete { r.delete_all() } else { r.transfer_all() };
         self.update(|p| {
             if let Err(Stop::HandOff(rest)) = outcome {
@@ -183,10 +187,20 @@ impl Job {
             }
             p.cancelled = self.cancelled();
             p.stage = Stage::Done;
-            *self.arriving.lock().unwrap() = None;
+            *self.in_hand.lock().unwrap() = None;
             p.current.clear();
         });
     }
+}
+
+/// One of the items the person chose, while it's worked on.
+#[derive(Clone)]
+struct InHand {
+    src: PathBuf,
+    dst: Option<PathBuf>,
+    /// the job's bytes done when it started, and its own size
+    start_bytes: u64,
+    bytes: u64,
 }
 
 enum Stop {
@@ -208,6 +222,8 @@ struct Run<'a> {
     rule: Option<Choice>,
     skip_errors: bool,
     conflicts_left: u64,
+    /// the size of the top-level item about to be worked on
+    item_bytes: u64,
 }
 
 #[derive(Default)]
@@ -242,11 +258,14 @@ impl Run<'_> {
             todo.push((src.clone(), target));
         }
         let mut tally = Tally::default();
+        let mut sizes = Vec::with_capacity(todo.len());
         for (src, target) in &todo {
             if job.cancelled() {
                 return Err(Stop::Cancel);
             }
+            let before = tally.bytes;
             count(src, Some(target), true, &mut tally);
+            sizes.push(tally.bytes - before);
         }
         self.conflicts_left = tally.conflicts;
         job.update(|p| {
@@ -255,6 +274,7 @@ impl Run<'_> {
             p.stage = Stage::Working;
         });
         for (i, (src, target)) in todo.iter().enumerate() {
+            self.item_bytes = sizes[i];
             match self.transfer(src, target, moving, true) {
                 Err(Stop::HandOff(_)) => return Err(Stop::HandOff(todo[i..].iter().map(|(s, _)| s.clone()).collect())),
                 other => other?,
@@ -304,7 +324,7 @@ impl Run<'_> {
             }
         }
         if top {
-            *job.arriving.lock().unwrap() = Some(dst.clone());
+            *job.in_hand.lock().unwrap() = Some(InHand { src: src.to_path_buf(), dst: Some(dst.clone()), start_bytes: job.bytes_done(), bytes: self.item_bytes });
         }
         if is_dir {
             if std::fs::symlink_metadata(&dst).is_err() {
@@ -415,15 +435,19 @@ impl Run<'_> {
     fn delete_all(&mut self) -> Result<(), Stop> {
         let job = self.job;
         let mut tally = Tally::default();
+        let mut sizes = Vec::with_capacity(job.sources.len());
         for src in &job.sources {
+            let before = tally.bytes;
             count(src, None, false, &mut tally);
+            sizes.push(tally.bytes - before);
         }
         job.update(|p| {
             p.files_total = tally.files;
             p.bytes_total = tally.bytes;
             p.stage = Stage::Working;
         });
-        for src in &job.sources {
+        for (src, bytes) in job.sources.iter().zip(sizes) {
+            *job.in_hand.lock().unwrap() = Some(InHand { src: src.clone(), dst: None, start_bytes: job.bytes_done(), bytes });
             self.delete(src)?;
         }
         Ok(())

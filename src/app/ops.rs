@@ -349,22 +349,39 @@ mod tests {
     }
 }
 
-/// An item that's on its way: arriving in the folder it's shown in, or leaving it.
+/// What a copy, move or delete is doing to an item the list shows.
+#[derive(Clone, Copy, PartialEq, Debug)]
+pub(super) struct Transit {
+    pub way: Way,
+    pub kind: Kind,
+    /// how far along this item is, when it's the one being worked on
+    pub frac: Option<f32>,
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub(super) enum Transit {
-    Arriving(Kind),
-    Leaving(Kind),
+pub(super) enum Way {
+    /// coming into the folder it's shown in
+    Arriving,
+    /// going away from it, moved or deleted
+    Leaving,
+    /// being read for a copy; it stays where it is
+    Source,
 }
 
 impl App {
-    /// Whether a copy, move or delete is working on the item at `path` right now.
+    /// Whether a copy, move or delete is working on the item at `path`, and how.
     pub(super) fn transit(&self, path: &Path) -> Option<Transit> {
         for j in &self.ops {
-            if j.arriving().is_some_and(|a| fsx::same_path(&a, path)) {
-                return Some(Transit::Arriving(j.kind));
+            let hand = j.in_hand();
+            if let Some((_, Some(dst), frac)) = &hand {
+                if fsx::same_path(dst, path) {
+                    return Some(Transit { way: Way::Arriving, kind: j.kind, frac: Some(*frac) });
+                }
             }
-            if matches!(j.kind, Kind::Move | Kind::Delete) && j.sources.iter().any(|s| fsx::same_path(s, path)) {
-                return Some(Transit::Leaving(j.kind));
+            if j.sources.iter().any(|s| fsx::same_path(s, path)) {
+                let frac = hand.as_ref().filter(|(src, ..)| fsx::same_path(src, path)).map(|h| h.2);
+                let way = if j.kind == Kind::Copy { Way::Source } else { Way::Leaving };
+                return Some(Transit { way, kind: j.kind, frac });
             }
         }
         None
@@ -372,31 +389,107 @@ impl App {
 }
 
 impl Transit {
-    pub(super) fn tip(self) -> &'static str {
-        match self {
-            Transit::Arriving(Kind::Move) => "Being moved here",
-            Transit::Arriving(_) => "Being copied here",
-            Transit::Leaving(Kind::Delete) => "Being deleted",
-            Transit::Leaving(_) => "Being moved away from here",
+    /// The word after the name, so what's going on reads without pointing at it.
+    pub(super) fn chip(self) -> String {
+        let pct = self.frac.map(|f| format!(" {:.0} %", f * 100.0)).unwrap_or_default();
+        match (self.way, self.kind) {
+            (Way::Arriving, Kind::Move) => format!("moving here{pct}"),
+            (Way::Arriving, _) => format!("copying here{pct}"),
+            (Way::Leaving, Kind::Delete) => format!("deleting{pct}"),
+            (Way::Leaving, _) => format!("moving away{pct}"),
+            (Way::Source, _) => format!("copying from{pct}"),
         }
     }
 
-    /// The colour of its name: greyed while it arrives, fainter still while it leaves.
-    pub(super) fn text(self) -> Color32 {
-        if matches!(self, Transit::Arriving(_)) { DIM() } else { FAINT() }
+    /// More, when pointed at.
+    pub(super) fn tip(self) -> String {
+        let what = match (self.way, self.kind) {
+            (Way::Arriving, Kind::Move) => "Being moved here.",
+            (Way::Arriving, _) => "Being copied here. Wait until it's done before opening it.",
+            (Way::Leaving, Kind::Delete) => "Being deleted.",
+            (Way::Leaving, _) => "Being moved away from here.",
+            (Way::Source, _) => "Being copied somewhere else. It stays here and can still be used.",
+        };
+        match self.frac {
+            Some(f) => format!("{what} {:.0} % done.", f * 100.0),
+            None => what.to_string(),
+        }
     }
 
-    /// A ring turning in place of the icon: the accent, clockwise, for what arrives; faint and the other way for
-    /// what leaves.
-    pub(super) fn draw(self, ui: &Ui, r: Rect) {
-        let arriving = matches!(self, Transit::Arriving(_));
-        let t = ui.input(|i| i.time) as f32 * 4.0;
-        let start = if arriving { t } else { -t };
-        let radius = r.width().min(r.height()) * 0.38;
-        let c = r.center();
-        ui.painter().circle_stroke(c, radius, Stroke::new(2.0_f32, LINE()));
-        let points: Vec<egui::Pos2> = (0..=24).map(|k| start + k as f32 / 24.0 * std::f32::consts::PI * 1.3).map(|a| c + radius * vec2(a.cos(), a.sin())).collect();
-        ui.painter().add(egui::Shape::line(points, Stroke::new(2.0_f32, if arriving { ACCENT() } else { FAINT() })));
+    /// The colour of its name: greyed while it arrives, fainter while it leaves, as usual while it's only read.
+    pub(super) fn text(self) -> Color32 {
+        match self.way {
+            Way::Arriving => DIM(),
+            Way::Leaving => FAINT(),
+            Way::Source => TEXT(),
+        }
+    }
+
+    fn colour(self) -> Color32 {
+        match self.way {
+            Way::Arriving => ACCENT(),
+            Way::Leaving => FAINT(),
+            Way::Source => DIM(),
+        }
+    }
+
+    /// Around the item's own icon: a ring that fills with its progress (turning while that isn't known), dotted for a
+    /// copy's source; and in the corner a badge, an arrow in, an arrow out, or two sheets for a copy's source.
+    pub(super) fn draw(self, ui: &Ui, icon: Rect) {
+        let p = ui.painter();
+        let c = icon.center();
+        let radius = icon.width().max(icon.height()) * 0.5 + 3.0;
+        let colour = self.colour();
+        let arc = |from: f32, to: f32, stroke: Stroke| {
+            let n = (((to - from).abs() / std::f32::consts::TAU) * 48.0).ceil().max(2.0) as usize;
+            let pts: Vec<egui::Pos2> = (0..=n).map(|k| from + (to - from) * k as f32 / n as f32).map(|a| c + radius * vec2(a.cos(), a.sin())).collect();
+            p.add(egui::Shape::line(pts, stroke));
+        };
+        let top = -std::f32::consts::FRAC_PI_2;
+        let t = ui.input(|i| i.time) as f32;
+        if self.way == Way::Source {
+            // dotted, turning slowly
+            for k in 0..12 {
+                let a = top + t * 0.8 + k as f32 / 12.0 * std::f32::consts::TAU;
+                p.circle_filled(c + radius * vec2(a.cos(), a.sin()), 1.1, colour);
+            }
+        } else {
+            p.circle_stroke(c, radius, Stroke::new(1.5_f32, LINE()));
+            match self.frac {
+                Some(f) if f > 0.0 => arc(top, top + f * std::f32::consts::TAU, Stroke::new(2.0_f32, colour)),
+                _ => arc(top + t * 4.0, top + t * 4.0 + 1.4, Stroke::new(2.0_f32, colour)),
+            }
+        }
+        // the badge, on the icon's bottom right
+        let b = icon.right_bottom() + vec2(1.0, 1.0);
+        p.circle_filled(b, 5.5, BG());
+        p.circle_stroke(b, 5.5, Stroke::new(1.0_f32, colour));
+        let s = Stroke::new(1.3_f32, colour);
+        match self.way {
+            Way::Arriving | Way::Leaving => {
+                // down-right into the corner for arriving, up-right out of it for leaving
+                let (from, to) = if self.way == Way::Arriving { (b + vec2(-2.4, -2.4), b + vec2(2.0, 2.0)) } else { (b + vec2(-2.0, 2.0), b + vec2(2.4, -2.4)) };
+                p.line_segment([from, to], s);
+                let back = (from - to).normalized() * 2.4;
+                let side = vec2(-back.y, back.x);
+                p.line_segment([to, to + back + side * 0.9], s);
+                p.line_segment([to, to + back - side * 0.9], s);
+            }
+            Way::Source => {
+                p.rect_stroke(Rect::from_min_size(b + vec2(-2.8, -2.8), vec2(3.6, 3.6)), CornerRadius::ZERO, s, StrokeKind::Middle);
+                p.rect_stroke(Rect::from_min_size(b + vec2(-0.8, -0.8), vec2(3.6, 3.6)), CornerRadius::ZERO, s, StrokeKind::Middle);
+            }
+        }
         ui.ctx().request_repaint_after(Duration::from_millis(33));
+    }
+
+    /// The word chip itself, at `at` (its left middle); how wide it was.
+    pub(super) fn draw_chip(self, ui: &Ui, at: egui::Pos2) -> f32 {
+        let colour = self.colour();
+        let g = ui.painter().layout_no_wrap(self.chip(), FontId::proportional(11.0), colour);
+        let r = Rect::from_min_size(at - vec2(0.0, g.size().y / 2.0 + 2.0), g.size() + vec2(12.0, 4.0));
+        ui.painter().rect_filled(r, CornerRadius::same(4), colour.gamma_multiply(0.14));
+        ui.painter().galley(r.min + vec2(6.0, 2.0), g, colour);
+        r.width()
     }
 }
