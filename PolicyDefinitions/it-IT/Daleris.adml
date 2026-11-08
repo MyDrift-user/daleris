@@ -88,6 +88,11 @@
       <string id="Details">Dettagli</string>
       <string id="LargeIcons">Icone grandi</string>
       <string id="Theme">Tema</string>
+      <string id="Language">Lingua</string>
+      <string id="LanguageSystem">Come Windows</string>
+      <string id="LanguageEnglish">English</string>
+      <string id="LanguageGerman">Deutsch</string>
+      <string id="LanguageItalian">Italiano</string>
       <string id="FollowWindows">Come Windows</string>
       <string id="Dark">Scuro</string>
       <string id="Light">Chiaro</string>
@@ -182,6 +187,7 @@
       <presentation id="DefaultSort"><dropdownList refId="DefaultSort" noSort="true" /></presentation>
       <presentation id="DefaultView"><dropdownList refId="DefaultView" noSort="true" /></presentation>
       <presentation id="Theme"><dropdownList refId="Theme" noSort="true" /></presentation>
+      <presentation id="Language"><dropdownList refId="Language" noSort="true" /></presentation>
       <presentation id="AccentColor"><dropdownList refId="AccentColor" noSort="true" /></presentation>
       <presentation id="RowHeight"><dropdownList refId="RowHeight" noSort="true" /></presentation>
       <presentation id="IconPack"><textBox refId="IconPack"><label>Pacchetto di icone</label></textBox></presentation>

@@ -102,26 +102,26 @@
       <string id="Compact">Kompakt</string>
       <string id="Normal">Normal</string>
       <string id="Comfortable">Komfortabel</string>
-      <string id="Accent0">Blue</string>
-      <string id="Accent1">Teal</string>
-      <string id="Accent2">Purple</string>
-      <string id="Accent3">Pink</string>
+      <string id="Accent0">Blau</string>
+      <string id="Accent1">Blaugrün</string>
+      <string id="Accent2">Violett</string>
+      <string id="Accent3">Rosa</string>
       <string id="Accent4">Orange</string>
-      <string id="Accent5">Green</string>
-      <string id="Accent6">Red</string>
+      <string id="Accent5">Grün</string>
+      <string id="Accent6">Rot</string>
       <string id="IconPack">Symbolpaket</string>
       <string id="IconPackExplain_ExplainFixed">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="IconPackExplain_ExplainRecommended">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="NewTabOpens">Wo ein neuer Tab öffnet</string>
       <string id="NewTabOpensExplain_ExplainFixed">home, same (der Ordner des vorderen Tabs), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet ein neuer Tab immer den Ordner des vorderen Tabs. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="NewTabOpensExplain_ExplainRecommended">home, same (der Ordner des vorderen Tabs), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet ein neuer Tab immer den Ordner des vorderen Tabs. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
-      <string id="RibbonLeft">Menüband: linke Seite</string>
+      <string id="RibbonLeft">Befehlsleiste: linke Seite</string>
       <string id="RibbonLeftExplain_ExplainFixed">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="RibbonLeftExplain_ExplainRecommended">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
-      <string id="RibbonRight">Menüband: rechte Seite</string>
+      <string id="RibbonRight">Befehlsleiste: rechte Seite</string>
       <string id="RibbonRightExplain_ExplainFixed">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="RibbonRightExplain_ExplainRecommended">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
-      <string id="RibbonHidden">Menüband: ausgeblendete Einträge</string>
+      <string id="RibbonHidden">Befehlsleiste: ausgeblendete Einträge</string>
       <string id="RibbonHiddenExplain_ExplainFixed">Einträge durch senkrechte Striche getrennt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="RibbonHiddenExplain_ExplainRecommended">Einträge durch senkrechte Striche getrennt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="SidebarHiddenSections">Seitenleiste: ausgeblendete Abschnitte</string>
@@ -147,8 +147,8 @@
       <string id="CustomCommandsExplain_ExplainRecommended">Befehle im Kontextmenü, durch senkrechte Striche getrennt. Jeder ist Name&gt;Befehl oder Name&gt;Einträge&gt;Befehl, wobei Einträge all, files, folders, background oder ext:jpg,png ist. Im Befehl stehen {path}, {paths}, {name} und {dir} für die angeklickten Einträge. Dieser Wert ist ein Standard: Er gilt beim ersten Start von Daleris und kann jederzeit geändert werden.</string>
       <string id="DisableUpdates">Updates deaktivieren</string>
       <string id="DisableUpdatesExplain">Daleris sucht weder nach Updates noch installiert es sie, auch nicht aus den Einstellungen. Verwenden Sie dies, wenn Sie neue Versionen selbst verteilen. Die Aufgabe, die eine PC-weite Installation aktualisiert, liest nur die Computerkonfiguration, legen Sie den Wert dafür also dort fest.</string>
-      <string id="LockRibbon">Menüband sperren</string>
-      <string id="LockRibbonExplain">Das Menüband bleibt wie in den Richtlinien festgelegt und kann nicht angepasst werden.</string>
+      <string id="LockRibbon">Befehlsleiste sperren</string>
+      <string id="LockRibbonExplain">Die Befehlsleiste bleibt wie in den Richtlinien festgelegt und kann nicht angepasst werden.</string>
       <string id="LockSidebar">Seitenleiste sperren</string>
       <string id="LockSidebarExplain">Abschnitte und Orte der Seitenleiste können nicht verschoben, ausgeblendet oder angeheftet werden.</string>
       <string id="LockContextMenu">Kontextmenü sperren</string>
@@ -171,7 +171,7 @@
       <string id="ExplorerSingleWindowExplain_ExplainFixed">Von außen geöffnete Ordner werden zu Tabs im bereits geöffneten Fenster. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="ExplorerSingleWindowExplain_ExplainRecommended">Von außen geöffnete Ordner werden zu Tabs im bereits geöffneten Fenster. Nur Windows. Es wirkt erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="ExplorerFileDialogs">Öffnen- und Speichern-Dialoge verwenden Daleris</string>
-      <string id="ExplorerFileDialogsExplain_ExplainFixed">Apps, die Windows nach einem modernen Dateidialog fragen, erhalten Daleris, über eine COM-Registrierung pro Benutzer, die beim Öffnen des Dialogs eine DLL in die App lädt. Von der App hinzugefügte Steuerelemente zeigt Daleris ebenfalls an. Von der App hinzugefügte Steuerelemente zeigt Daleris ebenfalls an. Spiele, Launcher, Anti-Cheat und Sicherheitssoftware erhalten immer den Windows-Dialog. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
+      <string id="ExplorerFileDialogsExplain_ExplainFixed">Apps, die Windows nach einem modernen Dateidialog fragen, erhalten Daleris, über eine COM-Registrierung pro Benutzer, die beim Öffnen des Dialogs eine DLL in die App lädt. Von der App hinzugefügte Steuerelemente zeigt Daleris ebenfalls an. Spiele, Launcher, Anti-Cheat und Sicherheitssoftware erhalten immer den Windows-Dialog. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="ExplorerFileDialogsExplain_ExplainRecommended">Apps, die Windows nach einem modernen Dateidialog fragen, erhalten Daleris, über eine COM-Registrierung pro Benutzer, die beim Öffnen des Dialogs eine DLL in die App lädt. Spiele, Launcher, Anti-Cheat und Sicherheitssoftware erhalten immer den Windows-Dialog. Nur Windows. Es wirkt erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="ExplorerDialogJump">Strg + G führt einen Windows-Dateidialog zum Daleris-Ordner</string>
       <string id="ExplorerDialogJumpExplain_ExplainFixed">Solange ein Windows-Dateidialog im Vordergrund ist, führt Strg + G den Dialog zum Ordner, den Daleris anzeigt, oder meldet, dass Daleris nicht geöffnet ist. Dafür läuft ab der Anmeldung ein kleines Hintergrundprogramm. Lädt nichts in die App. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
@@ -192,9 +192,9 @@
       <presentation id="RowHeight"><dropdownList refId="RowHeight" noSort="true" /></presentation>
       <presentation id="IconPack"><textBox refId="IconPack"><label>Symbolpaket</label></textBox></presentation>
       <presentation id="NewTabOpens"><textBox refId="NewTabOpens"><label>Wo ein neuer Tab öffnet</label></textBox></presentation>
-      <presentation id="RibbonLeft"><textBox refId="RibbonLeft"><label>Menüband: linke Seite</label></textBox></presentation>
-      <presentation id="RibbonRight"><textBox refId="RibbonRight"><label>Menüband: rechte Seite</label></textBox></presentation>
-      <presentation id="RibbonHidden"><textBox refId="RibbonHidden"><label>Menüband: ausgeblendete Einträge</label></textBox></presentation>
+      <presentation id="RibbonLeft"><textBox refId="RibbonLeft"><label>Befehlsleiste: linke Seite</label></textBox></presentation>
+      <presentation id="RibbonRight"><textBox refId="RibbonRight"><label>Befehlsleiste: rechte Seite</label></textBox></presentation>
+      <presentation id="RibbonHidden"><textBox refId="RibbonHidden"><label>Befehlsleiste: ausgeblendete Einträge</label></textBox></presentation>
       <presentation id="SidebarHiddenSections"><textBox refId="SidebarHiddenSections"><label>Seitenleiste: ausgeblendete Abschnitte</label></textBox></presentation>
       <presentation id="SidebarPins"><textBox refId="SidebarPins"><label>Seitenleiste: angeheftete Ordner</label></textBox></presentation>
       <presentation id="SidebarOrder"><textBox refId="SidebarOrder"><label>Seitenleiste: Reihenfolge der Abschnitte</label></textBox></presentation>
