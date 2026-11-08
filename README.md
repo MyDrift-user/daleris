@@ -10,7 +10,7 @@ Native, written in Rust, with no web view and no runtime to install.
 
 [![CI](https://github.com/MyDrift-user/daleris/actions/workflows/ci.yml/badge.svg)](https://github.com/MyDrift-user/daleris/actions/workflows/ci.yml)
 ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-4CA3FF)
-![Rust](https://img.shields.io/badge/rust-2021-CE422B?logo=rust&logoColor=white)
+![Rust](https://img.shields.io/badge/rust-2024-CE422B?logo=rust&logoColor=white)
 ![UI](https://img.shields.io/badge/UI-egui-4C6EF5)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
@@ -202,21 +202,28 @@ The workflow builds every download, installs and starts the Linux and macOS pack
 src/
   main.rs                 entry point
   app.rs, app/            the interface: tabs, list, sidebar, menus, properties, settings
+  app/picker.rs           Daleris as an app's Open or Save dialog
+  theme.rs                colours, icons and logo
   search.rs               parallel crawler, index and query language
+  listing.rs              sorting and the filter panel
   dirsize.rs              background folder sizes
+  bg.rs                   background work that may hang on a server nobody answers for
+  fscommon.rs             file system types every platform shares
   fsx.rs, shell.rs        Windows file system and shell integration
   fsx_unix.rs, shell_unix.rs  the same for Linux and macOS
-  policy.rs               Group Policy
+  policy.rs               Group Policy, and the policy file on Linux and macOS
+  update.rs               signed updates from GitHub releases
+  logging.rs              the log file and crash capture
   integration*.rs         the Windows Explorer switches
 crates/
   integration/            what the program, launcher and DLL share
   open/                   the launcher Windows runs for folders and Win + E
   dialogs/                the file dialog DLL
   shell-test/             a test program that does what apps do with the shell
-  theme.rs                colours, icons and logo
 PolicyDefinitions/        ADMX / ADML templates
 assets/logos/             the logo as SVG; build.ps1 makes the app and installer icons from one
 installer/                setup.exe (Inno Setup) and MSI (WiX) definitions
+  windows/                packaging, installer tests and the update test
   linux/, macos/          AppImage, deb, rpm, Arch, dmg and pkg packaging and tests
 ```
 
