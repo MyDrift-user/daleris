@@ -726,16 +726,23 @@ pub fn starts_with_custom_titlebar(screenshot: bool) -> bool {
     }
 }
 
-/// Row height of Daleris's own look; Explorer's is 0, compact
-const OWN_DENSITY: u8 = 1;
+/// The two looks Settings › Appearance can apply in one go, as (settings file key, Explorer's value, Daleris's own).
+/// Not settings: each of these is one in its own right, and the buttons only set them, see `apply_look`.
+const LOOKS: [(&str, &str, &str); 9] = [
+    ("explorer_colours", "1", "0"),
+    ("explorer_lines", "1", "0"),
+    ("explorer_mica", "1", "0"),
+    ("explorer_mica_bar", "1", "1"),
+    ("iconpack", "system", "system"),
+    ("density", "0", "1"),
+    ("search_hide_sub", "1", "0"),
+    ("search_hide_regex", "1", "0"),
+    ("search_hide_help", "1", "0"),
+];
 
-/// The parts of Explorer's look as (settings file key, Explorer's value, Daleris's own), from `policy::EXPLORER_PARTS`:
-/// where Windows's icons can't be had, both use Daleris's.
-fn explorer_parts() -> impl Iterator<Item = (&'static str, String, String)> {
-    policy::EXPLORER_PARTS.iter().map(|&(k, look, own)| {
-        let here = |v: &str| if k == "iconpack" && prefers_bundled_icons() { "flat".to_string() } else { v.to_string() };
-        (k, here(look), here(own))
-    })
+/// A look's value for a setting here: where Windows's icons can't be had, Daleris's.
+fn look_value(key: &str, v: &'static str) -> &'static str {
+    if key == "iconpack" && prefers_bundled_icons() { "flat" } else { v }
 }
 
 impl Settings {
@@ -743,7 +750,7 @@ impl Settings {
         Settings {
             show_hidden: false,
             hide_dotfiles: true,
-            // Explorer's look on Windows, see `explorer_look`
+            // Explorer's look on Windows, see `LOOKS`
             explorer_colours: cfg!(windows),
             explorer_lines: cfg!(windows),
             explorer_mica: cfg!(windows),
@@ -766,7 +773,7 @@ impl Settings {
             theme: 0,
             accent: ACCENTS.len(),
             icon_pack: if prefers_bundled_icons() { "flat" } else { "system" }.into(),
-            density: if cfg!(windows) { 0 } else { OWN_DENSITY },
+            density: if cfg!(windows) { 0 } else { 1 },
             title_custom: true,
             title_logo: true,
             title_name: false,
@@ -889,34 +896,15 @@ impl Settings {
         cfg!(windows) && self.explorer_mica
     }
 
-    /// What "Look like Windows Explorer" shows: every part of it the person can change is set Explorer's way, or, when
-    /// policies fix them all, every part is. The logo and name in the title bar are Daleris's either way, and Mica only
-    /// counts where Windows has it.
-    fn looks_like_explorer(&self) -> bool {
+    /// Sets every setting of a look the way it has it: Explorer's, or Daleris's own. A one-off, as if each were changed
+    /// by hand: nothing remembers which was applied, and what a policy fixes stays as it is.
+    fn apply_look(&mut self, explorer: bool) {
         let pol = policy::current();
-        let now = self.value_lines();
-        let parts: Vec<_> = explorer_parts().filter(|(k, ..)| shell::has_mica() || !k.starts_with("explorer_mica")).collect();
-        let free: Vec<_> = parts.iter().filter(|(k, ..)| !pol.is_fixed(k)).collect();
-        let counted = if free.is_empty() { parts.iter().collect() } else { free };
-        counted.iter().all(|(k, look, _)| now.iter().any(|(nk, v)| nk == k && v == look))
-    }
-
-    /// Set every part of Explorer's look the person can change its way, or, for off, back to Daleris's own. What a
-    /// policy fixes stays as it is. Explorer's look is the default on Windows, so Daleris's own isn't simply the
-    /// defaults.
-    fn explorer_look(&mut self, on: bool) {
-        let pol = policy::current();
-        for (k, look, own) in explorer_parts() {
+        for (k, look, own) in LOOKS {
             if !pol.is_fixed(k) {
-                self.set_value(k, if on { &look } else { &own });
+                self.set_value(k, look_value(k, if explorer { look } else { own }));
             }
         }
-    }
-
-    /// Can the person change any part of Explorer's look?
-    fn explorer_look_free(&self) -> bool {
-        let pol = policy::current();
-        explorer_parts().any(|(k, ..)| !pol.is_fixed(k))
     }
 
     /// Hiding the regular expression switch turns regular expressions off, so a search never quietly stays one. Called
@@ -1021,7 +1009,6 @@ impl Settings {
             "hidden" => self.show_hidden = on,
             "hide_dots" => self.hide_dotfiles = on,
             // not kept itself: it sets the settings that make up Explorer's look
-            "explorer_look" => self.explorer_look(on),
             "explorer_colours" => self.explorer_colours = on,
             "explorer_lines" => self.explorer_lines = on,
             "explorer_mica" => self.explorer_mica = on,
@@ -1323,7 +1310,7 @@ impl Settings {
         // underneath, and Mica, on by default then (so not written), only showed with it.
         if let Some(look) = old_look {
             if look {
-                s.explorer_look(true);
+                s.apply_look(true);
             }
             s.explorer_mica = look && old_mica;
         }
@@ -3576,31 +3563,28 @@ mod tests {
     }
 
     #[test]
-    fn explorer_look_is_the_settings_it_is_made_of() {
-        assert!(policy::EXPLORER_PARTS.contains(&("density", "0", "1")) && OWN_DENSITY == 1, "the table and Daleris's own row height agree");
+    fn the_looks_only_set_settings_that_stand_on_their_own() {
+        let has = |s: &Settings, look: fn(&(&'static str, &'static str, &'static str)) -> &'static str| {
+            let now = s.value_lines();
+            LOOKS.iter().all(|p| now.iter().any(|(k, v)| k == &p.0 && v == look_value(p.0, look(p))))
+        };
         let mut s = Settings::defaults();
         // Explorer's look by default on Windows, with Daleris's logo in the title bar all the same
-        assert_eq!(s.looks_like_explorer(), cfg!(windows));
+        assert_eq!(has(&s, |p| p.1), cfg!(windows));
         assert!(s.title_logo && !s.title_name);
-        s.set_value("explorer_look", "0");
-        assert!(!s.looks_like_explorer());
-        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica && s.density == OWN_DENSITY && !s.search_hide_sub && !s.search_hide_regex && !s.search_hide_help);
-        assert!(s.set_value("explorer_look", "1"));
-        assert!(s.looks_like_explorer());
-        assert!(s.explorer_colours && s.explorer_lines && s.density == 0 && s.title_logo, "the logo isn't part of the look");
-        assert!(s.search_hide_sub, "Explorer's search box has no subfolders switch");
-        assert!(s.search_hide_regex, "nor a regular expression switch");
-        assert!(s.search_hide_help, "nor a help button");
+        s.apply_look(false);
+        assert!(has(&s, |p| p.2));
+        s.apply_look(true);
+        assert!(has(&s, |p| p.1) && s.title_logo, "the logo isn't part of either look");
         s.regex_search = true;
         s.regex_off_if_hidden();
         assert!(!s.regex_search, "a hidden switch leaves regular expressions off");
-        // one part set back and it no longer looks like Explorer, while the rest stay
-        s.density = 1;
-        assert!(!s.looks_like_explorer());
-        assert!(s.explorer_colours);
-        // the whole look isn't written: its parts are
-        assert!(!s.value_lines().iter().any(|(k, _)| *k == "explorer_look"));
-        assert!(s.value_lines().iter().any(|(k, _)| *k == "explorer_colours"));
+        // after that each one is a setting like any other: changing it changes nothing else, and no look is kept
+        s.density = 2;
+        assert!(s.explorer_colours && s.search_hide_help);
+        assert!(!s.set_value("explorer_look", "0"), "a look is no setting of its own");
+        assert!(!s.body().contains("explorer_look"));
+        assert!(!policy::covers("explorer_look"), "nor anything a policy sets");
     }
 
     /// Anything new in the settings file has to be something administrators can set too.

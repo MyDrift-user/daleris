@@ -187,19 +187,68 @@ impl App {
         }
     }
 
-    /// When Explorer's colours decide the theme and accent, says so with a way to that switch; true then.
+    /// When Explorer's colours decide the theme and accent, says so; true then.
     fn explorer_decides(&mut self, ui: &mut Ui) -> bool {
         if !self.settings.explorer_colours() {
             return false;
         }
-        ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Set by \"Explorer's colours\" under Windows Explorer.").small().color(DIM()));
-            if ui.link(egui::RichText::new("Change").small()).clicked() {
-                self.acts.push(Act::OpenSettings(Some(Page::Explorer)));
-            }
-        });
+        ui.label(egui::RichText::new("Explorer's colours decide this.").small().color(DIM()));
         ui.add_space(4.0);
         true
+    }
+
+    /// The two looks, each applied in one go: they set the settings on this page and the search box's switches as if
+    /// changed by hand, and nothing remembers which was applied. Windows only, where there's an Explorer to look like.
+    fn looks_card(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Look", "Set the colours, lines, Mica, row height and icons below, and the search box's switches under Files & folders, the way Windows Explorer has them or the way Daleris looks on its own. Each stays yours to change afterwards.");
+            let mut chosen = None;
+            ui.horizontal(|ui| {
+                if ui.button("Look like Windows Explorer").clicked() {
+                    chosen = Some(true);
+                }
+                if ui.button("Daleris's own look").clicked() {
+                    chosen = Some(false);
+                }
+            });
+            if super::LOOKS.iter().any(|(k, ..)| policy::is_fixed(k)) {
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new("What your organization manages stays as it is.").size(12.0).color(DIM()));
+            }
+            if let Some(explorer) = chosen {
+                self.settings.apply_look(explorer);
+                self.settings.regex_off_if_hidden();
+                self.refilter_tabs();
+                self.apply_theme();
+            }
+        });
+    }
+
+    /// Explorer's lines and Mica. Windows only.
+    fn window_card(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Window", "How the panes and the tab bar are drawn.");
+            let s = &mut self.settings;
+            let mut changed = managed_toggle(ui, &mut s.explorer_lines, "explorer_lines", "Explorer's lines between the panes and around the tab in front");
+            // Mica: Windows 11 only, and the window has to be made for it when it opens
+            if shell::has_mica() {
+                changed |= managed_toggle(ui, &mut s.explorer_mica, "explorer_mica", "Mica behind the tab bar");
+                let mica = s.explorer_mica;
+                ui.indent("mica_parts", |ui| {
+                    ui.add_enabled_ui(mica, |ui| {
+                        changed |= managed_toggle(ui, &mut s.explorer_mica_bar, "explorer_mica_bar", "A little of it through the tab in front and the address bar");
+                    });
+                });
+                if s.wants_mica() && !crate::theme::mica_window() {
+                    ui.label(egui::RichText::new("Mica takes effect when Daleris starts again.").size(12.0).color(DIM()));
+                }
+            }
+            if changed {
+                self.apply_theme();
+            }
+        });
     }
 
     /// Windows draws some of its icons for the light or the dark theme: when that changes, they're fetched again.
@@ -299,9 +348,16 @@ impl App {
     // ------------------------------------------------------------------ appearance
 
     fn page_appearance(&mut self, ui: &mut Ui) {
+        if cfg!(windows) {
+            self.looks_card(ui);
+            ui.add_space(14.0);
+        }
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Theme", "", "theme");
+            if cfg!(windows) && managed_toggle(ui, &mut self.settings.explorer_colours, "explorer_colours", "Explorer's colours, following Windows's light or dark mode and accent") {
+                self.apply_theme();
+            }
             let explorer = self.explorer_decides(ui);
             ui.add_enabled_ui(!policy::is_fixed("theme") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
@@ -364,6 +420,10 @@ impl App {
             }));
         });
         ui.add_space(14.0);
+        if cfg!(windows) {
+            self.window_card(ui);
+            ui.add_space(14.0);
+        }
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             heading(ui, "Title bar", "The bar with the tabs at the top of the window.");

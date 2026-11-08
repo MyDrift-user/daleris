@@ -3,7 +3,7 @@
 
 use daleris_integration::deny;
 
-use super::settings_page::{card, managed_note, managed_toggle, toggle};
+use super::settings_page::{card, managed_note, toggle};
 use super::*;
 use crate::integration::{self, Feature, Live};
 
@@ -168,76 +168,6 @@ impl App {
             if integration::is_elevated() {
                 ui.add_space(6.0);
                 ui.label(egui::RichText::new("Daleris is running as administrator, so these can't be changed here. Run it normally.").color(WARN_COLOR));
-            }
-        });
-        ui.add_space(14.0);
-        card().show(ui, |ui| {
-            ui.set_width(ui.available_width());
-            // the whole look is on when every part below the person can change is set its way. It's never a setting of
-            // its own: a policy for it stands for the parts, each of which shows whether it's managed.
-            let mut look = self.settings.looks_like_explorer();
-            let free = self.settings.explorer_look_free();
-            let some_fixed = policy::EXPLORER_PARTS.iter().any(|(k, ..)| policy::is_fixed(k));
-            let mut switched = false;
-            ui.horizontal(|ui| {
-                ui.add_enabled_ui(free, |ui| switched = toggle(ui, &mut look, "Look like Windows Explorer"));
-                if !free {
-                    managed_note(ui);
-                }
-            });
-            if switched {
-                self.settings.explorer_look(look);
-                self.settings.regex_off_if_hidden();
-                self.refilter_tabs();
-                self.apply_theme();
-            }
-            let about = if free && some_fixed {
-                "Turns everything below on at once, or puts it back to how Daleris looks on its own. What your organization sets stays as it is."
-            } else {
-                "Turns everything below on at once. Off puts it all back to how Daleris looks on its own."
-            };
-            ui.label(egui::RichText::new(about).color(DIM()));
-            ui.add_space(8.0);
-            ui.indent("explorer_parts", |ui| {
-                let s = &mut self.settings;
-                let mut changed = managed_toggle(ui, &mut s.explorer_colours, "explorer_colours", "Explorer's colours, following Windows's light or dark mode and accent");
-                changed |= managed_toggle(ui, &mut s.explorer_lines, "explorer_lines", "Explorer's lines between the panes and around the tab in front");
-                // Mica: Windows 11 only, and the window has to be made for it when it opens
-                if crate::shell::has_mica() {
-                    changed |= managed_toggle(ui, &mut s.explorer_mica, "explorer_mica", "Mica behind the tab bar");
-                    let mica = s.explorer_mica;
-                    ui.indent("mica_parts", |ui| {
-                        ui.add_enabled_ui(mica, |ui| {
-                            changed |= managed_toggle(ui, &mut s.explorer_mica_bar, "explorer_mica_bar", "A little of it through the tab in front and the address bar");
-                        });
-                    });
-                }
-                if !prefers_bundled_icons() {
-                    let mut system = s.icon_pack == "system";
-                    if managed_toggle(ui, &mut system, "iconpack", "Windows's own icons") {
-                        s.icon_pack = if system { "system".into() } else { "flat".into() };
-                        changed = true;
-                    }
-                }
-                let mut compact = s.density == 0;
-                if managed_toggle(ui, &mut compact, "density", "Compact rows") {
-                    s.density = if compact { 0 } else { super::OWN_DENSITY };
-                    changed = true;
-                }
-                changed |= managed_toggle(ui, &mut s.search_hide_sub, "search_hide_sub", "No subfolders switch in the search box");
-                if managed_toggle(ui, &mut s.search_hide_regex, "search_hide_regex", "No regular expression switch in the search box") {
-                    s.regex_off_if_hidden();
-                    changed = true;
-                }
-                changed |= managed_toggle(ui, &mut s.search_hide_help, "search_hide_help", "No help button (?) in the search box");
-                if changed {
-                    self.apply_theme();
-                    self.refilter_tabs();
-                }
-            });
-            if self.settings.wants_mica() && crate::shell::has_mica() && !crate::theme::mica_window() {
-                ui.add_space(4.0);
-                ui.label(egui::RichText::new("Mica takes effect when Daleris starts again.").size(12.0).color(DIM()));
             }
         });
         ui.add_space(14.0);
