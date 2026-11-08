@@ -13,6 +13,7 @@
       <string id="ShowHiddenItems">Versteckte und Systemelemente anzeigen</string>
       <string id="HideDotfiles">Dotfiles und Dot-Ordner ausblenden (Windows)</string>
       <string id="ExplorerLook">Wie der Windows-Explorer aussehen (Windows)</string>
+      <string id="ExplorerMica">Mica hinter der Tableiste beim Explorer-Aussehen (Windows 11)</string>
       <string id="OpenNewDrives">Einen Tab für ein Laufwerk öffnen, wenn es angeschlossen wird (Windows)</string>
       <string id="StartNewWindow">Ein erneuter Start von Daleris öffnet ein neues Fenster (Windows)</string>
       <string id="ShareTransferNotes">Anderen auf Netzwerkfreigaben zeigen, was Sie kopieren, verschieben, löschen und geöffnet haben</string>

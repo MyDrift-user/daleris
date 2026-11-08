@@ -554,6 +554,8 @@ pub struct Settings {
     hide_dotfiles: bool,
     /// look like Windows Explorer: its colours, its icons, no logo or name in the title bar. Windows only
     explorer_look: bool,
+    /// with Explorer's look on Windows 11, Mica behind the tab strip
+    explorer_mica: bool,
     /// open a tab when Windows opens a drive that was just connected, such as a USB stick. Windows only
     open_new_drives: bool,
     /// starting Daleris again opens a new window, not a tab in the open one. Windows only
@@ -692,6 +694,13 @@ fn is_new_drive(dir: &Path) -> bool {
     dir.parent().is_none() && fsx::connected_for(dir).is_some_and(|d| d < NEW_DRIVE)
 }
 
+/// Whether the window starts see-through for Mica: Explorer's look with Mica on, on a Windows 11 that has it.
+#[cfg(windows)]
+pub fn starts_with_mica() -> bool {
+    let s = Settings::load();
+    s.looks_like_explorer() && s.explorer_mica && shell::has_mica()
+}
+
 pub fn starts_with_custom_titlebar(screenshot: bool) -> bool {
     if std::env::var("DALERIS_TEST_NATIVE_TITLE").is_ok() {
         return false;
@@ -709,6 +718,7 @@ impl Settings {
             show_hidden: false,
             hide_dotfiles: false,
             explorer_look: false,
+            explorer_mica: true,
             open_new_drives: true,
             start_new_window: true,
             share_marks: true,
@@ -868,7 +878,12 @@ impl Settings {
 
     fn palette(&self) -> Palette {
         if self.looks_like_explorer() {
-            return Palette::explorer(system_dark(), system_accent().unwrap_or(ACCENTS[0].1));
+            let mut p = Palette::explorer(system_dark(), system_accent().unwrap_or(ACCENTS[0].1));
+            // Mica shows where the tab strip leaves its background empty
+            if self.explorer_mica && crate::theme::mica_window() {
+                p.chrome = Color32::TRANSPARENT;
+            }
+            return p;
         }
         let dark = match self.theme {
             0 => system_dark(),
@@ -910,6 +925,7 @@ impl Settings {
             "hidden" => self.show_hidden = on,
             "hide_dots" => self.hide_dotfiles = on,
             "explorer_look" => self.explorer_look = on,
+            "explorer_mica" => self.explorer_mica = on,
             "open_new_drives" => self.open_new_drives = on,
             "start_new_window" => self.start_new_window = on,
             "share_marks" => self.share_marks = on,
@@ -967,6 +983,7 @@ impl Settings {
             ("hidden", b(self.show_hidden)),
             ("hide_dots", b(self.hide_dotfiles)),
             ("explorer_look", b(self.explorer_look)),
+            ("explorer_mica", b(self.explorer_mica)),
             ("open_new_drives", b(self.open_new_drives)),
             ("start_new_window", b(self.start_new_window)),
             ("share_marks", b(self.share_marks)),
@@ -1350,6 +1367,9 @@ pub struct App {
     confirm_delete: Option<Vec<PathBuf>>,
     /// the pictures other people's notes carry, by who
     faces: HashMap<String, Arc<crate::presence::Face>>,
+    /// the window's own handle, once known (Windows)
+    #[cfg_attr(not(windows), allow(dead_code))]
+    hwnd: isize,
     /// the tab being dragged, by its place in the strip
     tab_drag: Option<usize>,
     /// tabs other Daleris windows hand to this one (Windows)
@@ -1473,6 +1493,7 @@ impl App {
             ops: Vec::new(),
             confirm_delete: None,
             faces: HashMap::new(),
+            hwnd: 0,
             tab_drag: None,
             #[cfg(windows)]
             tab_requests: None,
@@ -2784,10 +2805,20 @@ impl eframe::App for App {
     /// The window's own colour behind the panels: at a scale like 125% their edges fall between pixels, and the
     /// default, nearly black, showed through as a line under the ribbon bar.
     fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        BG().to_normalized_gamma_f32()
+        // with Mica, nothing: it shows where the window leaves its background empty
+        if CHROME() == Color32::TRANSPARENT { [0.0; 4] } else { BG().to_normalized_gamma_f32() }
     }
 
-    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, frame: &mut eframe::Frame) {
+        #[cfg(windows)]
+        if self.hwnd == 0 {
+            use raw_window_handle::{HasWindowHandle, RawWindowHandle};
+            if let Ok(RawWindowHandle::Win32(h)) = frame.window_handle().map(|h| h.as_raw()) {
+                self.hwnd = h.hwnd.get();
+                self.set_backdrop();
+            }
+        }
+        let _ = frame;
         // Unwinding out of this would end at the window procedure, which Rust turns into an abort: the whole app gone,
         // with whatever was going on in it.
         if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.frame(ui))).is_err() {

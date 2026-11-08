@@ -176,6 +176,17 @@ impl App {
             if managed_toggle(ui, &mut self.settings.explorer_look, "explorer_look", "Look like Windows Explorer") {
                 self.apply_theme();
             }
+            // Mica: Windows 11 only, and the window has to be made for it when it opens
+            if crate::shell::has_mica() {
+                ui.add_enabled_ui(self.settings.explorer_look, |ui| {
+                    if managed_toggle(ui, &mut self.settings.explorer_mica, "explorer_mica", "Mica behind the tab bar, as in Explorer") {
+                        self.apply_theme();
+                    }
+                });
+                if self.settings.explorer_look && self.settings.explorer_mica && !crate::theme::mica_window() {
+                    ui.label(egui::RichText::new("Takes effect when Daleris starts again.").size(12.0).color(DIM()));
+                }
+            }
             ui.label(
                 egui::RichText::new(
                     "Explorer's colours in light and dark mode, following Windows, with its flat sidebar and This PC, \n                     Windows's own icons, and no logo or name in the title bar. The settings it decides are greyed out under Appearance.",

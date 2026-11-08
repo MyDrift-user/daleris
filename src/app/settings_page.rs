@@ -178,6 +178,7 @@ impl App {
         let cur = pal();
         if p.accent != cur.accent || p.dark != cur.dark {
             apply(ctx, p);
+            self.set_backdrop();
             let icon = egui::IconData { rgba: logo_rgba(64, p.accent), width: 64, height: 64 };
             ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(Arc::new(icon))));
         }
@@ -198,9 +199,19 @@ impl App {
         true
     }
 
+    /// Mica behind the window, tinted for the theme, when the window was made for it and it's wanted; none otherwise.
+    pub(super) fn set_backdrop(&self) {
+        #[cfg(windows)]
+        if self.hwnd != 0 && crate::theme::mica_window() {
+            let on = self.settings.looks_like_explorer() && self.settings.explorer_mica;
+            shell::set_backdrop(self.hwnd, on, pal().dark);
+        }
+    }
+
     pub(super) fn apply_theme(&mut self) {
         let p = self.settings.palette();
         apply(&self.ctx, p);
+        self.set_backdrop();
         let icon = egui::IconData { rgba: logo_rgba(64, p.accent), width: 64, height: 64 };
         self.ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(Arc::new(icon))));
         self.save_settings();

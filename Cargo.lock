@@ -456,6 +456,7 @@ dependencies = [
  "libc",
  "log",
  "png",
+ "raw-window-handle",
  "regex",
  "resvg",
  "sha2",

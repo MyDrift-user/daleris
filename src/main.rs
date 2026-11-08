@@ -121,6 +121,12 @@ fn main() -> eframe::Result<()> {
         // a dialog has the frame dialogs have
         .with_decorations(is_picker || !app::starts_with_custom_titlebar(screenshot.is_some()))
         .with_drag_and_drop(true);
+    // see-through, so Windows can put Mica behind the tab strip
+    #[cfg(windows)]
+    if !is_picker && app::starts_with_mica() {
+        viewport = viewport.with_transparent(true);
+        theme::set_mica_window(true);
+    }
     // under the pointer, a little left of it, as if the tab were picked up by its title
     if let Some((x, y)) = at {
         viewport = viewport.with_position([x - 120.0, y - 16.0]);

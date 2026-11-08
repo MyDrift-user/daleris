@@ -37,6 +37,8 @@ VALUES
                                       Windows only: on Linux and macOS those names are hidden items, see ShowHiddenItems
   ExplorerLook              DWORD     0 off, 1 Explorer's colours, Windows's icons and no logo or name in the title bar.
                                       Theme, AccentColor, IconPack and the title bar logo and name don't apply then. Windows only
+  ExplorerMica              DWORD     1 on, 0 off: with ExplorerLook, Mica behind the tab bar. Windows 11 (22H2 and later);
+                                      takes effect when Daleris starts
   OpenNewDrives             DWORD     1 on, 0 off: a tab opens when Windows opens a drive that was just connected, such
                                       as a USB stick. Windows only
   StartNewWindow            DWORD     1 on, 0 off: starting Daleris again, from Start, the taskbar or Win+E, opens a new

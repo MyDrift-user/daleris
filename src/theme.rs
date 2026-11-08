@@ -171,6 +171,19 @@ impl Palette {
     }
 }
 
+/// The window was made see-through at start, so Mica can show behind it. Only then can the palette leave the tab
+/// strip empty.
+static MICA_WINDOW: AtomicBool = AtomicBool::new(false);
+
+#[cfg_attr(not(windows), allow(dead_code))]
+pub fn set_mica_window(on: bool) {
+    MICA_WINDOW.store(on, Ordering::Relaxed);
+}
+
+pub fn mica_window() -> bool {
+    MICA_WINDOW.load(Ordering::Relaxed)
+}
+
 thread_local! {
     static PAL: std::cell::Cell<Palette> = std::cell::Cell::new(Palette::new(true, ACCENTS[0].1));
 }

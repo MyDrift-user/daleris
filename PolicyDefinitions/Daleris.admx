@@ -35,6 +35,12 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_ExplorerMica" class="Both" displayName="$(string.ExplorerMica)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerMica">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Fixed_OpenNewDrives" class="Both" displayName="$(string.OpenNewDrives)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="OpenNewDrives">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -414,6 +420,12 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_ExplorerLook" class="Both" displayName="$(string.ExplorerLook)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerLook">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerMica" class="Both" displayName="$(string.ExplorerMica)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerMica">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

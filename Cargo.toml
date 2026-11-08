@@ -24,12 +24,17 @@ sha2 = "0.11"
 daleris-integration = { path = "crates/integration" }
 
 
+[target.'cfg(windows)'.dependencies]
+# the window's own handle, for asking Windows for Mica behind it
+raw-window-handle = "0.6"
+
 [target.'cfg(windows)'.dependencies.windows]
 version = "0.62"
 features = [
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Devices_Properties",
     "Win32_Foundation",
+    "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",
     "Win32_NetworkManagement_NetManagement",
     "Win32_NetworkManagement_WNet",
@@ -51,6 +56,7 @@ features = [
     "Win32_Security_Authentication_Identity",
     "Win32_Security_Authorization",
     "Win32_UI_Accessibility",
+    "Win32_UI_Controls",
     "Win32_UI_Input_KeyboardAndMouse",
     "Win32_UI_Shell",
     "Win32_UI_Shell_Common",

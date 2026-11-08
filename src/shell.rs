@@ -33,6 +33,29 @@ pub fn init_com() {
     }
 }
 
+/// Whether this Windows has Mica for apps: Windows 11 from build 22621.
+pub fn has_mica() -> bool {
+    use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
+    crate::fsx::reg_text(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber").and_then(|b| b.parse::<u32>().ok()).is_some_and(|b| b >= 22621)
+}
+
+/// Asks Windows for Mica behind the window, or none, tinted for a dark or light theme. The window must have been made
+/// see-through at start for it to show.
+pub fn set_backdrop(hwnd: isize, mica: bool, dark: bool) {
+    use windows::Win32::Graphics::Dwm::*;
+    use windows::Win32::UI::Controls::MARGINS;
+    let hwnd = HWND(hwnd as *mut _);
+    let dark = windows::core::BOOL::from(dark);
+    let kind = if mica { DWMSBT_MAINWINDOW } else { DWMSBT_NONE };
+    unsafe {
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark as *const _ as *const _, 4);
+        let _ = DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &kind as *const _ as *const _, 4);
+        // the whole window is frame to the system, so the backdrop reaches behind all of it
+        let m = if mica { -1 } else { 0 };
+        let _ = DwmExtendFrameIntoClientArea(hwnd, &MARGINS { cxLeftWidth: m, cxRightWidth: m, cyTopHeight: m, cyBottomHeight: m });
+    }
+}
+
 pub fn main_hwnd() -> HWND {
     unsafe { GetActiveWindow() }
 }

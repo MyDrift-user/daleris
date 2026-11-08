@@ -569,3 +569,8 @@ pub fn clean_label(s: &str) -> String {
     let s = s.split('\t').next().unwrap_or("").replace("&&", "\u{1}").replace('&', "").replace('\u{1}', "&").trim().to_string();
     crate::fscommon::undash_text(&s)
 }
+
+/// Mica is a Windows 11 material.
+pub fn has_mica() -> bool {
+    false
+}
