@@ -298,6 +298,11 @@
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="IconPack" valueName="IconPack" /></elements>
     </policy>
+    <policy name="Fixed_NewTabOpens" class="Both" displayName="$(string.NewTabOpens)" explainText="$(string.NewTabOpensExplain_ExplainFixed)" presentation="$(presentation.NewTabOpens)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="NewTabOpens" valueName="NewTabOpens" /></elements>
+    </policy>
     <policy name="Fixed_RibbonLeft" class="Both" displayName="$(string.RibbonLeft)" explainText="$(string.RibbonLeftExplain_ExplainFixed)" presentation="$(presentation.RibbonLeft)" key="Software\Policies\Daleris">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -711,6 +716,11 @@
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="IconPack" valueName="IconPack" /></elements>
+    </policy>
+    <policy name="Rec_NewTabOpens" class="Both" displayName="$(string.NewTabOpens)" explainText="$(string.NewTabOpensExplain_ExplainRecommended)" presentation="$(presentation.NewTabOpens)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="NewTabOpens" valueName="NewTabOpens" /></elements>
     </policy>
     <policy name="Rec_RibbonLeft" class="Both" displayName="$(string.RibbonLeft)" explainText="$(string.RibbonLeftExplain_ExplainRecommended)" presentation="$(presentation.RibbonLeft)" key="Software\Policies\Daleris\Recommended">
       <parentCategory ref="Recommended" />

@@ -73,6 +73,8 @@ VALUES
   TitleBarBrandSettings     DWORD     1 on, 0 off: with TitleBarLogo or TitleBarName, they open Settings and the settings
                                       button isn't shown
   ReopenTabs                DWORD     0 off, 1 on
+  NewTabOpens               SZ        home (the default), same (the folder of the tab in front), thispc, or a folder's
+                                      path: where a new tab opens. With Shift, it's always the folder of the tab in front
   WindowsPropertiesDialog   DWORD     0 Daleris's, 1 the Windows dialog
   FolderSizes               DWORD     0 off, 1 on
   SearchSubfolders          DWORD     0 off, 1 on

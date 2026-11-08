@@ -144,8 +144,8 @@ impl App {
                 ui.add_space(2.0);
                 ui.vertical(|ui| {
                     ui.add_space(tab_y + 1.0);
-                    if icon_button(ui, I_ADD, "New tab (Ctrl+T)", true).clicked() {
-                        self.acts.push(Act::NewTab);
+                    if icon_button(ui, I_ADD, "New tab (Ctrl+T)\nWith Shift: the same folder again (Ctrl+Shift+T)", true).clicked() {
+                        self.acts.push(Act::NewTab { same: ui.input(|i| i.modifiers.shift) });
                     }
                 });
                 // empty title-bar space: drag to move the window, double-click to maximise
@@ -154,7 +154,7 @@ impl App {
                 if custom {
                     self.title_drag(ui, &rest);
                 } else if rest.double_clicked() {
-                    self.acts.push(Act::NewTab);
+                    self.acts.push(Act::NewTab { same: false });
                 }
                 if self.settings.shows_gear() {
                     ui.vertical(|ui| {

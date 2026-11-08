@@ -65,8 +65,8 @@ impl App {
                     self.start_load(&mut t, true);
                 }
             }
-            Act::NewTab => {
-                let loc = t.loc.clone();
+            Act::NewTab { same } => {
+                let loc = if same { t.loc.clone() } else { self.new_tab_loc(&t.loc) };
                 self.tabs[ai] = t;
                 self.open_tab(loc, true);
                 return;

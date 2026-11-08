@@ -105,6 +105,9 @@
       <string id="IconPack">Symbolpaket</string>
       <string id="IconPackExplain_ExplainFixed">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="IconPackExplain_ExplainRecommended">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
+      <string id="NewTabOpens">Wo ein neuer Tab öffnet</string>
+      <string id="NewTabOpensExplain_ExplainFixed">home, same (der Ordner des vorderen Tabs), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet ein neuer Tab immer den Ordner des vorderen Tabs. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
+      <string id="NewTabOpensExplain_ExplainRecommended">home, same (der Ordner des vorderen Tabs), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet ein neuer Tab immer den Ordner des vorderen Tabs. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="RibbonLeft">Menüband: linke Seite</string>
       <string id="RibbonLeftExplain_ExplainFixed">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="RibbonLeftExplain_ExplainRecommended">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
@@ -180,6 +183,7 @@
       <presentation id="AccentColor"><dropdownList refId="AccentColor" noSort="true" /></presentation>
       <presentation id="RowHeight"><dropdownList refId="RowHeight" noSort="true" /></presentation>
       <presentation id="IconPack"><textBox refId="IconPack"><label>Symbolpaket</label></textBox></presentation>
+      <presentation id="NewTabOpens"><textBox refId="NewTabOpens"><label>Wo ein neuer Tab öffnet</label></textBox></presentation>
       <presentation id="RibbonLeft"><textBox refId="RibbonLeft"><label>Menüband: linke Seite</label></textBox></presentation>
       <presentation id="RibbonRight"><textBox refId="RibbonRight"><label>Menüband: rechte Seite</label></textBox></presentation>
       <presentation id="RibbonHidden"><textBox refId="RibbonHidden"><label>Menüband: ausgeblendete Einträge</label></textBox></presentation>

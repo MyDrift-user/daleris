@@ -930,6 +930,35 @@ impl App {
                 ch = true;
             }
             ch |= managed_toggle(ui, &mut self.settings.restore_tabs, "restore_tabs2", "Reopen my tabs when Daleris starts");
+            ui.add_space(4.0);
+            ui.horizontal_wrapped(|ui| {
+                let fixed = policy::is_fixed("new_tab");
+                ui.add_enabled_ui(!fixed, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("New tabs open");
+                        let now = self.settings.new_tab.clone();
+                        for (v, l) in [("home", "Home"), ("same", "The same folder as the tab in front"), ("thispc", "This PC")] {
+                            if ui.selectable_label(now == v, l).clicked() {
+                                self.settings.new_tab = v.into();
+                                ch = true;
+                            }
+                        }
+                        let folder = !matches!(now.as_str(), "home" | "same" | "thispc");
+                        let label = if folder { now.clone() } else { "A folder…".into() };
+                        if ui.selectable_label(folder, label).on_hover_text("Choose a folder").clicked() {
+                            if let Some(p) = shell::pick_folder() {
+                                self.settings.new_tab = p.to_string_lossy().into_owned();
+                                ch = true;
+                            }
+                        }
+                    });
+                });
+                if fixed {
+                    managed_note(ui);
+                }
+            });
+            ui.label(egui::RichText::new("With Shift, the + button and Ctrl+Shift+T open the same folder as the tab in front, whatever is set here.").size(12.0).color(DIM()));
+            ui.add_space(4.0);
             if shell::HAS_NATIVE_PROPERTIES {
                 ch |= managed_toggle(ui, &mut self.settings.native_props, "native_props", "Use the Windows Properties dialog instead of Daleris's");
             }

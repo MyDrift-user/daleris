@@ -418,7 +418,8 @@ enum Act {
     Forward,
     Up,
     Refresh,
-    NewTab,
+    /// `same`: the folder of the tab in front, whatever new tabs open otherwise
+    NewTab { same: bool },
     CloseTab(usize),
     SwitchTab(usize),
     Copy,
@@ -596,6 +597,8 @@ pub struct Settings {
     title_gear: bool,
     /// the logo and name in the title bar open Settings, in place of the settings button
     title_brand_settings: bool,
+    /// where a new tab opens: "home", "same" (the folder of the tab in front), "thispc" or a folder's path
+    new_tab: String,
     sections: Vec<SectionCfg>,
     side_hidden: HashSet<String>,
     side_order: HashMap<String, Vec<String>>,
@@ -754,6 +757,7 @@ impl Settings {
             title_name: false,
             title_gear: true,
             title_brand_settings: false,
+            new_tab: "home".into(),
             sections: default_sections(),
             side_hidden: HashSet::new(),
             side_order: HashMap::new(),
@@ -1020,6 +1024,7 @@ impl Settings {
             "title_name2" => self.title_name = on,
             "title_gear" => self.title_gear = on,
             "title_brand_settings" => self.title_brand_settings = on,
+            "new_tab" => self.new_tab = if v.trim().is_empty() { "home".into() } else { v.trim().to_string() },
             "restore_tabs2" => self.restore_tabs = on,
             "auto_update" => self.auto_update = on,
             "exp_folders" => self.exp_folders = on,
@@ -1067,6 +1072,7 @@ impl Settings {
             ("title_name2", b(self.title_name)),
             ("title_gear", b(self.title_gear)),
             ("title_brand_settings", b(self.title_brand_settings)),
+            ("new_tab", self.new_tab.clone()),
             ("restore_tabs2", b(self.restore_tabs)),
             ("auto_update", b(self.auto_update)),
             ("native_props", b(self.native_props)),
@@ -2528,6 +2534,21 @@ impl App {
         }
     }
 
+    /// Where a new tab opens, as set in Settings, with `current` the tab in front. A folder that has gone shows its
+    /// own message in the tab, as it would anywhere else.
+    fn new_tab_loc(&self, current: &Loc) -> Loc {
+        match self.settings.new_tab.as_str() {
+            "same" => current.clone(),
+            "thispc" => Loc::ThisPc,
+            "home" => self.home_loc(),
+            folder => Loc::Dir(PathBuf::from(folder)),
+        }
+    }
+
+    fn home_loc(&self) -> Loc {
+        self.places.iter().find(|p| p.name == "Home").map_or(Loc::ThisPc, |p| Loc::Dir(p.path.clone()))
+    }
+
     fn ask(&mut self, key: &str, req: ImgReq) {
         if is_system_icon_key(key) {
             let now = self.ctx.input(|i| i.time);
@@ -2999,13 +3020,14 @@ impl eframe::App for App {
         for (i, step) in spec.split(';').enumerate() {
             let Some((kind, xy)) = step.split_once(':') else { continue };
             let due = f == 60 + gap * i as u32;
-            // "key:Tab", "key:shift+Tab", "text:abc", "nav:path", "newtab:path", "closetab:1", "tab:0"
+            // "key:Tab", "key:shift+Tab", "key:ctrl+shift+T", "text:abc", "nav:path", "newtab:path", "closetab:1", "tab:0"
             match kind {
                 "key" => {
                     if due {
-                        let (shift, name) = xy.strip_prefix("shift+").map_or((false, xy), |n| (true, n));
+                        let (ctrl, name) = xy.strip_prefix("ctrl+").map_or((false, xy), |n| (true, n));
+                        let (shift, name) = name.strip_prefix("shift+").map_or((false, name), |n| (true, n));
                         if let Some(key) = Key::from_name(name) {
-                            let modifiers = egui::Modifiers { shift, ..Default::default() };
+                            let modifiers = egui::Modifiers { shift, ctrl, command: ctrl, ..Default::default() };
                             for pressed in [true, false] {
                                 raw.events.push(egui::Event::Key { key, physical_key: None, pressed, repeat: false, modifiers });
                             }
@@ -3274,7 +3296,7 @@ impl App {
                 egui::Event::Key { key, pressed: true, modifiers, .. } => {
                     let (k, m) = (*key, *modifiers);
                     match k {
-                        Key::T if m.command => self.acts.push(Act::NewTab),
+                        Key::T if m.command => self.acts.push(Act::NewTab { same: m.shift }),
                         Key::W if m.command => self.acts.push(Act::CloseTab(self.active)),
                         Key::Tab if m.ctrl => {
                             let len = self.tabs.len();
@@ -3484,6 +3506,20 @@ mod tests {
         assert!(s.brand_opens_settings());
         s.title_custom = false;
         assert!(!s.brand_opens_settings() && s.shows_gear(), "the standard title bar has no logo");
+    }
+
+    #[test]
+    fn new_tabs_open_home_unless_set_otherwise() {
+        let mut s = Settings::defaults();
+        assert_eq!(s.new_tab, "home");
+        assert!(!s.body().contains("new_tab="), "the default isn't written");
+        for v in ["same", "thispc", r"D:\Projects"] {
+            assert!(s.set_value("new_tab", v));
+            assert_eq!(s.new_tab, v);
+            assert!(s.body().contains(&format!("new_tab={v}\n")));
+        }
+        s.set_value("new_tab", " ");
+        assert_eq!(s.new_tab, "home", "an empty value is the default");
     }
 
     #[test]
