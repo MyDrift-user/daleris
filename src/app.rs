@@ -501,6 +501,15 @@ pub struct Settings {
     nested_search: bool,
     /// search box '.*' switch: the whole search text is a regular expression
     regex_search: bool,
+    /// what search never finds: the ready-made groups, in the order of `search::SKIP_GROUPS`
+    skip_groups: [bool; 6],
+    skip_hidden: bool,
+    skip_system: bool,
+    /// the person's own lists. What an administrator adds stays in the policy, see `search_skip`.
+    skip_folders: Vec<String>,
+    skip_names: Vec<String>,
+    skip_types: Vec<String>,
+    skip_patterns: Vec<String>,
     /// the ribbon bar: the items on each side, left to right, and the ones switched off
     ribbon_left: Vec<String>,
     ribbon_right: Vec<String>,
@@ -606,6 +615,13 @@ impl Settings {
             col_w: HashMap::new(),
             nested_search: true,
             regex_search: false,
+            skip_groups: [false; 6],
+            skip_hidden: false,
+            skip_system: true,
+            skip_folders: Vec::new(),
+            skip_names: Vec::new(),
+            skip_types: Vec::new(),
+            skip_patterns: Vec::new(),
             ribbon_left: RIBBON_LEFT.iter().map(|s| s.to_string()).collect(),
             ribbon_right: RIBBON_RIGHT.iter().map(|s| s.to_string()).collect(),
             ribbon_hidden: HashSet::new(),
@@ -728,6 +744,10 @@ impl Settings {
     fn set_value(&mut self, k: &str, v: &str) -> bool {
         let on = v == "1";
         let list = || v.split('|').map(str::trim).filter(|k| !k.is_empty()).map(String::from);
+        if let Some(i) = search::SKIP_GROUPS.iter().position(|g| g.0 == k) {
+            self.skip_groups[i] = on;
+            return true;
+        }
         match k {
             "hidden" => self.show_hidden = on,
             "hide_dots" => self.hide_dotfiles = on,
@@ -744,6 +764,13 @@ impl Settings {
             "folder_sizes" => self.folder_sizes = on,
             "nested_search" => self.nested_search = on,
             "regex_search" => self.regex_search = on,
+            "search_skip_hidden" => self.skip_hidden = on,
+            "search_skip_system" => self.skip_system = on,
+            policy::SKIP_FOLDERS => self.skip_folders = policy::items(k, v),
+            policy::SKIP_NAMES => self.skip_names = policy::items(k, v),
+            policy::SKIP_TYPES => self.skip_types = policy::items(k, v).iter().filter_map(|t| search::file_type(t)).collect(),
+            // a whole list from a policy: the settings file has a line per pattern, see `load`
+            policy::SKIP_PATTERNS => self.skip_patterns = policy::items(k, v),
             "rleft" => self.ribbon_left = list().collect(),
             "rright" => self.ribbon_right = list().collect(),
             "rhide" => self.ribbon_hidden = list().collect(),
@@ -770,11 +797,11 @@ impl Settings {
     }
 
     /// The simple values as the settings file writes them.
-    fn value_lines(&self) -> [(&'static str, String); 35] {
+    fn value_lines(&self) -> Vec<(&'static str, String)> {
         let b = |x: bool| (x as u8).to_string();
         let mut off: Vec<&str> = self.ribbon_hidden.iter().map(|s| s.as_str()).collect();
         off.sort();
-        [
+        let mut lines = vec![
             ("hidden", b(self.show_hidden)),
             ("hide_dots", b(self.hide_dotfiles)),
             ("sort_key", self.sort_key.word().to_string()),
@@ -810,7 +837,28 @@ impl Settings {
             ("exp_jump", b(self.exp_jump)),
             ("exp_dialog_log", b(self.exp_dialog_log)),
             ("exp_exclude", self.exp_exclude.clone()),
-        ]
+            ("search_skip_hidden", b(self.skip_hidden)),
+            ("search_skip_system", b(self.skip_system)),
+            (policy::SKIP_FOLDERS, self.skip_folders.join("|")),
+            (policy::SKIP_NAMES, self.skip_names.join("|")),
+            (policy::SKIP_TYPES, self.skip_types.join("|")),
+        ];
+        lines.extend(search::SKIP_GROUPS.iter().zip(self.skip_groups).map(|(g, on)| (g.0, b(on))));
+        lines
+    }
+
+    /// What search never finds: the person's own rules, with what the administrator adds to the lists.
+    fn search_skip(&self, pol: &policy::Policy) -> search::Skip {
+        let with_fixed = |own: &[String], key: &str| own.iter().cloned().chain(pol.fixed_items(key)).collect::<Vec<_>>();
+        search::Skip::new(
+            &self.skip_groups,
+            self.skip_hidden,
+            self.skip_system,
+            &with_fixed(&self.skip_folders, policy::SKIP_FOLDERS),
+            &with_fixed(&self.skip_names, policy::SKIP_NAMES),
+            &with_fixed(&self.skip_types, policy::SKIP_TYPES),
+            &with_fixed(&self.skip_patterns, policy::SKIP_PATTERNS),
+        )
     }
 
     /// What a value is when the person never chose one: built in, or the policy default.
@@ -829,7 +877,10 @@ impl Settings {
             return;
         }
         for (k, v) in &pol.fixed {
-            self.set_value(k, v);
+            // a list the administrator adds to stays the person's own: see `search_skip`
+            if !policy::adds_to_own(k) {
+                self.set_value(k, v);
+            }
         }
         if pol.lock_ribbon {
             let b = Settings::baseline();
@@ -862,9 +913,21 @@ impl Settings {
         let mut spins: Vec<(String, PathBuf)> = Vec::new();
         let saved = Self::file().and_then(|f| std::fs::read_to_string(f).ok());
         let first_run = saved.is_none();
+        let mut own_patterns = false;
         if let Some(text) = saved {
             for line in text.lines() {
                 let Some((k, v)) = line.split_once('=') else { continue };
+                // a line per pattern; the first one replaces the default list, and an empty one stands for an empty list
+                if k == policy::SKIP_PATTERNS {
+                    if !own_patterns {
+                        s.skip_patterns.clear();
+                        own_patterns = true;
+                    }
+                    if !v.trim().is_empty() {
+                        s.skip_patterns.push(v.to_string());
+                    }
+                    continue;
+                }
                 // the person's own choice waits underneath a fixed policy
                 if pol.is_fixed(k) {
                     s.kept.push(line.to_string());
@@ -985,10 +1048,19 @@ impl Settings {
         let pol = policy::current();
         let mut out = String::new();
         // only what the person chose, so a new default from the administrator still reaches them
-        let base = Settings::baseline().value_lines();
+        let baseline = Settings::baseline();
+        let base = baseline.value_lines();
         for ((k, v), (_, d)) in self.value_lines().iter().zip(base.iter()) {
             if v != d && !pol.is_fixed(k) {
                 out += &format!("{k}={v}\n");
+            }
+        }
+        if self.skip_patterns != baseline.skip_patterns {
+            if self.skip_patterns.is_empty() {
+                out += &format!("{}=\n", policy::SKIP_PATTERNS);
+            }
+            for p in &self.skip_patterns {
+                out += &format!("{}={p}\n", policy::SKIP_PATTERNS);
             }
         }
         for line in &self.kept {
@@ -1080,6 +1152,8 @@ pub struct App {
     settings_page: settings_page::Page,
     /// sidebar section being renamed inline: (section id, text)
     renaming_section: Option<(String, String)>,
+    /// what's being typed into the four "Never found in search" lists
+    skip_new: [String; 4],
     maximized: bool,
     props: Option<props::PropsState>,
     /// folder sizes, counted in the background
@@ -1198,6 +1272,7 @@ impl App {
             customizer: menu::Customizer::default(),
             settings_page: settings_page::Page::Appearance,
             renaming_section: None,
+            skip_new: Default::default(),
             maximized: false,
             props: None,
             sizer: crate::dirsize::DirSizer::new(cc.egui_ctx.clone()),
@@ -1796,6 +1871,9 @@ impl App {
         let (show_hidden, hide_dots) = (self.settings.show_hidden, self.settings.hide_dotfiles);
         let picker = self.picker.as_ref();
         let panel = t.filter.is_active().then(|| t.filter.compile_now());
+        // searching this folder only never finds what search never finds either
+        let skip = filter.as_ref().and_then(|_| t.dir()).map(|d| (self.settings.search_skip(&policy::current()), d.to_path_buf()));
+        let skip_all = skip.as_ref().is_some_and(|(s, d)| s.skips_start(d));
         let mut v: Vec<u32> = Vec::with_capacity(t.order.len());
         let mut shown_of = 0;
         for &i in &t.order {
@@ -1804,6 +1882,9 @@ impl App {
                 continue;
             }
             shown_of += 1;
+            if skip_all || skip.as_ref().is_some_and(|(s, d)| s.skips(d, &e.name, e.attrs)) {
+                continue;
+            }
             if filter.as_ref().is_none_or(|q| search::matches_entry(q, e)) && panel.as_ref().is_none_or(|f| f.matches(&e.lower, &e.ext, e.is_dir, e.size, e.mtime)) {
                 v.push(i);
             }
@@ -2911,6 +2992,25 @@ mod tests {
         assert!(!s.hide_dotfiles, "dotfiles show unless someone hides them");
         assert!(s.dirs_first && s.sort_asc && s.sort_key == SortKey::Name);
         assert!(s.downloads_newest);
+    }
+
+    #[test]
+    fn a_fixed_search_list_adds_to_the_persons_own_and_stays_out_of_the_file() {
+        let mut s = Settings::defaults();
+        s.skip_names = vec!["Backup".into()];
+        s.skip_patterns = vec![r"\.(key|pem)$".into()];
+        let pol = policy::Policy { fixed: vec![(policy::SKIP_NAMES, "Payroll\nHR".into()), ("search_skip_dev", "1".into())], ..Default::default() };
+        s.enforce(&pol);
+        assert_eq!(s.skip_names, ["Backup"], "the person's own list stays as it was");
+        assert!(s.skip_groups[2], "a fixed switch is set like any other");
+        let skip = s.search_skip(&pol);
+        let dir = Path::new("x");
+        assert!(skip.skips(dir, "payroll", fsx::A_DIR) && skip.skips(dir, "hr", fsx::A_DIR) && skip.skips(dir, "backup", fsx::A_DIR));
+        let body = s.body();
+        assert!(body.contains("search_skip_names=Backup\n") && !body.contains("Payroll"), "only the person's own items are saved");
+        assert!(body.contains("search_skip_pattern=\\.(key|pem)$\n"), "a pattern gets a line of its own");
+        s.skip_types = policy::items(policy::SKIP_TYPES, "*.ISO|bak").iter().filter_map(|t| search::file_type(t)).collect();
+        assert_eq!(s.skip_types, [".iso", ".bak"]);
     }
 
     #[test]

@@ -13,6 +13,8 @@
     <category name="Daleris" displayName="$(string.Daleris)" />
     <category name="Fixed" displayName="$(string.CatFixed)"><parentCategory ref="Daleris" /></category>
     <category name="Recommended" displayName="$(string.CatRecommended)"><parentCategory ref="Daleris" /></category>
+    <category name="FixedSearch" displayName="$(string.CatSearch)"><parentCategory ref="Fixed" /></category>
+    <category name="RecommendedSearch" displayName="$(string.CatSearch)"><parentCategory ref="Recommended" /></category>
   </categories>
   <policies>
     <policy name="Fixed_ShowHiddenItems" class="Both" displayName="$(string.ShowHiddenItems)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ShowHiddenItems">
@@ -112,16 +114,84 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Fixed_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSubfolders">
-      <parentCategory ref="Fixed" />
+      <parentCategory ref="FixedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Fixed_SearchRegex" class="Both" displayName="$(string.SearchRegex)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchRegex">
-      <parentCategory ref="Fixed" />
+      <parentCategory ref="FixedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipAppData" class="Both" displayName="$(string.SearchSkipAppData)" explainText="$(string.SearchSkipAppDataExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipAppData">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipWindows" class="Both" displayName="$(string.SearchSkipWindows)" explainText="$(string.SearchSkipWindowsExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipWindows">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipDeveloperFiles" class="Both" displayName="$(string.SearchSkipDeveloperFiles)" explainText="$(string.SearchSkipDeveloperFilesExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipDeveloperFiles">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipCloudFolders" class="Both" displayName="$(string.SearchSkipCloudFolders)" explainText="$(string.SearchSkipCloudFoldersExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipCloudFolders">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipTempFiles" class="Both" displayName="$(string.SearchSkipTempFiles)" explainText="$(string.SearchSkipTempFilesExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipTempFiles">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipProgramParts" class="Both" displayName="$(string.SearchSkipProgramParts)" explainText="$(string.SearchSkipProgramPartsExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipProgramParts">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipHidden" class="Both" displayName="$(string.SearchSkipHidden)" explainText="$(string.SearchSkipHiddenExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipHidden">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipSystem" class="Both" displayName="$(string.SearchSkipSystem)" explainText="$(string.SearchSkipSystemExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSkipSystem">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchSkipFolders" class="Both" displayName="$(string.SearchSkipFolders)" explainText="$(string.SearchSkipFoldersExplain_ExplainFixed)" presentation="$(presentation.SearchSkipFolders)" key="Software\Policies\Daleris">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipFolders" valueName="SearchSkipFolders" /></elements>
+    </policy>
+    <policy name="Fixed_SearchSkipFolderNames" class="Both" displayName="$(string.SearchSkipFolderNames)" explainText="$(string.SearchSkipFolderNamesExplain_ExplainFixed)" presentation="$(presentation.SearchSkipFolderNames)" key="Software\Policies\Daleris">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipFolderNames" valueName="SearchSkipFolderNames" /></elements>
+    </policy>
+    <policy name="Fixed_SearchSkipFileTypes" class="Both" displayName="$(string.SearchSkipFileTypes)" explainText="$(string.SearchSkipFileTypesExplain_ExplainFixed)" presentation="$(presentation.SearchSkipFileTypes)" key="Software\Policies\Daleris">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipFileTypes" valueName="SearchSkipFileTypes" /></elements>
+    </policy>
+    <policy name="Fixed_SearchSkipPatterns" class="Both" displayName="$(string.SearchSkipPatterns)" explainText="$(string.SearchSkipPatternsExplain_ExplainFixed)" presentation="$(presentation.SearchSkipPatterns)" key="Software\Policies\Daleris">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipPatterns" valueName="SearchSkipPatterns" /></elements>
     </policy>
     <policy name="Fixed_AutomaticUpdates" class="Both" displayName="$(string.AutomaticUpdates)" explainText="$(string.AutomaticUpdatesExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="AutomaticUpdates">
       <parentCategory ref="Fixed" />
@@ -404,16 +474,84 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSubfolders">
-      <parentCategory ref="Recommended" />
+      <parentCategory ref="RecommendedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_SearchRegex" class="Both" displayName="$(string.SearchRegex)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchRegex">
-      <parentCategory ref="Recommended" />
+      <parentCategory ref="RecommendedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipAppData" class="Both" displayName="$(string.SearchSkipAppData)" explainText="$(string.SearchSkipAppDataExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipAppData">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipWindows" class="Both" displayName="$(string.SearchSkipWindows)" explainText="$(string.SearchSkipWindowsExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipWindows">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipDeveloperFiles" class="Both" displayName="$(string.SearchSkipDeveloperFiles)" explainText="$(string.SearchSkipDeveloperFilesExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipDeveloperFiles">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipCloudFolders" class="Both" displayName="$(string.SearchSkipCloudFolders)" explainText="$(string.SearchSkipCloudFoldersExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipCloudFolders">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipTempFiles" class="Both" displayName="$(string.SearchSkipTempFiles)" explainText="$(string.SearchSkipTempFilesExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipTempFiles">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipProgramParts" class="Both" displayName="$(string.SearchSkipProgramParts)" explainText="$(string.SearchSkipProgramPartsExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipProgramParts">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipHidden" class="Both" displayName="$(string.SearchSkipHidden)" explainText="$(string.SearchSkipHiddenExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipHidden">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipSystem" class="Both" displayName="$(string.SearchSkipSystem)" explainText="$(string.SearchSkipSystemExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSkipSystem">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchSkipFolders" class="Both" displayName="$(string.SearchSkipFolders)" explainText="$(string.SearchSkipFoldersExplain_ExplainRecommended)" presentation="$(presentation.SearchSkipFolders)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipFolders" valueName="SearchSkipFolders" /></elements>
+    </policy>
+    <policy name="Rec_SearchSkipFolderNames" class="Both" displayName="$(string.SearchSkipFolderNames)" explainText="$(string.SearchSkipFolderNamesExplain_ExplainRecommended)" presentation="$(presentation.SearchSkipFolderNames)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipFolderNames" valueName="SearchSkipFolderNames" /></elements>
+    </policy>
+    <policy name="Rec_SearchSkipFileTypes" class="Both" displayName="$(string.SearchSkipFileTypes)" explainText="$(string.SearchSkipFileTypesExplain_ExplainRecommended)" presentation="$(presentation.SearchSkipFileTypes)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipFileTypes" valueName="SearchSkipFileTypes" /></elements>
+    </policy>
+    <policy name="Rec_SearchSkipPatterns" class="Both" displayName="$(string.SearchSkipPatterns)" explainText="$(string.SearchSkipPatternsExplain_ExplainRecommended)" presentation="$(presentation.SearchSkipPatterns)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><multiText id="SearchSkipPatterns" valueName="SearchSkipPatterns" /></elements>
     </policy>
     <policy name="Rec_AutomaticUpdates" class="Both" displayName="$(string.AutomaticUpdates)" explainText="$(string.AutomaticUpdatesExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="AutomaticUpdates">
       <parentCategory ref="Recommended" />

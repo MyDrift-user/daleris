@@ -97,6 +97,8 @@ impl Data {
 
 pub struct Index {
     pub roots: Vec<PathBuf>,
+    /// what this index leaves out
+    pub skip: Skip,
     pub data: RwLock<Data>,
     pub len: AtomicUsize,
     pub done: AtomicBool,
@@ -107,9 +109,10 @@ pub struct Index {
 }
 
 impl Index {
-    pub fn build(roots: Vec<PathBuf>, ctx: eframe::egui::Context) -> Arc<Index> {
+    pub fn build(roots: Vec<PathBuf>, skip: Skip, ctx: eframe::egui::Context) -> Arc<Index> {
         let idx = Arc::new(Index {
             roots: roots.clone(),
+            skip,
             data: RwLock::new(Data::default()),
             len: AtomicUsize::new(0),
             done: AtomicBool::new(false),
@@ -125,7 +128,10 @@ impl Index {
                 let name = r.to_string_lossy().trim_end_matches('\\').to_string();
                 let name = if name.ends_with(':') { format!("{name}\\") } else { name };
                 let i = d.push(&name, NO_PARENT, A_DIR, 0, 0);
-                queue.push((i, r.clone()));
+                // started somewhere search never finds anything: nothing to crawl
+                if !idx.skip.skips_start(r) {
+                    queue.push((i, r.clone()));
+                }
             }
             idx.len.store(d.items.len(), Ordering::Release);
         }
@@ -195,6 +201,8 @@ fn crawl_worker(idx: &Index, shared: &Shared) {
             local.push(Raw { name: d.name.into_owned(), attrs: d.attrs, size: d.size, mtime: d.mtime });
         });
         idx.dirs.fetch_add(1, Ordering::Relaxed);
+        // what search never finds stays out of the index, and a folder it skips isn't crawled
+        local.retain(|r| !idx.skip.skips(&path, &r.name, r.attrs));
         let mut subdirs = Vec::new();
         if !local.is_empty() {
             let mut d = idx.data.write().unwrap();
@@ -213,6 +221,128 @@ fn crawl_worker(idx: &Index, shared: &Shared) {
         g.1 -= 1;
         cv.notify_all();
     }
+}
+
+// ---------------------------------------------------------------- what search never finds
+
+/// The ready-made groups in Settings: settings file key, name, folder names, file types.
+pub const SKIP_GROUPS: [(&str, &str, &[&str], &[&str]); 6] = [
+    ("search_skip_appdata", "App data", &["AppData"], &[]),
+    (
+        "search_skip_windows",
+        "Windows and installed programs",
+        &["Windows", "Program Files", "Program Files (x86)", "ProgramData", "$Recycle.Bin", "System Volume Information", "$WinREAgent", "Recovery"],
+        &[],
+    ),
+    (
+        "search_skip_dev",
+        "Developer clutter",
+        &["node_modules", ".git", ".svn", "target", "__pycache__", ".cache", ".cargo", ".rustup", ".npm", ".gradle", ".venv", "venv"],
+        &[],
+    ),
+    ("search_skip_cloud", "Cloud folders", &["OneDrive", "Dropbox", "Google Drive", "iCloudDrive"], &[]),
+    ("search_skip_temp", "Temporary and log files", &[], &[".tmp", ".temp", ".log", ".bak", ".dmp"]),
+    ("search_skip_parts", "Program parts", &[], &[".dll", ".sys", ".mui", ".cat", ".pdb", ".obj", ".lib"]),
+];
+
+/// What search never finds: the switches and lists in Settings, with what the administrator adds.
+/// A folder it skips isn't crawled, so nothing inside it is found either.
+#[derive(Default)]
+pub struct Skip {
+    /// full paths, as `path_key` writes them
+    folders: Vec<String>,
+    /// folder names in lower case
+    names: Vec<String>,
+    /// `.iso`, in lower case
+    types: Vec<String>,
+    patterns: Vec<regex::Regex>,
+    hidden: bool,
+    system: bool,
+    /// all of it as text, to tell whether an index left out the same things
+    pub key: String,
+}
+
+impl Skip {
+    /// `groups` are on or off in the order of `SKIP_GROUPS`. Patterns that aren't valid are left out.
+    pub fn new(groups: &[bool], hidden: bool, system: bool, folders: &[String], names: &[String], types: &[String], patterns: &[String]) -> Skip {
+        // Linux and macOS have no system attribute: there it marks trees Daleris never crawls anyway
+        let mut s = Skip { hidden, system: system && cfg!(windows), ..Default::default() };
+        for (_, _, group_names, group_types) in SKIP_GROUPS.iter().zip(groups).filter(|(_, on)| **on).map(|(g, _)| g) {
+            s.names.extend(group_names.iter().map(|n| n.to_lowercase()));
+            s.types.extend(group_types.iter().map(|t| t.to_string()));
+        }
+        s.folders.extend(folders.iter().map(|f| path_key(&crate::policy::expand(f))).filter(|f| !f.is_empty()));
+        s.names.extend(names.iter().map(|n| n.trim().to_lowercase()));
+        s.types.extend(types.iter().filter_map(|t| file_type(t)));
+        let mut valid = Vec::new();
+        for p in patterns {
+            if let Ok(r) = pattern(p) {
+                s.patterns.push(r);
+                valid.push(p);
+            }
+        }
+        s.key = format!("{:?} {:?} {:?} {valid:?} {} {}", s.folders, s.names, s.types, s.hidden, s.system);
+        s
+    }
+
+    /// Is this item, in folder `dir`, never found?
+    pub fn skips(&self, dir: &Path, name: &str, attrs: u32) -> bool {
+        if (self.hidden && attrs & A_HIDDEN != 0) || (self.system && attrs & A_SYSTEM != 0) {
+            return true;
+        }
+        if attrs & A_DIR != 0 {
+            if self.names.contains(&name.to_lowercase()) || (!self.folders.is_empty() && self.folders.contains(&path_key(&dir.join(name).to_string_lossy()))) {
+                return true;
+            }
+        } else if let Some(dot) = name.rfind('.') {
+            if self.types.contains(&name[dot..].to_lowercase()) {
+                return true;
+            }
+        }
+        !self.patterns.is_empty() && self.pattern_matches(&dir.join(name), attrs & A_DIR != 0)
+    }
+
+    /// Is a search that starts in `dir` already inside something search never finds? Only the
+    /// folders, names and patterns count: a search started inside a hidden folder still looks there.
+    pub fn skips_start(&self, dir: &Path) -> bool {
+        let key = path_key(&dir.to_string_lossy());
+        let inside = |f: &String| key == *f || key.strip_prefix(f.as_str()).is_some_and(|rest| rest.starts_with(std::path::MAIN_SEPARATOR));
+        self.folders.iter().any(inside)
+            || dir.components().any(|c| matches!(c, std::path::Component::Normal(n) if self.names.contains(&n.to_string_lossy().to_lowercase())))
+            || self.pattern_matches(dir, true)
+    }
+
+    /// A folder's path ends in a separator here, so `\\Payroll\\` covers the Payroll folder as well as what's in it.
+    fn pattern_matches(&self, path: &Path, is_dir: bool) -> bool {
+        let mut path = path.to_string_lossy().into_owned();
+        if is_dir && !path.ends_with(std::path::MAIN_SEPARATOR) {
+            path.push(std::path::MAIN_SEPARATOR);
+        }
+        self.patterns.iter().any(|r| r.is_match(&path))
+    }
+}
+
+/// A folder as the folder rules compare it: lower case, without a separator at the end, and on Windows with `\` only.
+fn path_key(p: &str) -> String {
+    let p = if cfg!(windows) { p.replace('/', "\\") } else { p.to_string() };
+    p.trim_end_matches(std::path::MAIN_SEPARATOR).to_lowercase()
+}
+
+/// `.iso`, `iso` and `*.iso` all mean the type `.iso`. None if there's no type in it.
+pub fn file_type(t: &str) -> Option<String> {
+    let t = t.trim().trim_start_matches('*').trim_start_matches('.');
+    (!t.is_empty() && !t.contains(['|', '/', '\\', '*'])).then(|| format!(".{}", t.to_lowercase()))
+}
+
+/// A pattern as search uses it, matched against the whole path without regard to case, or why it can't be used.
+pub fn pattern(p: &str) -> Result<regex::Regex, String> {
+    regex::RegexBuilder::new(p).case_insensitive(true).size_limit(1 << 22).build().map_err(|e| short_error(&e))
+}
+
+/// The line of a regex error that says what's wrong.
+fn short_error(e: &regex::Error) -> String {
+    let msg = e.to_string();
+    msg.lines().filter(|l| !l.trim().is_empty()).last().unwrap_or("invalid pattern").trim().trim_start_matches("error: ").to_string()
 }
 
 // ---------------------------------------------------------------- query language
@@ -305,9 +435,7 @@ impl Query {
         match regex::bytes::RegexBuilder::new(pattern).case_insensitive(true).size_limit(1 << 22).build() {
             Ok(r) => self.terms.push(Term::Regex(r, neg)),
             Err(e) => {
-                let msg = e.to_string();
-                let last = msg.lines().filter(|l| !l.trim().is_empty()).last().unwrap_or("invalid pattern").trim().trim_start_matches("error: ").to_string();
-                self.error = Some(last);
+                self.error = Some(short_error(&e));
                 self.terms.push(Term::Never);
             }
         }
@@ -673,5 +801,70 @@ mod dot_tests {
         q.extra = Some(f.compile(1));
         assert!(q.matches(b"a.png", 0, 1, 1));
         assert!(!q.matches(b"a.txt", 0, 1, 1));
+    }
+}
+
+#[cfg(test)]
+mod skip_tests {
+    use super::*;
+
+    fn own(items: &[&str]) -> Vec<String> {
+        items.iter().map(|s| s.to_string()).collect()
+    }
+
+    const DEV: [bool; 3] = [false, false, true];
+
+    #[test]
+    fn folders_names_types_and_patterns_are_never_found() {
+        let root = if cfg!(windows) { Path::new(r"C:\Work") } else { Path::new("/work") };
+        let sep = std::path::MAIN_SEPARATOR;
+        let folders = own(&[&format!("{}{sep}Private{sep}", root.display())]);
+        let skip = Skip::new(&DEV, false, false, &folders, &own(&["Payroll"]), &own(&["*.ISO", "bak"]), &own(&[r"\.(key|pem|pfx)$", "([unclosed"]));
+        assert!(skip.skips(root, "private", A_DIR), "a folder, whatever its case and however it ends");
+        assert!(!skip.skips(root, "private", 0), "a file of that name isn't the folder");
+        assert!(skip.skips(&root.join("deep"), "PAYROLL", A_DIR), "a name, wherever it is");
+        assert!(skip.skips(root, "node_modules", A_DIR), "from the group");
+        assert!(skip.skips(root, "disk.iso", 0) && skip.skips(root, "old.BAK", 0));
+        assert!(!skip.skips(root, "iso", 0));
+        assert!(skip.skips(root, "server.key", 0) && !skip.skips(root, "keys", A_DIR));
+        assert!(!skip.skips(root, "notes.txt", 0));
+        assert!(skip.key.contains("key|pem") && !skip.key.contains("unclosed"), "an invalid pattern is left out");
+        // a search started inside something skipped finds nothing
+        assert!(skip.skips_start(&root.join("Private").join("2026")));
+        assert!(skip.skips_start(&root.join("payroll")));
+        assert!(!skip.skips_start(&root.join("Private2")));
+        assert!(!skip.skips_start(root));
+    }
+
+    #[test]
+    fn hidden_and_system_items() {
+        let skip = Skip::new(&[], true, true, &[], &[], &[], &[]);
+        assert!(skip.skips(Path::new("x"), "a", A_HIDDEN));
+        assert_eq!(skip.skips(Path::new("x"), "desktop.ini", A_SYSTEM), cfg!(windows), "only Windows has system files");
+        assert!(!Skip::default().skips(Path::new("x"), "a", A_HIDDEN | A_SYSTEM));
+        assert_eq!(file_type(" *.Iso "), Some(".iso".to_string()));
+        assert_eq!(file_type("*."), None);
+    }
+
+    #[test]
+    fn nothing_inside_a_skipped_folder_is_indexed() {
+        let dir = std::env::temp_dir().join(format!("daleris-skip-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for d in ["node_modules/pkg", "Payroll/2026", "src"] {
+            std::fs::create_dir_all(dir.join(d)).unwrap();
+        }
+        for f in ["node_modules/pkg/index.js", "Payroll/2026/march.xlsx", "src/main.rs", "notes.txt", "secret.key"] {
+            std::fs::write(dir.join(f), "x").unwrap();
+        }
+        let skip = Skip::new(&DEV, false, false, &[], &[], &[], &own(&[r"[\\/]Payroll[\\/]", r"\.key$"]));
+        let idx = Index::build(vec![dir.clone()], skip, eframe::egui::Context::default());
+        while !idx.is_done() {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        let data = idx.data.read().unwrap();
+        let mut names: Vec<&str> = (1..data.items.len() as u32).map(|i| data.name(i)).collect();
+        names.sort();
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(names, ["main.rs", "notes.txt", "src"]);
     }
 }

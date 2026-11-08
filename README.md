@@ -67,7 +67,7 @@ Under **Settings → Windows Explorer** there are separate switches, all off by 
 - A custom title bar, or the standard one
 
 ### 🏢 Ready for IT departments
-You can manage every setting as a fixed value or a default: on Windows through **Group Policy (ADMX/ADML in English and German)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`PolicyDefinitions/README.txt`](PolicyDefinitions/README.txt).
+You can manage every setting as a fixed value or a default, including what search never finds: on Windows through **Group Policy (ADMX/ADML in English and German)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`PolicyDefinitions/README.txt`](PolicyDefinitions/README.txt).
 
 ## ⌨️ Keyboard shortcuts
 

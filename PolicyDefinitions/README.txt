@@ -27,66 +27,84 @@ USING GPP (Group Policy Preferences)
   names here. This lets you use item-level targeting (by group, site, OS and so on).
   For a fixed setting write to SOFTWARE\Policies\Daleris. For a default that only the
   first deployment should set, write to SOFTWARE\Daleris\Defaults with the action "Create".
-  Values can be REG_DWORD or REG_SZ. Preferences stay in the registry after the item is removed
+  Values can be REG_DWORD or REG_SZ, and the search lists REG_MULTI_SZ, one item per line. Preferences stay in the registry after the item is removed
   unless you tick "Remove this item when it is no longer applied".
 
 VALUES
-  Name                      Type    Meaning
-  ShowHiddenItems           DWORD   0 off, 1 on
-  HideDotfiles              DWORD   0 off, 1 hides names that start with a dot. An item is hidden if this or ShowHiddenItems hides it
-  DefaultSort               SZ      name, modified, created, type, extension or size: how a folder is sorted until someone chooses
-  DefaultSortAscending      DWORD   1 from A, the oldest or the smallest, 0 the other way round
-  FoldersFirst              DWORD   1 keeps folders above files by default, 0 mixes them in
-  DownloadsNewestFirst      DWORD   1 opens the Downloads folder newest first with folders mixed in, 0 treats it like any other
-  ShowPreviewPane           DWORD   0 off, 1 on
-  ShowFileExtensions        DWORD   0 off, 1 on
-  DefaultView               DWORD   0 details, 1 large icons
-  Theme                     DWORD   0 follow Windows, 1 dark, 2 light
-  AccentColor               DWORD   7 Windows accent colour, 0 to 6 the colours in Settings, left to right
-  IconPack                  SZ      system (Windows icons, Windows only), flat (Daleris), phosphor, or the name of a
-                                    folder in %APPDATA%\Daleris\icon packs
-  RowHeight                 DWORD   0 compact, 1 normal, 2 comfortable
-  CustomTitleBar            DWORD   0 standard Windows title bar, 1 Daleris title bar
-  TitleBarLogo              DWORD   0 off, 1 on
-  TitleBarName              DWORD   0 off, 1 on
-  TitleBarSettingsButton    DWORD   0 off, 1 on
-  ReopenTabs                DWORD   0 off, 1 on
-  WindowsPropertiesDialog   DWORD   0 Daleris's, 1 the Windows dialog
-  FolderSizes               DWORD   0 off, 1 on
-  SearchSubfolders          DWORD   0 off, 1 on
-  SearchRegex               DWORD   0 off, 1 on
-  AutomaticUpdates          DWORD   0 off, 1 on. Off, people can still look for an update and install it from Settings
-  RibbonLeft                SZ      ribbon items on the left, in order, separated by |
-  RibbonRight               SZ      ribbon items on the right, in order, separated by |
-  RibbonHidden              SZ      ribbon items that are switched off, separated by |
-  SidebarHiddenSections     SZ      any of quick, cloud, pc, network, separated by |
-                                    (as a default this only applies the first time the app runs)
-  SidebarPins               SZ      folders pinned to the sidebar, separated by |. section>folder pins to a
-                                    section (quick, cloud, pc, network), a plain folder to Quick access.
-                                    %USERPROFILE% and other environment variables work, and on Linux and macOS ~
-                                    (as a default this only applies the first time the app runs)
-  SidebarOrder              SZ      sections in order, any of quick, cloud, pc, network, separated by |
-                                    (as a default this only applies the first time the app runs)
-  ContextMenuHidden         SZ      right-click menu items never shown, separated by |. See MENU ITEMS below
-  ContextMenuMoreOptions    SZ      right-click menu items moved into Show more options, separated by |
-  ContextMenuOrder          SZ      right-click menu items in order, separated by |. Items left out follow
-  CustomCommands            SZ      commands in the right-click menu, separated by |. Each is name>command or
-                                    name>items>command, items being all, files, folders, background or
-                                    ext:jpg,png. {path}, {paths}, {name} and {dir} work in the command.
-                                    The command can't hold | or >. As a fixed value it replaces people's own
-                                    commands, which come back without it
-                                    (as a default this only applies the first time the app runs)
+  Name                      Type      Meaning
+  ShowHiddenItems           DWORD     0 off, 1 on
+  HideDotfiles              DWORD     0 off, 1 hides names that start with a dot. An item is hidden if this or ShowHiddenItems hides it
+  DefaultSort               SZ        name, modified, created, type, extension or size: how a folder is sorted until someone chooses
+  DefaultSortAscending      DWORD     1 from A, the oldest or the smallest, 0 the other way round
+  FoldersFirst              DWORD     1 keeps folders above files by default, 0 mixes them in
+  DownloadsNewestFirst      DWORD     1 opens the Downloads folder newest first with folders mixed in, 0 treats it like any other
+  ShowPreviewPane           DWORD     0 off, 1 on
+  ShowFileExtensions        DWORD     0 off, 1 on
+  DefaultView               DWORD     0 details, 1 large icons
+  Theme                     DWORD     0 follow Windows, 1 dark, 2 light
+  AccentColor               DWORD     7 Windows accent colour, 0 to 6 the colours in Settings, left to right
+  IconPack                  SZ        system (Windows icons, Windows only), flat (Daleris), phosphor, or the name of a
+                                      folder in %APPDATA%\Daleris\icon packs
+  RowHeight                 DWORD     0 compact, 1 normal, 2 comfortable
+  CustomTitleBar            DWORD     0 standard Windows title bar, 1 Daleris title bar
+  TitleBarLogo              DWORD     0 off, 1 on
+  TitleBarName              DWORD     0 off, 1 on
+  TitleBarSettingsButton    DWORD     0 off, 1 on
+  ReopenTabs                DWORD     0 off, 1 on
+  WindowsPropertiesDialog   DWORD     0 Daleris's, 1 the Windows dialog
+  FolderSizes               DWORD     0 off, 1 on
+  SearchSubfolders          DWORD     0 off, 1 on
+  SearchRegex               DWORD     0 off, 1 on
+  SearchSkipAppData         DWORD     1: search never finds folders named AppData
+  SearchSkipWindows         DWORD     1: search never finds folders named Windows, Program Files, Program Files (x86),
+                                      ProgramData, $Recycle.Bin, System Volume Information, $WinREAgent or Recovery
+  SearchSkipDeveloperFiles  DWORD     1: search never finds folders named node_modules, .git, .svn, target, __pycache__,
+                                      .cache, .cargo, .rustup, .npm, .gradle, .venv or venv
+  SearchSkipCloudFolders    DWORD     1: search never finds folders named OneDrive, Dropbox, Google Drive or iCloudDrive
+  SearchSkipTempFiles       DWORD     1: search never finds .tmp, .temp, .log, .bak or .dmp files
+  SearchSkipProgramParts    DWORD     1: search never finds .dll, .sys, .mui, .cat, .pdb, .obj or .lib files
+  SearchSkipHidden          DWORD     1: search never finds hidden items, even when hidden items are shown
+  SearchSkipSystem          DWORD     1: search never finds what Windows marks as system files, such as desktop.ini.
+                                      On unless set to 0. Windows only
+  SearchSkipFolders         MULTI_SZ  folders search never finds, with everything in them. %USERPROFILE% and other
+                                      environment variables work, and on Linux and macOS ~
+  SearchSkipFolderNames     MULTI_SZ  folder names search never finds, wherever they are
+  SearchSkipFileTypes       MULTI_SZ  file types search never finds, written .iso, iso or *.iso
+  SearchSkipPatterns        MULTI_SZ  regular expressions: search never finds a path that matches one. See SEARCH below.
+                                      The four lists take one item per line. All but SearchSkipPatterns can also be
+                                      REG_SZ with items separated by |; for SearchSkipPatterns a REG_SZ holds one pattern
+  AutomaticUpdates          DWORD     0 off, 1 on. Off, people can still look for an update and install it from Settings
+  RibbonLeft                SZ        ribbon items on the left, in order, separated by |
+  RibbonRight               SZ        ribbon items on the right, in order, separated by |
+  RibbonHidden              SZ        ribbon items that are switched off, separated by |
+  SidebarHiddenSections     SZ        any of quick, cloud, pc, network, separated by |
+                                      (as a default this only applies the first time the app runs)
+  SidebarPins               SZ        folders pinned to the sidebar, separated by |. section>folder pins to a
+                                      section (quick, cloud, pc, network), a plain folder to Quick access.
+                                      %USERPROFILE% and other environment variables work, and on Linux and macOS ~
+                                      (as a default this only applies the first time the app runs)
+  SidebarOrder              SZ        sections in order, any of quick, cloud, pc, network, separated by |
+                                      (as a default this only applies the first time the app runs)
+  ContextMenuHidden         SZ        right-click menu items never shown, separated by |. See MENU ITEMS below
+  ContextMenuMoreOptions    SZ        right-click menu items moved into Show more options, separated by |
+  ContextMenuOrder          SZ        right-click menu items in order, separated by |. Items left out follow
+  CustomCommands            SZ        commands in the right-click menu, separated by |. Each is name>command or
+                                      name>items>command, items being all, files, folders, background or
+                                      ext:jpg,png. {path}, {paths}, {name} and {dir} work in the command.
+                                      The command can't hold | or >. As a fixed value it replaces people's own
+                                      commands, which come back without it
+                                      (as a default this only applies the first time the app runs)
 
-  ExplorerOpenFolders       DWORD   0 off, 1 on. Folders from the desktop, Start and most apps open in Daleris
-  ExplorerWinE              DWORD   0 off, 1 on. Win + E opens Daleris, through the setting Windows reads for it
-  ExplorerWinEHook          DWORD   0 off, 1 on. Win + E through a keyboard hook in a small background program
-  ExplorerSelectFile        DWORD   0 off, 1 on. "Show in folder" selects the file (needs ExplorerOpenFolders)
-  ExplorerSingleWindow      DWORD   0 off, 1 on. New folders become tabs in the running window
-  ExplorerFileDialogs       DWORD   0 off, 1 on. Open and Save dialogs use Daleris (loads a DLL into apps, see below)
-  ExplorerDialogJump        DWORD   0 off, 1 on. Ctrl + G takes a Windows file dialog to the Daleris folder
-  ExplorerDialogLog         DWORD   0 off, 1 on. The DLL writes what it decides to %LOCALAPPDATA%\Daleris\logs\file-dialogs.log
-  ExplorerDialogExclusions  SZ      apps that keep the Windows file dialog, separated by |, as names or folders.
-                                    !name.exe lets Daleris show a browser's dialogs
+  ExplorerOpenFolders       DWORD     0 off, 1 on. Folders from the desktop, Start and most apps open in Daleris
+  ExplorerWinE              DWORD     0 off, 1 on. Win + E opens Daleris, through the setting Windows reads for it
+  ExplorerWinEHook          DWORD     0 off, 1 on. Win + E through a keyboard hook in a small background program
+  ExplorerSelectFile        DWORD     0 off, 1 on. "Show in folder" selects the file (needs ExplorerOpenFolders)
+  ExplorerSingleWindow      DWORD     0 off, 1 on. New folders become tabs in the running window
+  ExplorerFileDialogs       DWORD     0 off, 1 on. Open and Save dialogs use Daleris (loads a DLL into apps, see below)
+  ExplorerDialogJump        DWORD     0 off, 1 on. Ctrl + G takes a Windows file dialog to the Daleris folder
+  ExplorerDialogLog         DWORD     0 off, 1 on. The DLL writes what it decides to %LOCALAPPDATA%\Daleris\logs\file-dialogs.log
+  ExplorerDialogExclusions  SZ        apps that keep the Windows file dialog, separated by |, as names or folders.
+                                      !name.exe lets Daleris show a browser's dialogs
 
   Ribbon items: new sep1 cut copy paste rename delete sep2 sort filter view more terminal hidden preview
   Fixing RibbonLeft or RibbonRight shows only the items listed on either side.
@@ -119,6 +137,16 @@ MENU ITEMS
   where Daleris puts them, and the menu can't be customized. Any of the three as a default applies to each item
   until the person moves it.
 
+SEARCH
+  What search never finds isn't a result, and search doesn't look inside a folder it leaves out. Browsing still
+  shows everything. People set the same switches and lists under Settings > Files & folders > Never found in search.
+  A fixed list is added to people's own rules: they can't remove its items, but they can still add their own.
+  A default list is the list people start with. The switches work like any other value.
+  Patterns are matched against the full path, whatever the case. A folder's path ends in \ when it's matched, so
+  \\Payroll\\ leaves out every Payroll folder with everything in it, and \.(key|pem|pfx)$ leaves out keys and
+  certificates. A pattern that isn't valid is ignored, and Settings shows why.
+  System files are left out unless SearchSkipSystem is 0.
+
 WINDOWS EXPLORER INTEGRATION
   The Explorer values above only mean something on Windows, and are ignored on Linux and macOS.
   Everything they change is in each person's own HKCU, so they work per user, never per machine, whichever part of
@@ -148,3 +176,8 @@ LINUX AND MACOS
     [Recommended]
     Theme=2
     IconPack=phosphor
+
+  The search lists take a line per item, repeating the name:
+
+    SearchSkipPatterns=/Payroll/
+    SearchSkipPatterns=\.(key|pem|pfx)$

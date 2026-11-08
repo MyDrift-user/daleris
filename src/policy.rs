@@ -19,7 +19,7 @@ enum Kind {
 }
 
 /// Registry value name, settings file key, what it holds.
-const VALUES: [(&str, &str, Kind); 42] = [
+const VALUES: [(&str, &str, Kind); 54] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("HideDotfiles", "hide_dots", Kind::Bool),
     ("DefaultSort", "sort_key", Kind::Text),
@@ -42,6 +42,18 @@ const VALUES: [(&str, &str, Kind); 42] = [
     ("FolderSizes", "folder_sizes", Kind::Bool),
     ("SearchSubfolders", "nested_search", Kind::Bool),
     ("SearchRegex", "regex_search", Kind::Bool),
+    ("SearchSkipAppData", "search_skip_appdata", Kind::Bool),
+    ("SearchSkipWindows", "search_skip_windows", Kind::Bool),
+    ("SearchSkipDeveloperFiles", "search_skip_dev", Kind::Bool),
+    ("SearchSkipCloudFolders", "search_skip_cloud", Kind::Bool),
+    ("SearchSkipTempFiles", "search_skip_temp", Kind::Bool),
+    ("SearchSkipProgramParts", "search_skip_parts", Kind::Bool),
+    ("SearchSkipHidden", "search_skip_hidden", Kind::Bool),
+    ("SearchSkipSystem", "search_skip_system", Kind::Bool),
+    ("SearchSkipFolders", SKIP_FOLDERS, Kind::Text),
+    ("SearchSkipFolderNames", SKIP_NAMES, Kind::Text),
+    ("SearchSkipFileTypes", SKIP_TYPES, Kind::Text),
+    ("SearchSkipPatterns", SKIP_PATTERNS, Kind::Text),
     ("AutomaticUpdates", "auto_update", Kind::Bool),
     ("RibbonLeft", "rleft", Kind::Text),
     ("RibbonRight", "rright", Kind::Text),
@@ -72,6 +84,23 @@ pub const MENU_HIDDEN: &str = "menu_hidden";
 pub const MENU_MORE: &str = "menu_more";
 pub const MENU_ORDER: &str = "menu_order";
 pub const COMMANDS: &str = "custom_commands";
+// What search never finds. A fixed list adds to the person's own instead of replacing it.
+pub const SKIP_FOLDERS: &str = "search_skip_folders";
+pub const SKIP_NAMES: &str = "search_skip_names";
+pub const SKIP_TYPES: &str = "search_skip_types";
+/// one settings file line per pattern, as a pattern can hold `|`
+pub const SKIP_PATTERNS: &str = "search_skip_pattern";
+
+/// Is this settings file key a list an administrator adds to, rather than one they set?
+pub fn adds_to_own(key: &str) -> bool {
+    matches!(key, SKIP_FOLDERS | SKIP_NAMES | SKIP_TYPES | SKIP_PATTERNS)
+}
+
+/// A list policy's items: one per line, and for all but patterns also separated by `|`.
+pub fn items(key: &str, text: &str) -> Vec<String> {
+    let split: &[char] = if key == SKIP_PATTERNS { &['\n'] } else { &['\n', '|'] };
+    text.split(split).map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()
+}
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Policy {
@@ -90,7 +119,8 @@ pub struct Policy {
 impl Policy {
     /// Can the person not change this settings file key?
     pub fn is_fixed(&self, key: &str) -> bool {
-        self.fixed.iter().any(|(k, _)| *k == key)
+        // the person can still add to a list the administrator adds to
+        (self.fixed.iter().any(|(k, _)| *k == key) && !adds_to_own(key))
             || (self.lock_ribbon && matches!(key, "rleft" | "rright" | "rhide"))
             // the settings file's own lines for sidebar pins
             || (key == "spin" && self.has_fixed(SIDEBAR_PINS))
@@ -108,6 +138,11 @@ impl Policy {
     /// The value a policy fixes for this settings file key.
     pub fn fixed_value(&self, key: &str) -> Option<&str> {
         self.fixed.iter().find(|(k, _)| *k == key).map(|(_, v)| v.as_str())
+    }
+
+    /// The items an administrator adds to a list, on top of the person's own.
+    pub fn fixed_items(&self, key: &str) -> Vec<String> {
+        self.fixed_value(key).map_or_else(Vec::new, |v| items(key, v))
     }
 
     /// The default a policy sets for this settings file key.
@@ -218,8 +253,16 @@ fn read() -> Policy {
     // test hook: another file after the real one, so it can only add to a policy, never overrule it
     paths.extend(std::env::var("DALERIS_TEST_POLICY_FILE"));
     let files: Vec<_> = paths.iter().filter_map(|p| std::fs::read_to_string(p).ok()).map(|text| parse_file(&text)).collect();
-    let find = |list: &[(String, String)], name: &str| list.iter().find(|(k, _)| k == name).map(|(_, v)| v.clone());
-    build(|name| files.iter().find_map(|(fixed, _)| find(fixed, name)), |name| files.iter().find_map(|(_, default)| find(default, name)))
+    build(|name| files.iter().find_map(|(fixed, _)| value_of(fixed, name)), |name| files.iter().find_map(|(_, default)| value_of(default, name)))
+}
+
+/// A value from the policy file. A list takes a line per item, so its lines are joined, one item per line.
+#[cfg(any(not(windows), test))]
+fn value_of(lines: &[(String, String)], name: &str) -> Option<String> {
+    let mut found = lines.iter().filter(|(k, _)| k == name).map(|(_, v)| v.as_str());
+    let first = found.next()?;
+    let list = VALUES.iter().any(|(n, k, _)| *n == name && adds_to_own(k));
+    Some(if list { std::iter::once(first).chain(found).collect::<Vec<_>>().join("\n") } else { first.to_string() })
 }
 
 /// `Name=value` lines, as (fixed, default). Lines after `[Recommended]` are defaults, and `[Fixed]` goes back.
@@ -351,17 +394,18 @@ fn to_setting(kind: Kind, raw: String) -> Option<String> {
     }
 }
 
-/// A DWORD or string value as text (preferences can write either).
+/// A DWORD or string value as text (preferences can write either). A multi-string value comes back one item per line.
 #[cfg(windows)]
 fn reg_value(root: windows::Win32::System::Registry::HKEY, key: &str, name: &str) -> Option<String> {
     use windows::core::PCWSTR;
     use windows::Win32::System::Registry::*;
     let wide = |s: &str| s.encode_utf16().chain(std::iter::once(0)).collect::<Vec<u16>>();
     let (key, name) = (wide(key), wide(name));
-    let mut buf = [0u16; 2048];
-    let mut len = std::mem::size_of_val(&buf) as u32;
+    // room for a long list of folders or patterns
+    let mut buf = vec![0u16; 32 * 1024];
+    let mut len = (buf.len() * 2) as u32;
     let mut ty = REG_VALUE_TYPE(0);
-    let rc = unsafe { RegGetValueW(root, PCWSTR(key.as_ptr()), PCWSTR(name.as_ptr()), RRF_RT_REG_DWORD | RRF_RT_REG_SZ, Some(&mut ty), Some(buf.as_mut_ptr() as *mut _), Some(&mut len)) };
+    let rc = unsafe { RegGetValueW(root, PCWSTR(key.as_ptr()), PCWSTR(name.as_ptr()), RRF_RT_REG_DWORD | RRF_RT_REG_SZ | RRF_RT_REG_MULTI_SZ, Some(&mut ty), Some(buf.as_mut_ptr() as *mut _), Some(&mut len)) };
     if rc.is_err() {
         return None;
     }
@@ -369,7 +413,11 @@ fn reg_value(root: windows::Win32::System::Registry::HKEY, key: &str, name: &str
         return Some((buf[0] as u32 | (buf[1] as u32) << 16).to_string());
     }
     let chars = (len as usize / 2).min(buf.len());
-    Some(String::from_utf16_lossy(&buf[..chars]).trim_end_matches('\0').to_string())
+    let text = String::from_utf16_lossy(&buf[..chars]);
+    if ty == REG_MULTI_SZ {
+        return Some(text.split('\0').filter(|s| !s.is_empty()).collect::<Vec<_>>().join("\n"));
+    }
+    Some(text.trim_end_matches('\0').to_string())
 }
 
 /// Is this settings file key one a policy can set?
@@ -449,6 +497,24 @@ mod tests {
         let (fixed, default) = parse_file("# a comment\nAutomaticUpdates = 0\nnonsense\n[Recommended]\nTheme=2\n[Fixed]\nDisableUpdates=1\n");
         assert_eq!(fixed, [("AutomaticUpdates".to_string(), "0".to_string()), ("DisableUpdates".to_string(), "1".to_string())]);
         assert_eq!(default, [("Theme".to_string(), "2".to_string())]);
+    }
+
+    #[test]
+    fn search_lists_are_read_from_lines_and_pipes() {
+        assert_eq!(items(SKIP_NAMES, "node_modules | .git\nbuild\n\n"), ["node_modules", ".git", "build"]);
+        assert_eq!(items(SKIP_PATTERNS, r"\.(key|pem)$"), [r"\.(key|pem)$"], "a pattern keeps its |");
+        let (fixed, default) = parse_file("SearchSkipPatterns=\\\\Payroll\\\\\nSearchSkipPatterns=\\.pfx$\nTheme=1\nTheme=2\n[Recommended]\nSearchSkipFileTypes=iso\n");
+        assert_eq!(value_of(&fixed, "SearchSkipPatterns").as_deref(), Some("\\\\Payroll\\\\\n\\.pfx$"), "a line per item");
+        assert_eq!(value_of(&fixed, "Theme").as_deref(), Some("1"), "anything else: the first line");
+        assert_eq!(value_of(&default, "SearchSkipFileTypes").as_deref(), Some("iso"));
+    }
+
+    #[test]
+    fn a_fixed_search_list_adds_to_the_persons_own() {
+        let p = build(|name| (name == "SearchSkipFolderNames").then(|| "Payroll|HR".to_string()), |_| None);
+        assert_eq!(p.fixed_items(SKIP_NAMES), ["Payroll", "HR"]);
+        assert!(!p.is_fixed(SKIP_NAMES), "the person can still add their own");
+        assert!(p.any_fixed());
     }
 
     #[test]

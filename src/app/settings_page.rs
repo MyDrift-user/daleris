@@ -885,7 +885,109 @@ impl App {
             }
         });
         ui.add_space(12.0);
+        self.search_skip_card(ui);
+        ui.add_space(12.0);
         self.sort_card(ui);
+    }
+
+    /// What search never finds: ready-made groups, hidden and system items, and lists of the person's own.
+    fn search_skip_card(&mut self, ui: &mut Ui) {
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            heading(ui, "Never found in search", "Search leaves these out and doesn't look inside folders it leaves out, which also makes it faster.");
+            let mut ch = false;
+            for (i, (key, name, names, types)) in search::SKIP_GROUPS.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    ch |= managed_toggle(ui, &mut self.settings.skip_groups[i], key, name);
+                    let what = names.iter().chain(types.iter()).copied().collect::<Vec<_>>().join("  ");
+                    ui.add(egui::Label::new(egui::RichText::new(what).small().color(FAINT())).truncate());
+                });
+            }
+            ui.add_space(4.0);
+            ch |= managed_toggle(ui, &mut self.settings.skip_hidden, "search_skip_hidden", "Hidden files and folders, even when hidden items are shown");
+            // only Windows marks files as system files
+            if cfg!(windows) {
+                ch |= managed_toggle(ui, &mut self.settings.skip_system, "search_skip_system", "System files, such as desktop.ini");
+            }
+            let folder_example = if cfg!(windows) { r"%USERPROFILE%\Archive" } else { "~/Archive" };
+            for (n, (key, title, sub, example)) in [
+                (policy::SKIP_FOLDERS, "Folders", "These folders and everything in them.", folder_example),
+                (policy::SKIP_NAMES, "Folder names", "Folders with these names, wherever they are.", "Backup"),
+                (policy::SKIP_TYPES, "File types", "Files ending in these.", ".iso"),
+                (policy::SKIP_PATTERNS, "Patterns", "Regular expressions, matched against the whole path. Case doesn't matter.", r"\.(key|pem)$"),
+            ]
+            .into_iter()
+            .enumerate()
+            {
+                ui.add_space(10.0);
+                ch |= self.skip_list(ui, n, key, title, sub, example);
+            }
+            if ch {
+                self.save_settings();
+                // the next search builds its index again, without what's left out now
+                self.refilter_tabs();
+            }
+        });
+    }
+
+    /// One list: what the administrator adds, with a lock, then the person's own, each removable, and a field to add one.
+    fn skip_list(&mut self, ui: &mut Ui, n: usize, key: &str, title: &str, sub: &str, example: &str) -> bool {
+        let mut fixed = policy::current().fixed_items(key);
+        if key == policy::SKIP_TYPES {
+            // shown the way the person's own are written
+            fixed = fixed.iter().filter_map(|t| search::file_type(t)).collect();
+        }
+        let invalid = |item: &str| if key == policy::SKIP_PATTERNS { search::pattern(item).err() } else { None };
+        let mut changed = false;
+        ui.label(egui::RichText::new(title).strong());
+        ui.label(egui::RichText::new(sub).small().color(DIM()));
+        let own = own_list(&mut self.settings, key);
+        if !fixed.is_empty() || !own.is_empty() {
+            let mut remove = None;
+            ui.horizontal_wrapped(|ui| {
+                for item in &fixed {
+                    rule_chip(ui, item, true, invalid(item).is_some());
+                }
+                for (i, item) in own.iter().enumerate() {
+                    if rule_chip(ui, item, false, invalid(item).is_some()) {
+                        remove = Some(i);
+                    }
+                }
+            });
+            if let Some(i) = remove {
+                own.remove(i);
+                changed = true;
+            }
+            for item in fixed.iter().chain(own.iter()) {
+                if let Some(e) = invalid(item) {
+                    ui.label(egui::RichText::new(format!("{item}  isn't used: {e}")).small().color(WARN()));
+                }
+            }
+        }
+        let mut add = false;
+        ui.horizontal(|ui| {
+            let field = ui.add(egui::TextEdit::singleline(&mut self.skip_new[n]).hint_text(format!("Add one, such as {example}")).desired_width(320.0));
+            add = field.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
+            add |= ui.add_enabled(!self.skip_new[n].trim().is_empty(), egui::Button::new(egui::RichText::new(format!("{}  Add", ic(I_ADD))).font(icon_font(13.0)))).clicked();
+            if key == policy::SKIP_FOLDERS && ui.button(egui::RichText::new(format!("{}  Choose folder…", ic(I_FOLDER))).font(icon_font(13.0))).clicked() {
+                if let Some(p) = shell::pick_folder() {
+                    self.skip_new[n] = p.display().to_string();
+                    add = true;
+                }
+            }
+        });
+        let text = self.skip_new[n].trim().to_string();
+        // a list other than patterns keeps its items apart with |, so none can hold one
+        let item = if key == policy::SKIP_TYPES { search::file_type(&text) } else { Some(text).filter(|t| !t.is_empty() && (key == policy::SKIP_PATTERNS || !t.contains('|'))) };
+        if let (true, Some(item)) = (add, item) {
+            let own = own_list(&mut self.settings, key);
+            if !own.iter().chain(fixed.iter()).any(|x| x.eq_ignore_ascii_case(&item)) {
+                own.push(item);
+                changed = true;
+            }
+            self.skip_new[n].clear();
+        }
+        changed
     }
 
     /// How folders are sorted until someone chooses otherwise, in plain words.
@@ -954,6 +1056,36 @@ impl App {
             }
         });
     }
+}
+
+/// The person's own list in "Never found in search" for a settings file key.
+fn own_list<'a>(s: &'a mut Settings, key: &str) -> &'a mut Vec<String> {
+    match key {
+        policy::SKIP_FOLDERS => &mut s.skip_folders,
+        policy::SKIP_NAMES => &mut s.skip_names,
+        policy::SKIP_TYPES => &mut s.skip_types,
+        _ => &mut s.skip_patterns,
+    }
+}
+
+/// One item of a "Never found in search" list: removable, or with a lock when the administrator added it.
+fn rule_chip(ui: &mut Ui, text: &str, locked: bool, invalid: bool) -> bool {
+    let mut removed = false;
+    let stroke = Stroke::new(1.0_f32, if invalid { WARN() } else { LINE() });
+    egui::Frame::new().fill(RAISED()).stroke(stroke).corner_radius(13).inner_margin(egui::Margin { left: 10, right: 2, top: 0, bottom: 0 }).show(ui, |ui| {
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 2.0;
+            ui.label(egui::RichText::new(text).size(12.5).color(if locked { DIM() } else { TEXT() }));
+            if locked {
+                let (r, resp) = ui.allocate_exact_size(vec2(26.0, 26.0), Sense::hover());
+                ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(I_LOCK), icon_font(11.0), DIM());
+                resp.on_hover_text(MANAGED);
+            } else {
+                removed = small_btn(ui, I_CLOSE, "Remove");
+            }
+        });
+    });
+    removed
 }
 
 fn small_btn(ui: &mut Ui, glyph: &'static str, tip: &str) -> bool {

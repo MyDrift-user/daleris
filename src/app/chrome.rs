@@ -520,12 +520,14 @@ impl App {
     }
 
     fn index_for(&mut self, roots: Vec<PathBuf>) -> Arc<Index> {
-        let fresh = |i: &Arc<Index>| search::roots_equal(&i.roots, &roots) && (!i.is_done() || i.started.elapsed() < Duration::from_secs(600));
+        let skip = self.settings.search_skip(&policy::current());
+        // an index built before what search never finds changed would still find it
+        let fresh = |i: &Arc<Index>| search::roots_equal(&i.roots, &roots) && i.skip.key == skip.key && (!i.is_done() || i.started.elapsed() < Duration::from_secs(600));
         if let Some(i) = self.indexes.iter().find(|i| fresh(i)) {
             return i.clone();
         }
         self.indexes.retain(|i| !search::roots_equal(&i.roots, &roots));
-        let i = Index::build(roots, self.ctx.clone());
+        let i = Index::build(roots, skip, self.ctx.clone());
         self.indexes.push(i.clone());
         while self.indexes.len() > 6 {
             let old = self.indexes.remove(0);
