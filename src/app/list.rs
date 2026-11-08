@@ -881,7 +881,7 @@ impl App {
             }
         }
         let frame = egui::Frame::new().fill(SIDE()).inner_margin(egui::Margin::same(14));
-        egui::Panel::right("preview").resizable(true).default_size(300.0).size_range(220.0..=640.0).frame(frame).show_separator_line(false).show(root, |ui| {
+        egui::Panel::right("preview").resizable(true).default_size(300.0).size_range(220.0..=640.0).frame(frame).show_separator_line(pal().explorer).show(root, |ui| {
             let Some(e) = self.preview.entry.clone() else {
                 self.preview_summary(ui, t, paths.len());
                 return;

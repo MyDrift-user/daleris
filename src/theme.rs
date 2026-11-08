@@ -23,6 +23,8 @@ pub struct Palette {
     pub cloud: Color32,
     pub warn: Color32,
     pub code_bg: Color32,
+    /// the ribbon bar under the address bar
+    pub ribbon: Color32,
     /// the sidebar and the preview pane
     pub side: Color32,
     pub status: Color32,
@@ -58,7 +60,7 @@ fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
 impl Palette {
     pub fn new(dark: bool, accent: Color32) -> Palette {
         let p = Palette::own(dark, accent);
-        Palette { side: p.panel, status: p.chrome, tile: p.panel, row_hover: p.hover, row_sel: p.sel, row_cursor: p.sel_strong, field: p.raised, ..p }
+        Palette { ribbon: p.panel, side: p.panel, status: p.chrome, tile: p.panel, row_hover: p.hover, row_sel: p.sel, row_cursor: p.sel_strong, field: p.raised, ..p }
     }
 
     /// Windows Explorer's colours, from the visual style it draws its lists with and the WinUI colours of its bars.
@@ -82,6 +84,7 @@ impl Palette {
             dim: rgb(dim),
             faint: rgb(faint),
             line: rgb(line),
+            ribbon: rgb(bg),
             side: rgb(bg),
             status: rgb(bg),
             tile: Color32::TRANSPARENT,
@@ -117,6 +120,7 @@ impl Palette {
                 cloud: Color32::from_rgb(0x6c, 0xb4, 0xff),
                 warn: Color32::from_rgb(0xe8, 0x6a, 0x5a),
                 code_bg: Color32::from_rgb(0x16, 0x16, 0x18),
+                ribbon: none,
                 side: none,
                 status: none,
                 tile: none,
@@ -147,6 +151,7 @@ impl Palette {
                 cloud: Color32::from_rgb(0x1f, 0x74, 0xd1),
                 warn: Color32::from_rgb(0xc4, 0x41, 0x3a),
                 code_bg: Color32::from_rgb(0xee, 0xef, 0xf2),
+                ribbon: none,
                 side: none,
                 status: none,
                 tile: none,
@@ -176,7 +181,7 @@ macro_rules! colour_fns {
 }
 colour_fns!(BG => bg, PANEL => panel, CHROME => chrome, RAISED => raised, HOVER => hover, SEL => sel, SEL_STRONG => sel_strong,
     ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, WARN => warn,
-    SIDE => side, STATUS => status, TILE => tile, ROW_HOVER => row_hover, ROW_SEL => row_sel, ROW_CURSOR => row_cursor, FIELD => field, FIELD_LINE => field_line);
+    RIBBON => ribbon,     SIDE => side, STATUS => status, TILE => tile, ROW_HOVER => row_hover, ROW_SEL => row_sel, ROW_CURSOR => row_cursor, FIELD => field, FIELD_LINE => field_line);
 
 /// Is Windows itself in dark mode (apps setting)?
 #[cfg(windows)]

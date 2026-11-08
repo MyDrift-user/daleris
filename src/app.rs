@@ -812,8 +812,13 @@ impl Settings {
         cfg!(windows) && self.hide_dotfiles
     }
 
+    /// The row height in use: Explorer's look has Explorer's compact rows.
+    fn density(&self) -> u8 {
+        if self.looks_like_explorer() { 0 } else { self.density }
+    }
+
     fn row_h(&self) -> f32 {
-        [24.0, 28.0, 34.0][self.density.min(2) as usize]
+        [24.0, 28.0, 34.0][self.density().min(2) as usize]
     }
 
     fn palette(&self) -> Palette {

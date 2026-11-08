@@ -329,7 +329,8 @@ impl App {
             }));
             ui.add_space(16.0);
             managed_heading(ui, "Row height", "How tall each row in the file list is.", "density");
-            ui.add_enabled_ui(!policy::is_fixed("density"), |ui| ui.horizontal_wrapped(|ui| {
+            let explorer = self.explorer_decides(ui);
+            ui.add_enabled_ui(!policy::is_fixed("density") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
                 for (i, l) in ["Compact", "Normal", "Comfortable"].iter().enumerate() {
                     if self.density_card(ui, i as u8, l) {
@@ -425,7 +426,7 @@ impl App {
         let row_h = [24.0, 28.0, 34.0][density as usize];
         let rows = 4;
         let (r, resp) = ui.allocate_exact_size(vec2(230.0, rows as f32 * row_h + 34.0), Sense::click());
-        let selected = self.settings.density == density;
+        let selected = self.settings.density() == density;
         let list = Rect::from_min_size(r.min, vec2(r.width(), rows as f32 * row_h + 8.0));
         ui.painter().rect_filled(list, CornerRadius::same(8), BG());
         let samples = [("Documents", "", true), ("Holiday.jpg", "jpg", false), ("Report.pdf", "pdf", false), ("notes.txt", "txt", false)];

@@ -576,7 +576,7 @@ impl App {
         if left.is_empty() && right.is_empty() {
             return;
         }
-        let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin { left: 8, right: 8, top: 0, bottom: 6 });
+        let frame = egui::Frame::new().fill(RIBBON()).inner_margin(egui::Margin { left: 8, right: 8, top: 0, bottom: 6 });
         egui::Panel::top("commands").exact_size(40.0).frame(frame).show(root, |ui| {
             // right-click the empty part of the bar to customize it
             ui.interact(ui.max_rect(), ui.scope_id().with("ribbon_bg"), Sense::click()).context_menu(|ui| {
