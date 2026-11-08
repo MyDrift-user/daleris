@@ -1423,6 +1423,7 @@ impl App {
         app.apply_theme();
         app.refresh_drives();
         app.refresh_clouds();
+        app.watch_drives();
 
         let mut locs: Vec<Loc> = Vec::new();
         if wanted.this_pc {
@@ -1677,6 +1678,26 @@ impl App {
             self.icons.remove(&k);
         }
         self.start_load(t, false);
+    }
+
+    /// Notices a drive coming or going, such as a USB stick, as it happens. The window only draws when something
+    /// happens in it, so without this a new drive waited for the next mouse move.
+    fn watch_drives(&self) {
+        let (tx, ctx) = (self.tx.clone(), self.ctx.clone());
+        bg::spawn("drive-watch", move || {
+            let mut last = fsx::drive_signature();
+            loop {
+                std::thread::sleep(Duration::from_secs(1));
+                let now = fsx::drive_signature();
+                if now != last {
+                    last = now;
+                    if tx.send(Msg::DrivesChanged).is_err() {
+                        return;
+                    }
+                    ctx.request_repaint();
+                }
+            }
+        });
     }
 
     fn refresh_drives(&mut self) {

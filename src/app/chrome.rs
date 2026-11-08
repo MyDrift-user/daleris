@@ -1150,6 +1150,9 @@ impl App {
             let sub = format!("Not available{}", d.remote.as_ref().map_or(String::new(), |r| format!("  ·  {r}")));
             let g = truncated(ui, &sub, FontId::proportional(12.0), DIM(), rect.width() - 84.0);
             ui.painter().galley(pos2(x + 14.0, rect.top() + 36.0), g, DIM());
+        } else if !d.checked && d.kind != DriveKind::Network {
+            shimmer(ui, bar);
+            ui.painter().text(pos2(x, rect.top() + 48.0), Align2::LEFT_TOP, "Looking at the drive…", FontId::proportional(12.0), FAINT());
         } else if d.ready && d.total > 0 {
             let u = 1.0 - d.free as f32 / d.total as f32;
             ui.painter().rect_filled(bar, CornerRadius::same(3), LINE());
@@ -1242,4 +1245,18 @@ fn text_field(ui: &Ui, rect: Rect) {
     if FIELD_LINE() != Color32::TRANSPARENT {
         ui.painter().rect_stroke(rect, CornerRadius::same(6), Stroke::new(1.0_f32, FIELD_LINE()), StrokeKind::Inside);
     }
+}
+
+/// A bar with light moving along it: something is on its way.
+pub(super) fn shimmer(ui: &Ui, bar: Rect) {
+    let p = ui.painter();
+    p.rect_filled(bar, CornerRadius::same(2), LINE());
+    let t = (ui.input(|i| i.time) * 0.8).fract() as f32;
+    let w = bar.width() * 0.35;
+    let x = bar.left() - w + (bar.width() + w) * t;
+    let lit = Rect::from_min_max(pos2(x.max(bar.left()), bar.top()), pos2((x + w).min(bar.right()), bar.bottom()));
+    if lit.width() > 0.0 {
+        p.rect_filled(lit, CornerRadius::same(2), FAINT());
+    }
+    ui.ctx().request_repaint_after(Duration::from_millis(30));
 }

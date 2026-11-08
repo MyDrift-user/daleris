@@ -314,7 +314,9 @@ impl App {
     }
 
     fn side_row(&mut self, ui: &mut Ui, sec: &SideSection, item: &SideItem, cur: &Loc, index: usize, count: usize) {
-        let h = if item.usage.is_some() { 38.0 } else { 28.0 };
+        // a drive that's just come and is still being looked at: a place for its bar, so nothing jumps when it's known
+        let loading = matches!(&item.loc, Some(Loc::Dir(p)) if self.drives.iter().any(|d| !d.checked && d.kind != DriveKind::Network && fsx::same_path(&d.root, p)));
+        let h = if item.usage.is_some() || loading { 38.0 } else { 28.0 };
         let (rect, resp) = ui.allocate_exact_size(vec2(ui.available_width(), h), Sense::click_and_drag());
         let active = item.loc.as_ref() == Some(cur);
         let files_hover = item.loc.as_ref().is_some_and(|l| matches!(l, Loc::Dir(_))) && resp.dnd_hover_payload::<DragFiles>().is_some();
@@ -362,6 +364,9 @@ impl App {
         }
         let gal = truncated(ui, &item.label, FontId::proportional(13.5), col, rect.width() - 44.0);
         ui.painter().galley(pos2(rect.left() + 36.0, ic_c.y - gal.size().y / 2.0), gal, col);
+        if loading {
+            chrome::shimmer(ui, Rect::from_min_size(pos2(rect.left() + 36.0, rect.top() + 27.0), vec2(rect.width() - 48.0, 4.0)));
+        }
         if let Some(u) = item.usage {
             let bar = Rect::from_min_size(pos2(rect.left() + 36.0, rect.top() + 27.0), vec2(rect.width() - 48.0, 4.0));
             ui.painter().rect_filled(bar, CornerRadius::same(2), LINE());

@@ -255,6 +255,17 @@ fn gvfs_drives(out: &mut Vec<Drive>) {
     }
 }
 
+/// Changes when something is mounted or unmounted. Cheap enough to ask every second: the list is read without
+/// asking any of the drives.
+pub fn drive_signature() -> u64 {
+    use std::hash::{Hash, Hasher};
+    let mut h = std::collections::hash_map::DefaultHasher::new();
+    for d in drives_quick() {
+        d.root.hash(&mut h);
+    }
+    h.finish()
+}
+
 /// Mounted file systems, quickly (no capacity queries, as those can hang on dead network mounts).
 #[cfg(target_os = "linux")]
 pub fn drives_quick() -> Vec<Drive> {
