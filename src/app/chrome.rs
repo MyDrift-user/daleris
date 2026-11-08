@@ -49,7 +49,7 @@ impl App {
                         self.tab_drag = Some(i);
                     }
                     if active {
-                        ui.painter().rect_filled(rect, CornerRadius { nw: 8, ne: 8, sw: 0, se: 0 }, PANEL());
+                        ui.painter().rect_filled(rect, CornerRadius { nw: 8, ne: 8, sw: 0, se: 0 }, TOP());
                     } else if resp.hovered() {
                         ui.painter().rect_filled(rect.shrink2(vec2(0.0, 2.0)), CornerRadius::same(6), HOVER().gamma_multiply(0.6));
                     }
@@ -216,7 +216,7 @@ impl App {
     }
 
     pub(super) fn toolbar(&mut self, root: &mut Ui, t: &mut Tab) {
-        let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::symmetric(8, 7));
+        let frame = egui::Frame::new().fill(TOP()).inner_margin(egui::Margin::symmetric(8, 7));
         egui::Panel::top("toolbar").exact_size(46.0).frame(frame).show_separator_line(pal().explorer).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;

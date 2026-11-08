@@ -39,6 +39,8 @@ pub struct Palette {
     /// the address bar and search box, and their outline
     pub field: Color32,
     pub field_line: Color32,
+    /// the tab in front and the address bar row under it
+    pub top: Color32,
     /// Explorer's look, where it differs in shape as well as colour
     pub explorer: bool,
 }
@@ -62,7 +64,7 @@ fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
 impl Palette {
     pub fn new(dark: bool, accent: Color32) -> Palette {
         let p = Palette::own(dark, accent);
-        Palette { ribbon: p.panel, side: p.panel, status: p.chrome, tile: p.panel, row_hover: p.hover, row_sel: p.sel, row_cursor: p.sel_strong, field: p.raised, ..p }
+        Palette { top: p.panel, ribbon: p.panel, side: p.panel, status: p.chrome, tile: p.panel, row_hover: p.hover, row_sel: p.sel, row_cursor: p.sel_strong, field: p.raised, ..p }
     }
 
     /// Windows Explorer's colours, from the visual style it draws its lists with and the WinUI colours of its bars.
@@ -96,6 +98,7 @@ impl Palette {
             row_cursor: rgb(sel),
             field,
             field_line,
+            top: rgb(bar),
             explorer: true,
             ..own
         }
@@ -133,6 +136,7 @@ impl Palette {
                 row_cursor: none,
                 field: none,
                 field_line: none,
+                top: none,
                 explorer: false,
             }
         } else {
@@ -165,6 +169,7 @@ impl Palette {
                 row_cursor: none,
                 field: none,
                 field_line: none,
+                top: none,
                 explorer: false,
             }
         }
@@ -197,7 +202,7 @@ macro_rules! colour_fns {
         $( #[allow(non_snake_case)] #[inline] pub fn $name() -> Color32 { PAL.with(|p| p.get().$field) } )*
     };
 }
-colour_fns!(BG => bg, PANEL => panel, CHROME => chrome, RAISED => raised, HOVER => hover, SEL => sel, SEL_STRONG => sel_strong,
+colour_fns!(BG => bg, PANEL => panel, TOP => top, CHROME => chrome, RAISED => raised, HOVER => hover, SEL => sel, SEL_STRONG => sel_strong,
     ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, WARN => warn, CAUTION => caution,
     RIBBON => ribbon,     SIDE => side, STATUS => status, TILE => tile, ROW_HOVER => row_hover, ROW_SEL => row_sel, ROW_CURSOR => row_cursor, FIELD => field, FIELD_LINE => field_line);
 

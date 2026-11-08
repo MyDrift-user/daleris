@@ -190,6 +190,12 @@ impl App {
                     // Mica: Windows 11 only, and the window has to be made for it when it opens
                     if crate::shell::has_mica() {
                         changed |= managed_toggle(ui, &mut s.explorer_mica, "explorer_mica", "Mica behind the tab bar");
+                        let mica = s.explorer_mica;
+                        ui.indent("mica_parts", |ui| {
+                            ui.add_enabled_ui(mica, |ui| {
+                                changed |= managed_toggle(ui, &mut s.explorer_mica_bar, "explorer_mica_bar", "A little of it through the tab in front and the address bar");
+                            });
+                        });
                     }
                     if !prefers_bundled_icons() {
                         let mut system = s.icon_pack == "system";

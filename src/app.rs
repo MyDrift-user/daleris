@@ -558,6 +558,8 @@ pub struct Settings {
     explorer_lines: bool,
     /// Mica behind the tab strip, on a Windows 11 that has it
     explorer_mica: bool,
+    /// with Mica, a little of it through the tab in front and the address bar row, as in Explorer
+    explorer_mica_bar: bool,
     /// open a tab when Windows opens a drive that was just connected, such as a USB stick. Windows only
     open_new_drives: bool,
     /// starting Daleris again opens a new window, not a tab in the open one. Windows only
@@ -721,6 +723,7 @@ impl Settings {
             explorer_colours: false,
             explorer_lines: false,
             explorer_mica: false,
+            explorer_mica_bar: true,
             open_new_drives: true,
             start_new_window: true,
             share_marks: true,
@@ -860,7 +863,7 @@ impl Settings {
     fn looks_like_explorer(&self) -> bool {
         self.explorer_colours
             && self.explorer_lines
-            && (self.explorer_mica || !shell::has_mica())
+            && ((self.explorer_mica && self.explorer_mica_bar) || !shell::has_mica())
             && (self.icon_pack == "system" || prefers_bundled_icons())
             && self.density == 0
             && !self.title_logo
@@ -873,6 +876,7 @@ impl Settings {
         self.explorer_colours = on;
         self.explorer_lines = on;
         self.explorer_mica = on;
+        self.explorer_mica_bar = on || own.explorer_mica_bar;
         self.icon_pack = if on && !prefers_bundled_icons() { "system".into() } else { own.icon_pack };
         self.density = if on { 0 } else { own.density };
         self.title_logo = !on && own.title_logo;
@@ -911,6 +915,10 @@ impl Settings {
         // Mica shows where the tab strip leaves its background empty
         if self.wants_mica() && crate::theme::mica_window() {
             p.chrome = Color32::TRANSPARENT;
+            // Explorer's layer over Mica Alt, WinUI's LayerOnMicaBaseAlt: it lets a little through
+            if self.explorer_mica_bar {
+                p.top = if p.dark { Color32::from_rgba_unmultiplied(0x3a, 0x3a, 0x3a, 0x73) } else { Color32::from_rgba_unmultiplied(0xff, 0xff, 0xff, 0xb3) };
+            }
         }
         p
     }
@@ -963,6 +971,7 @@ impl Settings {
             "explorer_colours" => self.explorer_colours = on,
             "explorer_lines" => self.explorer_lines = on,
             "explorer_mica" => self.explorer_mica = on,
+            "explorer_mica_bar" => self.explorer_mica_bar = on,
             "open_new_drives" => self.open_new_drives = on,
             "start_new_window" => self.start_new_window = on,
             "share_marks" => self.share_marks = on,
@@ -1022,6 +1031,7 @@ impl Settings {
             ("explorer_colours", b(self.explorer_colours)),
             ("explorer_lines", b(self.explorer_lines)),
             ("explorer_mica", b(self.explorer_mica)),
+            ("explorer_mica_bar", b(self.explorer_mica_bar)),
             ("open_new_drives", b(self.open_new_drives)),
             ("start_new_window", b(self.start_new_window)),
             ("share_marks", b(self.share_marks)),

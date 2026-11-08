@@ -16,6 +16,7 @@
       <string id="ExplorerColours">Explorer's colours, following Windows (Windows)</string>
       <string id="ExplorerLines">Explorer's lines between the panes and around the tab in front (Windows)</string>
       <string id="ExplorerMica">Mica behind the tab bar (Windows 11)</string>
+      <string id="ExplorerMicaBar">With Mica, a little of it through the tab in front and the address bar (Windows 11)</string>
       <string id="OpenNewDrives">Open a tab for a drive when it's connected (Windows)</string>
       <string id="StartNewWindow">Starting Daleris again opens a new window (Windows)</string>
       <string id="ShareTransferNotes">Show others on network shares what you copy, move, delete and have open</string>

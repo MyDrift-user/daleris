@@ -35,15 +35,17 @@ VALUES
   ShowHiddenItems           DWORD     0 off, 1 on
   HideDotfiles              DWORD     0 off, 1 hides names that start with a dot. An item is hidden if this or ShowHiddenItems hides it.
                                       Windows only: on Linux and macOS those names are hidden items, see ShowHiddenItems
-  ExplorerLook              DWORD     1 sets ExplorerColours, ExplorerLines and ExplorerMica on, IconPack to system, RowHeight
-                                      to 0 and TitleBarLogo and TitleBarName off; 0 sets them back to Daleris's own. Fixed, it
-                                      fixes them all. Windows only
+  ExplorerLook              DWORD     1 sets ExplorerColours, ExplorerLines, ExplorerMica and ExplorerMicaBar on, IconPack
+                                      to system, RowHeight to 0 and TitleBarLogo and TitleBarName off; 0 sets them back to
+                                      Daleris's own. Fixed, it fixes them all. Windows only
   ExplorerColours           DWORD     1 on, 0 off: Explorer's colours, following Windows's light or dark mode and accent colour.
                                       Theme and AccentColor don't apply then. Windows only
   ExplorerLines             DWORD     1 on, 0 off: Explorer's lines between the panes and around the tab in front, and the
                                       open place in the sidebar marked by its colour alone. Windows only
   ExplorerMica              DWORD     1 on, 0 off: Mica behind the tab bar. Windows 11 (22H2 and later); takes effect
                                       when Daleris starts
+  ExplorerMicaBar           DWORD     1 on, 0 off: with ExplorerMica, a little of it through the tab in front and the
+                                      address bar, as in Explorer. Windows 11 (22H2 and later)
   OpenNewDrives             DWORD     1 on, 0 off: a tab opens when Windows opens a drive that was just connected, such
                                       as a USB stick. Windows only
   StartNewWindow            DWORD     1 on, 0 off: starting Daleris again, from Start, the taskbar or Win+E, opens a new
