@@ -451,9 +451,19 @@ impl App {
                     let w = c.w;
                     match c.id {
                         "name" => {
-                            self.draw_icon(ui, Rect::from_center_size(pos2(x + 17.0, cy), vec2(18.0, 18.0)), &row.path, &row.ext, row.is_dir, row.attrs);
+                            let icon = Rect::from_center_size(pos2(x + 17.0, cy), vec2(18.0, 18.0));
+                            // on its way here or away: a turning ring for its icon, its name greyed
+                            let transit = self.transit(&row.path);
+                            match transit {
+                                Some(tr) => tr.draw(ui, icon),
+                                None => self.draw_icon(ui, icon, &row.path, &row.ext, row.is_dir, row.attrs),
+                            }
                             let tx = x + 36.0;
-                            let name_col = if row.attrs & fsx::A_HIDDEN != 0 { DIM() } else { TEXT() };
+                            let name_col = match transit {
+                                Some(tr) => tr.text(),
+                                None if row.attrs & fsx::A_HIDDEN != 0 => DIM(),
+                                None => TEXT(),
+                            };
                             let shown = display_name(&row, self.settings.show_ext);
                             if t.rename.as_ref().is_some_and(|r| r.key == row.key) {
                                 let r = t.rename.as_mut().unwrap();
@@ -581,10 +591,14 @@ impl App {
                             drop_mark(ui.painter(), inner, 6, ok);
                         }
                         let img = Rect::from_min_size(inner.min + vec2(10.0, 6.0), vec2(inner.width() - 20.0, 76.0));
-                        self.draw_thumb(ui, img, &row.path, &row.ext, row.is_dir, row.attrs, row.mtime);
+                        let transit = self.transit(&row.path);
+                        match transit {
+                            Some(tr) => tr.draw(ui, img),
+                            None => self.draw_thumb(ui, img, &row.path, &row.ext, row.is_dir, row.attrs, row.mtime),
+                        }
                         cloud_badge(ui.painter(), pos2(img.left() + 6.0, img.bottom() - 6.0), self.cloud_of(&row.path, row.attrs, t));
                         let shown = display_name(&row, self.settings.show_ext);
-                        let mut job = egui::text::LayoutJob::simple(shown, FontId::proportional(12.5), TEXT(), inner.width() - 8.0);
+                        let mut job = egui::text::LayoutJob::simple(shown, FontId::proportional(12.5), transit.map_or(TEXT(), |tr| tr.text()), inner.width() - 8.0);
                         job.halign = egui::Align::Center;
                         job.wrap = egui::text::TextWrapping { max_width: inner.width() - 8.0, max_rows: 2, break_anywhere: true, overflow_character: Some('…') };
                         let g = ui.fonts_mut(|f| f.layout_job(job));
@@ -622,6 +636,9 @@ impl App {
     }
 
     fn row_interact(&mut self, ui: &Ui, t: &mut Tab, resp: &Response, row: &Row, i: usize) {
+        if let Some(tr) = self.transit(&row.path) {
+            resp.clone().on_hover_text(tr.tip());
+        }
         let mods = ui.input(|i| i.modifiers);
         if resp.clicked() {
             if mods.command {

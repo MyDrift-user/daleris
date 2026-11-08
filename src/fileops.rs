@@ -88,6 +88,8 @@ pub struct Job {
     progress: Mutex<Progress>,
     question: Mutex<Option<Question>>,
     answers: (Mutex<Sender<Answer>>, Mutex<Receiver<Answer>>),
+    /// the item being written at its destination, as the list shows it
+    arriving: Mutex<Option<PathBuf>>,
     cancel: AtomicBool,
 }
 
@@ -113,6 +115,7 @@ impl Job {
             }),
             question: Mutex::new(None),
             answers: (Mutex::new(tx), Mutex::new(rx)),
+            arriving: Mutex::new(None),
             cancel: AtomicBool::new(false),
         }
     }
@@ -128,6 +131,11 @@ impl Job {
     pub fn answer(&self, a: Answer) {
         *self.question.lock().unwrap() = None;
         let _ = self.answers.0.lock().unwrap().send(a);
+    }
+
+    /// The top-level item being copied or moved into place right now, under its final name.
+    pub fn arriving(&self) -> Option<PathBuf> {
+        self.arriving.lock().unwrap().clone()
     }
 
     pub fn cancel(&self) {
@@ -175,6 +183,7 @@ impl Job {
             }
             p.cancelled = self.cancelled();
             p.stage = Stage::Done;
+            *self.arriving.lock().unwrap() = None;
             p.current.clear();
         });
     }
@@ -246,7 +255,7 @@ impl Run<'_> {
             p.stage = Stage::Working;
         });
         for (i, (src, target)) in todo.iter().enumerate() {
-            match self.transfer(src, target, moving) {
+            match self.transfer(src, target, moving, true) {
                 Err(Stop::HandOff(_)) => return Err(Stop::HandOff(todo[i..].iter().map(|(s, _)| s.clone()).collect())),
                 other => other?,
             }
@@ -254,7 +263,8 @@ impl Run<'_> {
         Ok(())
     }
 
-    fn transfer(&mut self, src: &Path, dst: &Path, moving: bool) -> Result<(), Stop> {
+    /// `top`: one of the items the person chose, rather than something inside one.
+    fn transfer(&mut self, src: &Path, dst: &Path, moving: bool, top: bool) -> Result<(), Stop> {
         let job = self.job;
         if job.cancelled() {
             return Err(Stop::Cancel);
@@ -293,6 +303,9 @@ impl Run<'_> {
                 }
             }
         }
+        if top {
+            *job.arriving.lock().unwrap() = Some(dst.clone());
+        }
         if is_dir {
             if std::fs::symlink_metadata(&dst).is_err() {
                 // the whole folder in one go when it can be renamed into place
@@ -313,7 +326,7 @@ impl Run<'_> {
                 return Ok(());
             };
             for name in entries {
-                self.transfer(&src.join(&name), &dst.join(&name), moving)?;
+                self.transfer(&src.join(&name), &dst.join(&name), moving, false)?;
             }
             if moving {
                 // still there when something inside was skipped, and then it should be

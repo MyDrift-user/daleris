@@ -348,3 +348,55 @@ mod tests {
         assert_eq!(time_left(3700.0), "about 1 h 1 min left");
     }
 }
+
+/// An item that's on its way: arriving in the folder it's shown in, or leaving it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Transit {
+    Arriving(Kind),
+    Leaving(Kind),
+}
+
+impl App {
+    /// Whether a copy, move or delete is working on the item at `path` right now.
+    pub(super) fn transit(&self, path: &Path) -> Option<Transit> {
+        for j in &self.ops {
+            if j.arriving().is_some_and(|a| fsx::same_path(&a, path)) {
+                return Some(Transit::Arriving(j.kind));
+            }
+            if matches!(j.kind, Kind::Move | Kind::Delete) && j.sources.iter().any(|s| fsx::same_path(s, path)) {
+                return Some(Transit::Leaving(j.kind));
+            }
+        }
+        None
+    }
+}
+
+impl Transit {
+    pub(super) fn tip(self) -> &'static str {
+        match self {
+            Transit::Arriving(Kind::Move) => "Being moved here",
+            Transit::Arriving(_) => "Being copied here",
+            Transit::Leaving(Kind::Delete) => "Being deleted",
+            Transit::Leaving(_) => "Being moved away from here",
+        }
+    }
+
+    /// The colour of its name: greyed while it arrives, fainter still while it leaves.
+    pub(super) fn text(self) -> Color32 {
+        if matches!(self, Transit::Arriving(_)) { DIM() } else { FAINT() }
+    }
+
+    /// A ring turning in place of the icon: the accent, clockwise, for what arrives; faint and the other way for
+    /// what leaves.
+    pub(super) fn draw(self, ui: &Ui, r: Rect) {
+        let arriving = matches!(self, Transit::Arriving(_));
+        let t = ui.input(|i| i.time) as f32 * 4.0;
+        let start = if arriving { t } else { -t };
+        let radius = r.width().min(r.height()) * 0.38;
+        let c = r.center();
+        ui.painter().circle_stroke(c, radius, Stroke::new(2.0_f32, LINE()));
+        let points: Vec<egui::Pos2> = (0..=24).map(|k| start + k as f32 / 24.0 * std::f32::consts::PI * 1.3).map(|a| c + radius * vec2(a.cos(), a.sin())).collect();
+        ui.painter().add(egui::Shape::line(points, Stroke::new(2.0_f32, if arriving { ACCENT() } else { FAINT() })));
+        ui.ctx().request_repaint_after(Duration::from_millis(33));
+    }
+}
