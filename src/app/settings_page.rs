@@ -204,7 +204,8 @@ impl App {
 
     /// Windows draws some of its icons for the light or the dark theme: when that changes, they're fetched again.
     pub(super) fn forget_system_icons(&mut self) {
-        self.icons.retain(|k, _| !["e:", "p:", "kf:", "dir|"].iter().any(|s| k.starts_with(s)));
+        self.icons.retain(|k, _| !super::is_system_icon_key(k));
+        self.icon_retry.clear();
     }
 
     /// Mica behind the window, tinted for the theme, when the window was made for it and it's wanted; none otherwise.

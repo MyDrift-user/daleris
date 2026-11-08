@@ -1307,6 +1307,8 @@ pub struct App {
     was_focused: bool,
     loader: Loader,
     icons: HashMap<String, Slot>,
+    /// Windows icons that failed to load: when last tried and how often, to be asked for again a few times.
+    icon_retry: HashMap<String, (f64, u8)>,
     type_names: HashMap<String, String>,
     thumb_order: VecDeque<String>,
     indexes: Vec<Arc<Index>>,
@@ -1446,6 +1448,7 @@ impl App {
             was_focused: true,
             settings,
             icons: HashMap::new(),
+            icon_retry: HashMap::new(),
             type_names: HashMap::new(),
             thumb_order: VecDeque::new(),
             indexes: Vec::new(),
@@ -2074,7 +2077,15 @@ impl App {
                     let opts = egui::TextureOptions { mipmap_mode: Some(egui::TextureFilter::Linear), ..egui::TextureOptions::LINEAR };
                     Slot::Ready(self.ctx.load_texture(&r.key, ci, opts))
                 }
-                None => Slot::Failed,
+                None => {
+                    if is_system_icon_key(&r.key) {
+                        let now = self.ctx.input(|i| i.time);
+                        let e = self.icon_retry.entry(r.key.clone()).or_insert((now, 0));
+                        *e = (now, e.1 + 1);
+                        log::warn!("Windows gave no icon for {} (try {})", r.key, e.1);
+                    }
+                    Slot::Failed
+                }
             };
             if r.key.starts_with("t:") {
                 self.thumb_order.push_back(r.key.clone());
@@ -2401,6 +2412,13 @@ impl App {
     fn tex(&mut self, key: &str, req: impl FnOnce() -> ImgReq) -> Option<egui::TextureId> {
         match self.icons.get(key) {
             Some(Slot::Ready(t)) => Some(t.id()),
+            // a Windows icon that failed is asked for again after a while, up to three times: a failure can be passing,
+            // and the built-in icon would otherwise stay for good
+            Some(Slot::Failed) if self.icon_retry.get(key).is_some_and(|&(at, n)| n < 3 && self.ctx.input(|i| i.time) - at >= 2.0 * n as f64) => {
+                self.icons.insert(key.to_string(), Slot::Pending);
+                self.loader.request(req());
+                None
+            }
             Some(_) => None,
             None => {
                 self.icons.insert(key.to_string(), Slot::Pending);
@@ -3415,4 +3433,9 @@ fn icon_px(ui: &Ui, rect: Rect) -> u32 {
     let small = (16.0 * ppp).round();
     let px = if (want - small) >= 0.0 && (want - small) <= 0.25 * small { small } else { want };
     px.clamp(16.0, 256.0) as u32
+}
+
+/// Keys of icons asked of Windows, as opposed to thumbnails and icon packs.
+fn is_system_icon_key(key: &str) -> bool {
+    ["e:", "p:", "kf:", "dir|"].iter().any(|s| key.starts_with(s))
 }

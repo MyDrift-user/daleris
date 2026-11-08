@@ -230,7 +230,10 @@ unsafe fn known_folder_icon(id: &windows::core::GUID, px: u32) -> Option<RawImg>
     let via_factory = (|| -> Option<RawImg> {
         let f: IShellItemImageFactory = SHCreateItemFromIDList(pidl).ok()?;
         let side = px.max(16) as i32;
-        let hbm = f.GetImage(SIZE { cx: side, cy: side }, SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0)).ok()?;
+        let hbm = f
+            .GetImage(SIZE { cx: side, cy: side }, SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0))
+            .map_err(|e| log::warn!("Windows gave no {px}-pixel icon for known folder {id:?}: {e}"))
+            .ok()?;
         let r = bitmap_bgra(hbm);
         let _ = DeleteObject(hbm.into());
         let (w, h, mut px) = r?;
