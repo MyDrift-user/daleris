@@ -489,10 +489,15 @@ impl App {
                                     }
                                 }
                             } else {
+                                // who has it open, at the end of the name's column, and the name in what's left
+                                let openers = self.openers(t, &row.path);
+                                let face = (row_h - 6.0).clamp(14.0, 22.0);
+                                let taken = self.draw_openers(ui, &openers, x + w - 10.0, cy, face);
+                                let room = w - 44.0 - if taken > 0.0 { taken + 10.0 } else { 0.0 };
                                 let g = if highlight.is_empty() {
-                                    truncated(ui, &shown, FontId::proportional(13.5), name_col, w - 44.0)
+                                    truncated(ui, &shown, FontId::proportional(13.5), name_col, room)
                                 } else {
-                                    highlighted(ui, &shown, &highlight, w - 44.0)
+                                    highlighted(ui, &shown, &highlight, room)
                                 };
                                 ui.painter().galley(pos2(tx, cy - g.size().y / 2.0), g, name_col);
                             }
@@ -598,6 +603,12 @@ impl App {
                             tr.draw(ui, Rect::from_center_size(img.right_top() + vec2(-14.0, 14.0), vec2(16.0, 16.0)));
                         }
                         cloud_badge(ui.painter(), pos2(img.left() + 6.0, img.bottom() - 6.0), self.cloud_of(&row.path, row.attrs, t));
+                        // who has it open, along the picture's top left
+                        let openers = self.openers(t, &row.path);
+                        if !openers.is_empty() {
+                            let right = img.left() + 4.0 + openers::openers_width(openers.len(), 18.0);
+                            self.draw_openers(ui, &openers, right, img.top() + 12.0, 18.0);
+                        }
                         let shown = display_name(&row, self.settings.show_ext);
                         let mut job = egui::text::LayoutJob::simple(shown, FontId::proportional(12.5), transit.as_ref().map_or(TEXT(), |tr| tr.text()), inner.width() - 8.0);
                         job.halign = egui::Align::Center;

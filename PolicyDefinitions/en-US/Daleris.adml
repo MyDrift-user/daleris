@@ -15,7 +15,7 @@
       <string id="ExplorerLook">Look like Windows Explorer (Windows)</string>
       <string id="OpenNewDrives">Open a tab for a drive when it's connected (Windows)</string>
       <string id="StartNewWindow">Starting Daleris again opens a new window (Windows)</string>
-      <string id="ShareTransferNotes">Show others on network shares what you copy, move and delete</string>
+      <string id="ShareTransferNotes">Show others on network shares what you copy, move, delete and have open</string>
       <string id="DefaultSort">Default sort order</string>
       <string id="DefaultSortAscending">Default sort runs from A, oldest or smallest</string>
       <string id="FoldersFirst">Keep folders above files by default</string>

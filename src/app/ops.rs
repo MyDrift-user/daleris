@@ -434,7 +434,8 @@ impl App {
                 let way = match m.way {
                     crate::marks::Way::Arriving => Way::Arriving,
                     crate::marks::Way::Leaving => Way::Leaving,
-                    crate::marks::Way::Source => Way::Source,
+                    // open items are kept apart, so never here
+                    crate::marks::Way::Source | crate::marks::Way::Open => Way::Source,
                 };
                 let kind = match m.kind {
                     'm' => Kind::Move,
@@ -687,7 +688,7 @@ fn note_job(job: &Job) {
                         let mine = detail.as_ref().filter(|h| fsx::same_path(&h.src, path) || h.dst.as_deref().is_some_and(|d| fsx::same_path(d, path)));
                         let (done, total) = (mine.map(|h| h.done), mine.map(|h| h.total));
                         let left = mine.zip(speed).map(|(h, s)| ((h.total - h.done) as f64 / s) as u64);
-                        let m = Mark { name: name.to_string_lossy().into_owned(), way, kind, frac, who: who.clone(), at, started, done, total, left };
+                        let m = Mark { name: name.to_string_lossy().into_owned(), way, kind, frac, who: who.clone(), at, started, done, total, left, app: None };
                         by_dir.entry(dir.to_path_buf()).or_default().push(m);
                     }
                 }
@@ -702,7 +703,7 @@ fn note_job(job: &Job) {
         }
         for (dir, list) in &by_dir {
             let due = written.get(dir).is_none_or(|(when, f)| when.elapsed() >= Duration::from_secs(15) || (frac_now.unwrap_or(0.0) - f.unwrap_or(0.0)).abs() >= 0.05);
-            if due && marks::write(dir, &file, list).is_ok() {
+            if due && marks::write(dir, &file, list, None).is_ok() {
                 written.insert(dir.clone(), (Instant::now(), frac_now));
             }
         }
@@ -720,7 +721,7 @@ fn note_job(job: &Job) {
 }
 
 /// "just now", "12 s ago", "3 min ago", "2 h ago".
-fn ago(d: Duration) -> String {
+pub(super) fn ago(d: Duration) -> String {
     match d.as_secs() {
         0..=2 => "just now".into(),
         s @ 3..=59 => format!("{s} s ago"),

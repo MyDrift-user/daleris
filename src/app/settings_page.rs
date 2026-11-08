@@ -903,8 +903,8 @@ impl App {
                 ch |= managed_toggle(ui, &mut self.settings.open_new_drives, "open_new_drives", "Open a tab for a drive when it's connected, such as a USB stick");
                 ch |= managed_toggle(ui, &mut self.settings.start_new_window, "start_new_window", "Starting Daleris again opens a new window (off: a new tab in the open window)");
             }
-            ch |= managed_toggle(ui, &mut self.settings.share_marks, "share_marks", "On network shares, let other people's Daleris see what you copy, move and delete");
-            ui.label(egui::RichText::new("Daleris leaves a small hidden note in the folder while it works there, and removes it when it's done. Notes from others show the same way, with their name.").size(12.0).color(DIM()));
+            ch |= managed_toggle(ui, &mut self.settings.share_marks, "share_marks", "On network shares, let other people's Daleris see what you copy, move, delete and have open");
+            ui.label(egui::RichText::new("Daleris leaves a small hidden note in the folder, with your name and your Windows account picture, and removes it when it's done. Notes from others show the same way.").size(12.0).color(DIM()));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let fixed = policy::is_fixed("view");

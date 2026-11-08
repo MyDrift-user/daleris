@@ -41,9 +41,10 @@ VALUES
                                       as a USB stick. Windows only
   StartNewWindow            DWORD     1 on, 0 off: starting Daleris again, from Start, the taskbar or Win+E, opens a new
                                       window; off, a new tab in the open one. Windows only
-  ShareTransferNotes        DWORD     1 on, 0 off: while copying, moving or deleting on a network share, Daleris leaves a
-                                      small hidden note in the folder (.daleris-transit-*) so Daleris on other PCs shows it,
-                                      and removes it when done
+  ShareTransferNotes        DWORD     1 on, 0 off: while copying, moving or deleting on a network share, or with files open
+                                      there, Daleris leaves a small hidden note in the folder (.daleris-transit-*), with the
+                                      person's name and Windows account picture, so Daleris on other PCs shows it, and removes it
+                                      when done
   DefaultSort               SZ        name, modified, created, type, extension or size: how a folder is sorted until someone chooses
   DefaultSortAscending      DWORD     1 from A, the oldest or the smallest, 0 the other way round
   FoldersFirst              DWORD     1 keeps folders above files by default, 0 mixes them in

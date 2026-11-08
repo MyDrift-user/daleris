@@ -16,6 +16,7 @@ mod logging;
 mod marks;
 mod newitems;
 mod policy;
+mod presence;
 mod search;
 #[cfg(windows)]
 mod shell;

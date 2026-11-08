@@ -21,6 +21,8 @@ pub enum Way {
     Arriving,
     Leaving,
     Source,
+    /// the person has the item open
+    Open,
 }
 
 /// What one note says about one item in the folder.
@@ -43,6 +45,8 @@ pub struct Mark {
     pub total: Option<u64>,
     /// seconds left for this item, as of `at`
     pub left: Option<u64>,
+    /// the program it's open in, for `Way::Open`
+    pub app: Option<String>,
 }
 
 pub fn now() -> u64 {
@@ -108,9 +112,12 @@ pub fn encode(marks: &[Mark]) -> String {
                 Way::Arriving => 'a',
                 Way::Leaving => 'l',
                 Way::Source => 's',
+                Way::Open => 'o',
             };
             let frac = m.frac.map(|f| format!("{f:.3}")).unwrap_or_default();
-            format!("2\t{way}\t{}\t{frac}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", m.kind, m.at, m.started, opt(m.done), opt(m.total), opt(m.left), m.who.replace('\t', " "), m.name)
+            // an open item says which program in place of copy, move or delete
+            let kind = if m.way == Way::Open { m.app.as_deref().unwrap_or("-").replace('\t', " ") } else { m.kind.to_string() };
+            format!("2\t{way}\t{}\t{frac}\t{}\t{}\t{}\t{}\t{}\t{}\t{}\n", kind, m.at, m.started, opt(m.done), opt(m.total), opt(m.left), m.who.replace('\t', " "), m.name)
         })
         .collect()
 }
@@ -137,12 +144,15 @@ pub fn parse(text: &str, now: u64) -> Vec<Mark> {
                 "a" => Way::Arriving,
                 "l" => Way::Leaving,
                 "s" => Way::Source,
+                "o" => Way::Open,
                 _ => return None,
             };
+            let app = (way == Way::Open && kind != "-").then(|| kind.to_string());
             Some(Mark {
                 name,
                 way,
-                kind: kind.chars().next()?,
+                kind: if way == Way::Open { 'o' } else { kind.chars().next()? },
+                app,
                 frac: frac.parse().ok(),
                 who: who.to_string(),
                 at,
@@ -156,9 +166,14 @@ pub fn parse(text: &str, now: u64) -> Vec<Mark> {
 }
 
 /// Writes the note for `dir`, hidden so it stays out of other people's way.
-pub fn write(dir: &Path, file: &str, marks: &[Mark]) -> std::io::Result<()> {
+/// With `face`, the writer's picture goes along, once, on a line of its own.
+pub fn write(dir: &Path, file: &str, marks: &[Mark], face: Option<(&str, &crate::presence::Face)>) -> std::io::Result<()> {
     let path = dir.join(file);
-    std::fs::write(&path, encode(marks))?;
+    let mut text = encode(marks);
+    if let Some((who, f)) = face {
+        text += &format!("f\t{}\t{}\n", who.replace('\t', " "), crate::presence::face_text(f));
+    }
+    std::fs::write(&path, text)?;
     #[cfg(windows)]
     let _ = crate::fsx::set_attrs(&path, None, Some(true));
     Ok(())
@@ -168,16 +183,40 @@ pub fn remove(dir: &Path, file: &str) {
     let _ = std::fs::remove_file(dir.join(file));
 }
 
-/// Every note in `dir` that's still current, by item name in lower case. Several people on one item: the newest wins.
-pub fn read_all(dir: &Path, names: &[String]) -> std::collections::HashMap<String, Mark> {
+/// What all the notes in a folder say, by item name in lower case.
+#[derive(Default, Debug)]
+pub struct Notes {
+    /// copies, moves and deletes; several people on one item: the newest
+    pub transit: std::collections::HashMap<String, Mark>,
+    /// everyone who has the item open
+    pub open: std::collections::HashMap<String, Vec<Mark>>,
+    /// the writers' pictures, by who
+    pub faces: std::collections::HashMap<String, std::sync::Arc<crate::presence::Face>>,
+}
+
+/// Every note in `dir` that's still current.
+pub fn read_all(dir: &Path, names: &[String]) -> Notes {
     let now = now();
-    let mut out = std::collections::HashMap::new();
+    let mut out = Notes::default();
     for n in names.iter().filter(|n| is_mark(n)) {
         let Ok(text) = std::fs::read_to_string(dir.join(n)) else { continue };
+        let mut fresh = false;
         for m in parse(&text, now) {
+            fresh = true;
             let key = m.name.to_lowercase();
-            if out.get(&key).is_none_or(|o: &Mark| o.at <= m.at) {
-                out.insert(key, m);
+            if m.way == Way::Open {
+                out.open.entry(key).or_default().push(m);
+            } else if out.transit.get(&key).is_none_or(|o: &Mark| o.at <= m.at) {
+                out.transit.insert(key, m);
+            }
+        }
+        // a picture only from a note that's still current
+        for line in text.lines().filter(|_| fresh) {
+            let f: Vec<&str> = line.splitn(4, '\t').collect();
+            if let ["f", who, size, data] = f[..] {
+                if let Some(face) = crate::presence::face_from(size, data) {
+                    out.faces.insert(who.to_string(), std::sync::Arc::new(face));
+                }
             }
         }
     }
@@ -190,7 +229,7 @@ mod tests {
 
     #[test]
     fn a_note_reads_back_and_goes_stale() {
-        let m = Mark { name: "Q3 report.xlsx".into(), way: Way::Arriving, kind: 'c', frac: Some(0.4), who: "Ana on PC-7".into(), at: 1_000, started: 990, done: Some(400), total: Some(1_000), left: Some(15) };
+        let m = Mark { name: "Q3 report.xlsx".into(), way: Way::Arriving, kind: 'c', frac: Some(0.4), who: "Ana on PC-7".into(), at: 1_000, started: 990, done: Some(400), total: Some(1_000), left: Some(15), app: None };
         let source = Mark { name: "Photos".into(), way: Way::Source, frac: None, done: None, total: None, left: None, ..m.clone() };
         let text = encode(&[m.clone(), source.clone()]);
         assert_eq!(parse(&text, 1_030), vec![m, source]);
@@ -207,9 +246,29 @@ mod tests {
     }
 
     #[test]
+    fn open_items_and_pictures_read_back() {
+        let dir = std::env::temp_dir().join(format!("daleris-notes-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let at = now();
+        let m = Mark { name: "Plan.docx".into(), way: Way::Open, kind: 'o', frac: None, who: "Ana on PC-7".into(), at, started: at - 60, done: None, total: None, left: None, app: Some("Microsoft Word".into()) };
+        let face = crate::presence::Face { size: 2, rgba: vec![9; 16] };
+        write(&dir, ".daleris-transit-x-1-0", &[m.clone()], Some(("Ana on PC-7", &face))).unwrap();
+        let notes = read_all(&dir, &[".daleris-transit-x-1-0".to_string()]);
+        let _ = std::fs::remove_dir_all(&dir);
+        assert_eq!(notes.open.get("plan.docx").map(|v| v[0].clone()), Some(m));
+        assert!(notes.transit.is_empty(), "open isn't on its way anywhere");
+        assert_eq!(notes.faces.get("Ana on PC-7").map(|f| f.rgba.clone()), Some(face.rgba));
+    }
+
+    #[test]
     #[cfg(windows)]
     fn who_is_the_signed_in_person() {
         let w = who();
         assert!(!w.is_empty() && w != "someone", "{w}");
     }
+}
+
+/// This window's note for what's open here, apart from its copies' notes.
+pub fn open_file_name() -> String {
+    format!("{}-open", file_name(0))
 }

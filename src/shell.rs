@@ -299,6 +299,12 @@ unsafe fn bitmap_bgra(hbm: HBITMAP) -> Option<(usize, usize, Vec<u8>)> { unsafe 
     (n != 0).then_some((w as usize, h as usize, buf))
 }}
 
+/// A picture file, read by the system at about `size` pixels, such as a person's account picture.
+pub fn picture(path: &Path, size: u32) -> Option<RawImg> {
+    init_com();
+    unsafe { thumbnail(path, size as i32, false, true) }
+}
+
 unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool) -> Option<RawImg> { unsafe {
     let w = wide(path.as_os_str());
     let f: IShellItemImageFactory = SHCreateItemFromParsingName(PCWSTR(w.as_ptr()), None).ok()?;

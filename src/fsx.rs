@@ -545,6 +545,11 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
 }
 
 
+/// A text value from the registry.
+pub fn reg_text(hk: HKEY, sub: &str, value: &str) -> Option<String> {
+    unsafe { reg_string(hk, sub, value) }.filter(|s| !s.is_empty())
+}
+
 unsafe fn reg_string(hk: HKEY, sub: &str, value: &str) -> Option<String> { unsafe {
     let s = wide(sub);
     let v = wide(value);

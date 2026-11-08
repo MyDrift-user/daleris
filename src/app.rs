@@ -27,6 +27,7 @@ mod integration_page;
 mod list;
 mod menu;
 mod picker;
+mod openers;
 mod ops;
 mod props;
 mod settings_page;
@@ -103,6 +104,11 @@ struct Tab {
     marks: HashMap<String, crate::marks::Mark>,
     /// items whose size changed, or that appeared, while this folder was shown: someone is writing them
     growing: HashMap<String, Growth>,
+    /// who has what open, by item name in lower case: this PC and lock files, and other people's notes
+    open_here: HashMap<String, Vec<crate::presence::Opener>>,
+    open_notes: HashMap<String, Vec<crate::marks::Mark>>,
+    /// when this folder was last looked at for that
+    presence_at: Option<Instant>,
     back: Vec<Loc>,
     fwd: Vec<Loc>,
     entries: Vec<Entry>,
@@ -227,6 +233,9 @@ impl Tab {
             refresh_at: None,
             marks: HashMap::new(),
             growing: HashMap::new(),
+            open_here: HashMap::new(),
+            open_notes: HashMap::new(),
+            presence_at: None,
             select_after_load: None,
             in_cloud: false,
             typeahead: (String::new(), Instant::now()),
@@ -280,7 +289,9 @@ enum Msg {
     Batch { tab: u64, generation: u64, batch: Vec<Entry> },
     Done { tab: u64, generation: u64, err: Option<FolderError> },
     /// the notes in a tab's folder, read
-    Marks { tab: u64, marks: HashMap<String, crate::marks::Mark> },
+    Marks { tab: u64, notes: crate::marks::Notes },
+    /// who has what open in a tab's folder, from this PC and lock files
+    Presence { tab: u64, open: HashMap<String, Vec<crate::presence::Opener>> },
     Changed { tab: u64 },
     Drives(Vec<Drive>),
     DriveDetail(Drive),
@@ -1337,6 +1348,8 @@ pub struct App {
     ops: Vec<Arc<crate::fileops::Job>>,
     /// what's about to be deleted for good, once the person says so
     confirm_delete: Option<Vec<PathBuf>>,
+    /// the pictures other people's notes carry, by who
+    faces: HashMap<String, Arc<crate::presence::Face>>,
     /// the tab being dragged, by its place in the strip
     tab_drag: Option<usize>,
     /// tabs other Daleris windows hand to this one (Windows)
@@ -1459,6 +1472,7 @@ impl App {
             preview_wanted: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             ops: Vec::new(),
             confirm_delete: None,
+            faces: HashMap::new(),
             tab_drag: None,
             #[cfg(windows)]
             tab_requests: None,
@@ -1876,9 +1890,16 @@ impl App {
                         }
                     }
                 }
-                Msg::Marks { tab, marks } => {
+                Msg::Presence { tab, open } => {
                     if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab) {
-                        t.marks = marks;
+                        t.open_here = open;
+                    }
+                }
+                Msg::Marks { tab, notes } => {
+                    self.faces.extend(notes.faces);
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab) {
+                        t.marks = notes.transit;
+                        t.open_notes = notes.open;
                     }
                 }
                 Msg::Done { tab, generation, err } => {
@@ -1917,14 +1938,17 @@ impl App {
                             None => {
                                 t.retry_wait = FIRST_RETRY;
                                 t.retry_at = None;
+                                // who has what open: look again now the listing is here
+                                t.presence_at = None;
                                 // other people's notes, read off the window's thread as the folder may be on a slow server
                                 let notes: Vec<String> = t.entries.iter().filter(|e| crate::marks::is_mark(&e.name)).map(|e| e.name.clone()).collect();
                                 if notes.is_empty() {
                                     t.marks.clear();
+                                    t.open_notes.clear();
                                 } else if let Loc::Dir(p) = &t.loc {
                                     let (tx, id, ctx, dir) = (self.tx.clone(), t.id, self.ctx.clone(), p.clone());
                                     bg::submit(p, "notes", move || {
-                                        let _ = tx.send(Msg::Marks { tab: id, marks: crate::marks::read_all(&dir, &notes) });
+                                        let _ = tx.send(Msg::Marks { tab: id, notes: crate::marks::read_all(&dir, &notes) });
                                         ctx.request_repaint();
                                     });
                                 }
@@ -2734,6 +2758,7 @@ impl App {
         if self.active >= self.tabs.len() {
             self.active = self.tabs.len() - 1;
         }
+        self.look_for_openers();
         self.auto_update_on.store(self.settings.auto_update, Ordering::Relaxed);
         let title = self.picker.as_ref().map_or_else(|| format!("{} · Daleris", self.tabs[self.active].loc.title()), Picker::window_title);
         if title != self.window_title {

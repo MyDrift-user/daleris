@@ -115,6 +115,11 @@ fn spawn_worker(i: usize, q: Queue, tx: Sender<ImgResult>, ctx: eframe::egui::Co
         .ok();
 }
 
+/// A picture file at about `size` pixels, such as a person's account picture.
+pub fn picture(path: &Path, size: u32) -> Option<RawImg> {
+    thumbnail(path, size)
+}
+
 fn thumbnail(path: &Path, size: u32) -> Option<RawImg> {
     let ext = path.extension()?.to_string_lossy().to_lowercase();
     if !matches!(ext.as_str(), "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp") {
