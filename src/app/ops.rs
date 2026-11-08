@@ -365,6 +365,8 @@ pub(super) struct Transit {
     pub frac: Option<f32>,
     /// someone else, by the note they left; None for this window's own
     pub who: Option<String>,
+    /// the folder at the other end: where it comes from or goes to, when this window is doing it
+    pub there: Option<PathBuf>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -385,15 +387,16 @@ impl App {
     pub(super) fn transit(&self, t: &Tab, path: &Path) -> Option<Transit> {
         for j in &self.ops {
             let hand = j.in_hand();
-            if let Some((_, Some(dst), frac)) = &hand {
+            if let Some((src, Some(dst), frac)) = &hand {
                 if fsx::same_path(dst, path) {
-                    return Some(Transit { way: Way::Arriving, kind: j.kind, frac: Some(*frac), who: None });
+                    let there = src.parent().map(Path::to_path_buf);
+                    return Some(Transit { way: Way::Arriving, kind: j.kind, frac: Some(*frac), who: None, there });
                 }
             }
             if j.sources.iter().any(|s| fsx::same_path(s, path)) {
                 let frac = hand.as_ref().filter(|(src, ..)| fsx::same_path(src, path)).map(|h| h.2);
                 let way = if j.kind == Kind::Copy { Way::Source } else { Way::Leaving };
-                return Some(Transit { way, kind: j.kind, frac, who: None });
+                return Some(Transit { way, kind: j.kind, frac, who: None, there: j.dest.clone() });
             }
         }
         if t.dir().is_some_and(|d| path.parent().is_some_and(|p| fsx::same_path(p, d))) {
@@ -409,10 +412,10 @@ impl App {
                     'd' => Kind::Delete,
                     _ => Kind::Copy,
                 };
-                return Some(Transit { way, kind, frac: m.frac, who: Some(m.who.clone()) });
+                return Some(Transit { way, kind, frac: m.frac, who: Some(m.who.clone()), there: None });
             }
             if t.growing.get(&key).is_some_and(|at| at.elapsed() < GROWING_FOR) {
-                return Some(Transit { way: Way::Writing, kind: Kind::Copy, frac: None, who: None });
+                return Some(Transit { way: Way::Writing, kind: Kind::Copy, frac: None, who: None, there: None });
             }
         }
         None
@@ -423,38 +426,63 @@ impl App {
 const GROWING_FOR: Duration = Duration::from_secs(8);
 
 impl Transit {
-    /// The word after the name, so what's going on reads without pointing at it. Someone else's says who.
-    pub(super) fn chip(&self) -> String {
-        let pct = self.frac.map(|f| format!(" {:.0} %", f * 100.0)).unwrap_or_default();
-        let what = match (self.way, self.kind) {
-            (Way::Writing, _) => return "being written".into(),
-            (Way::Arriving, Kind::Move) => format!("moving here{pct}"),
-            (Way::Arriving, _) => format!("copying here{pct}"),
-            (Way::Leaving, Kind::Delete) => format!("deleting{pct}"),
-            (Way::Leaving, _) => format!("moving away{pct}"),
-            (Way::Source, _) => format!("copying from{pct}"),
-        };
-        match &self.who {
-            Some(who) => format!("{who}: {what}"),
-            None => what,
+    /// What's happening, in a few words, as the tooltip's title.
+    fn title(&self) -> &'static str {
+        match (self.way, self.kind) {
+            (Way::Writing, _) => "Being written",
+            (Way::Arriving, Kind::Move) => "Moving here",
+            (Way::Arriving, _) => "Copying here",
+            (Way::Leaving, Kind::Delete) => "Deleting",
+            (Way::Leaving, _) => "Moving away",
+            (Way::Source, _) => "Copying from here",
         }
     }
 
-    /// More, when pointed at.
-    pub(super) fn tip(&self) -> String {
-        let what = match (self.way, self.kind) {
-            (Way::Writing, _) => "Its size changed while you were looking. Someone or some app is writing it: wait before opening or changing it.",
-            (Way::Arriving, Kind::Move) => "Being moved here.",
-            (Way::Arriving, _) => "Being copied here. Wait until it's done before opening it.",
-            (Way::Leaving, Kind::Delete) => "Being deleted.",
-            (Way::Leaving, _) => "Being moved away from here.",
-            (Way::Source, _) => "Being copied somewhere else. It stays here and can still be used.",
-        };
-        let by = self.who.as_ref().map(|w| format!("\nBy {w}, in Daleris on their PC.")).unwrap_or_default();
-        match self.frac {
-            Some(f) => format!("{what} {:.0} % done.{by}", f * 100.0),
-            None => format!("{what}{by}"),
+    /// What it means for the item, below the details.
+    fn note(&self) -> &'static str {
+        match (self.way, self.kind) {
+            (Way::Writing, _) => "Its size changed while you were looking. Wait before opening or changing it.",
+            (Way::Arriving, Kind::Move) => "It's all here once it's done.",
+            (Way::Arriving, _) => "Wait until it's done before opening it.",
+            (Way::Leaving, Kind::Delete) => "It's gone for good once it's done.",
+            (Way::Leaving, _) => "It's gone from here once it's done.",
+            (Way::Source, _) => "It stays here and can still be used.",
         }
+    }
+
+    /// The tooltip: a title, then progress, the other end and who, each on its own row, then what it means.
+    pub(super) fn tip_ui(&self, ui: &mut Ui) {
+        ui.set_max_width(320.0);
+        ui.label(egui::RichText::new(self.title()).strong().color(self.colour()));
+        ui.add_space(4.0);
+        let key = |ui: &mut Ui, k: &str| {
+            ui.label(egui::RichText::new(k).color(DIM()));
+        };
+        egui::Grid::new("transit_tip").num_columns(2).spacing([14.0, 4.0]).show(ui, |ui| {
+            if let Some(f) = self.frac {
+                key(ui, "Progress");
+                ui.horizontal(|ui| {
+                    ui.add(egui::ProgressBar::new(f).desired_width(120.0).desired_height(6.0));
+                    ui.label(format!("{:.0} %", f * 100.0));
+                });
+                ui.end_row();
+            }
+            if let Some(p) = &self.there {
+                key(ui, if self.way == Way::Arriving { "From" } else { "To" });
+                let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string());
+                ui.label(name).on_hover_text(p.display().to_string());
+                ui.end_row();
+            }
+            key(ui, "By");
+            ui.label(match (&self.who, self.way) {
+                (Some(who), _) => who.clone(),
+                (None, Way::Writing) => "Someone, or an app".into(),
+                (None, _) => "You, in this window".into(),
+            });
+            ui.end_row();
+        });
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new(self.note()).small().color(DIM()));
     }
 
     /// The colour of its name: greyed while it arrives or is written, fainter while it leaves, as usual while it's only
@@ -534,15 +562,6 @@ impl Transit {
         ui.ctx().request_repaint_after(Duration::from_millis(33));
     }
 
-    /// The word chip itself, at `at` (its left middle); how wide it was.
-    pub(super) fn draw_chip(&self, ui: &Ui, at: egui::Pos2) -> f32 {
-        let colour = self.colour();
-        let g = ui.painter().layout_no_wrap(self.chip(), FontId::proportional(11.0), colour);
-        let r = Rect::from_min_size(at - vec2(0.0, g.size().y / 2.0 + 2.0), g.size() + vec2(12.0, 4.0));
-        ui.painter().rect_filled(r, CornerRadius::same(4), colour.gamma_multiply(0.14));
-        ui.painter().galley(r.min + vec2(6.0, 2.0), g, colour);
-        r.width()
-    }
 }
 
 /// Keeps this job's notes in the shared folders it touches up to date until it's done, then takes them away. A note is
