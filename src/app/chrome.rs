@@ -3,6 +3,9 @@
 
 use super::*;
 
+/// How long dragged files are held over a tab before it opens.
+const TAB_OPENS_AFTER: Duration = Duration::from_millis(600);
+
 impl App {
     pub(super) fn tab_bar(&mut self, root: &mut Ui, t: &mut Tab) {
         let ctx = &root.ctx().clone();
@@ -32,6 +35,7 @@ impl App {
                 let avail = ui.available_width() - 40.0 - right_w - 24.0;
                 let _ = left_w;
                 let w = (avail / count as f32).clamp(80.0, 230.0);
+                let mut tab_under_drag = None;
                 for i in 0..count {
                     let (loc, loading) = if i == self.active { (t.loc.clone(), t.loading) } else { (self.tabs[i].loc.clone(), self.tabs[i].loading) };
                     let active = i == self.active;
@@ -78,16 +82,32 @@ impl App {
                     } else if resp.clicked() {
                         self.acts.push(Act::SwitchTab(i));
                     }
-                    if let Some(drag) = resp.dnd_release_payload::<DragFiles>() {
+                    // files dropped on a tab go into its folder; held over it, it opens, so they can go deeper
+                    if resp.dnd_hover_payload::<DragFiles>().is_some() {
+                        tab_under_drag = Some(i);
                         if let Loc::Dir(d) = &loc {
-                            let copy = ui.input(|i| i.modifiers.ctrl);
-                            self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: d.clone(), copy });
+                            self.drop_zone(ui, &resp, d);
+                            ui.painter().rect_stroke(rect.shrink2(vec2(0.0, 2.0)), CornerRadius::same(6), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
                         }
+                        match self.drag_tab_hover {
+                            Some((at, since)) if at == i => {
+                                if !active && since.elapsed() >= TAB_OPENS_AFTER {
+                                    self.acts.push(Act::SwitchTab(i));
+                                }
+                            }
+                            _ => self.drag_tab_hover = Some((i, Instant::now())),
+                        }
+                        ui.ctx().request_repaint_after(Duration::from_millis(100));
+                    } else if let Loc::Dir(d) = &loc {
+                        self.drop_zone(ui, &resp, d);
                     }
                     resp.on_hover_text(match &loc {
                         Loc::Dir(p) => p.to_string_lossy().to_string(),
                         other => other.title(),
                     });
+                }
+                if tab_under_drag.is_none() {
+                    self.drag_tab_hover = None;
                 }
                 ui.add_space(2.0);
                 ui.vertical(|ui| {
@@ -280,8 +300,11 @@ impl App {
             if b.middle_clicked() {
                 self.acts.push(Act::NavigateNewTab(loc.clone()));
             }
-            if let (Some(drag), Loc::Dir(d)) = (b.dnd_release_payload::<DragFiles>(), loc) {
-                self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: d.clone(), copy: ui.input(|i| i.modifiers.ctrl) });
+            // each part of the path takes dropped files into that folder
+            if let Loc::Dir(d) = loc {
+                if self.drop_zone(ui, &b, d) {
+                    child.painter().rect_stroke(b.rect, CornerRadius::same(4), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+                }
             }
         }
         if resp.clicked() {
@@ -1061,8 +1084,12 @@ impl App {
 
     fn place_tile(&mut self, ui: &mut Ui, name: &str, path: &Path) {
         let (rect, resp) = ui.allocate_exact_size(vec2(200.0, 56.0), Sense::click());
-        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() { HOVER() } else { PANEL() });
         let path = path.to_path_buf();
+        let drop_here = self.drop_zone(ui, &resp, &path);
+        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { HOVER() } else { PANEL() });
+        if drop_here {
+            ui.painter().rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+        }
         self.draw_icon(ui, Rect::from_center_size(rect.left_center() + vec2(28.0, 0.0), vec2(32.0, 32.0)), &path, "", true, fsx::A_READONLY);
         let g = truncated(ui, name, FontId::proportional(14.0), TEXT(), rect.width() - 64.0);
         ui.painter().galley(pos2(rect.left() + 54.0, rect.center().y - g.size().y / 2.0), g, TEXT());
@@ -1076,7 +1103,11 @@ impl App {
 
     fn drive_card(&mut self, ui: &mut Ui, d: &Drive) {
         let (rect, resp) = ui.allocate_exact_size(vec2(290.0, 72.0), Sense::click());
-        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() { HOVER() } else { PANEL() });
+        let drop_here = !self.drive_offline(d) && self.drop_zone(ui, &resp, &d.root);
+        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { HOVER() } else { PANEL() });
+        if drop_here {
+            ui.painter().rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
+        }
         self.draw_icon(ui, Rect::from_center_size(rect.left_center() + vec2(30.0, 0.0), vec2(36.0, 36.0)), &d.root, "", true, 0);
         let x = rect.left() + 60.0;
         let g = truncated(ui, &d.title(), FontId::proportional(14.0), TEXT(), rect.width() - 72.0);

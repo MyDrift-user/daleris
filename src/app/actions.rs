@@ -278,13 +278,9 @@ impl App {
                 t.sel = self.rows(&t, 0..n).into_iter().map(|r| r.key).collect();
                 self.update_sel_info(&mut t);
             }
-            Act::Drop { srcs, dest, copy } => {
-                let srcs: Vec<PathBuf> = srcs.into_iter().filter(|s| !fsx::same_path(s, &dest) && !fsx::is_under(&dest, s)).collect();
-                let pointless = !copy && srcs.iter().all(|s| s.parent().is_some_and(|p| fsx::same_path(p, &dest)));
-                if !srcs.is_empty() && !pointless {
-                    // dragging across drives copies, like Explorer
-                    let same_drive = srcs.iter().all(|s| s.components().next() == dest.components().next());
-                    self.run_op(if copy || !same_drive { Op::Copy } else { Op::Move }, srcs, Some(dest));
+            Act::Drop { srcs, dest, mode } => {
+                if let Ok((op, srcs)) = drop_plan(&srcs, &dest, mode) {
+                    self.run_op(op, srcs, Some(dest));
                 }
             }
             Act::Import(files) => {

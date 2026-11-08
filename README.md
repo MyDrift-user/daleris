@@ -45,7 +45,7 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 - Hide dotfiles and dotfolders, on top of the Windows hidden setting
 - Folder sizes counted in the background
 - Preview pane for text files and folder summaries, plus a details panel for files
-- Cut, copy, paste, rename and delete, including drag and drop
+- Cut, copy, paste, rename and delete, including drag and drop onto folders, tabs, the sidebar and any part of the path
 
 ### ☁️ Cloud and network drives
 - OneDrive, Google Drive, Dropbox and iCloud Drive folders appear in the sidebar

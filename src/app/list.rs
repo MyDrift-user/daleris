@@ -527,10 +527,14 @@ impl App {
                         let i = line * cols + k;
                         let (rect, resp) = ui.allocate_exact_size(vec2(tile_w, tile_h), Sense::click_and_drag());
                         let inner = rect.shrink(4.0);
+                        let drop_target = row.is_dir && resp.dnd_hover_payload::<DragFiles>().is_some();
                         if t.sel.contains(&row.key) {
                             ui.painter().rect_filled(inner, CornerRadius::same(6), SEL());
-                        } else if resp.hovered() || (row.is_dir && resp.dnd_hover_payload::<DragFiles>().is_some()) {
+                        } else if resp.hovered() || drop_target {
                             ui.painter().rect_filled(inner, CornerRadius::same(6), HOVER());
+                        }
+                        if drop_target {
+                            ui.painter().rect_stroke(inner, CornerRadius::same(6), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
                         }
                         let img = Rect::from_min_size(inner.min + vec2(10.0, 6.0), vec2(inner.width() - 20.0, 76.0));
                         self.draw_thumb(ui, img, &row.path, &row.ext, row.is_dir, row.attrs, row.mtime);
@@ -615,10 +619,10 @@ impl App {
             }
             resp.dnd_set_drag_payload(DragFiles(self.selected_paths(t)));
         }
-        if row.is_dir {
-            if let Some(drag) = resp.dnd_release_payload::<DragFiles>() {
-                self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: row.path.clone(), copy: mods.ctrl });
-            }
+        // a folder takes what's dropped on it; a file, like the space around it, hands it to the folder it's in
+        let dest = if row.is_dir { Some(row.path.as_path()) } else { row.path.parent() };
+        if let Some(dest) = dest.map(Path::to_path_buf) {
+            self.drop_zone(ui, resp, &dest);
         }
         // right-click: load the Windows menu for the selection, then show ours with it merged in
         if resp.secondary_clicked() {
@@ -650,9 +654,7 @@ impl App {
         if t.searching() {
             return;
         }
-        if let Some(drag) = resp.dnd_release_payload::<DragFiles>() {
-            self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dir.clone(), copy: ui.input(|i| i.modifiers.ctrl) });
-        }
+        self.drop_zone(ui, &resp, &dir);
         if resp.secondary_clicked() {
             t.sel.clear();
             self.update_sel_info(t);
@@ -663,15 +665,43 @@ impl App {
         }
     }
 
-    pub(super) fn drag_overlay(&self, ctx: &egui::Context) {
+    /// A place dragged files can be dropped into `dest`: true while they're over it, so it can light up.
+    /// Letting go moves or copies them there.
+    pub(super) fn drop_zone(&mut self, ui: &Ui, resp: &Response, dest: &Path) -> bool {
+        let over = resp.dnd_hover_payload::<DragFiles>().is_some();
+        // A folder row is handled before the empty space behind it, and takes the drop from it.
+        if over && self.drop_hint.is_none() {
+            self.drop_hint = Some(dest.to_path_buf());
+        }
+        // egui hands over whatever is being dragged to the first one asking, so only ask for files
+        let files = egui::DragAndDrop::has_payload_of_type::<DragFiles>(ui.ctx());
+        if let Some(drag) = if files { resp.dnd_release_payload::<DragFiles>() } else { None } {
+            self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dest.to_path_buf(), mode: DropMode::of(ui.input(|i| i.modifiers)) });
+        }
+        over
+    }
+
+    /// The label beside the pointer while files are dragged: what letting go would do, and where.
+    pub(super) fn drag_overlay(&mut self, ctx: &egui::Context) {
+        let hint = self.drop_hint.take();
         let (Some(p), Some(pos)) = (egui::DragAndDrop::payload::<DragFiles>(ctx), ctx.pointer_interact_pos()) else { return };
-        let copy = ctx.input(|i| i.modifiers.ctrl);
-        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("dragtip")));
         let n = p.0.len();
-        let text = format!("{} {} item{}", if copy { "Copy" } else { "Move" }, n, if n == 1 { "" } else { "s" });
-        let g = painter.layout_no_wrap(text, FontId::proportional(13.0), TEXT());
+        let items = format!("{n} item{}", if n == 1 { "" } else { "s" });
+        let (text, possible) = match &hint {
+            None => (items, true),
+            Some(dest) => {
+                let name = dest.file_name().map_or_else(|| dest.to_string_lossy().to_string(), |n| n.to_string_lossy().to_string());
+                match drop_plan(&p.0, dest, DropMode::of(ctx.input(|i| i.modifiers))) {
+                    Ok((op, _)) => (format!("{} {items} to {name}", if op == Op::Copy { "Copy" } else { "Move" }), true),
+                    Err(NoDrop::IntoItself) => ("A folder can't go inside itself".to_string(), false),
+                    Err(NoDrop::AlreadyThere) => (format!("Already in {name}"), false),
+                }
+            }
+        };
+        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("dragtip")));
+        let g = painter.layout_no_wrap(text, FontId::proportional(13.0), if possible { TEXT() } else { DIM() });
         let r = Rect::from_min_size(pos + vec2(14.0, 14.0), g.size() + vec2(16.0, 10.0));
-        painter.rect_filled(r, CornerRadius::same(5), SEL_STRONG());
+        painter.rect_filled(r, CornerRadius::same(5), if possible { SEL_STRONG() } else { RAISED() });
         painter.galley(r.min + vec2(8.0, 5.0), g, TEXT());
     }
 

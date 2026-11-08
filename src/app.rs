@@ -309,6 +309,58 @@ struct Row {
 #[derive(Clone)]
 struct DragFiles(Vec<PathBuf>);
 
+/// What a drop does, from the keys held when it's let go, as in Explorer.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum DropMode {
+    /// Move on the same drive, copy to another one.
+    Auto,
+    /// Ctrl
+    Copy,
+    /// Shift
+    Move,
+}
+
+impl DropMode {
+    fn of(m: egui::Modifiers) -> DropMode {
+        if m.ctrl {
+            DropMode::Copy
+        } else if m.shift {
+            DropMode::Move
+        } else {
+            DropMode::Auto
+        }
+    }
+}
+
+/// Why dropping here does nothing.
+#[derive(Clone, Copy, PartialEq, Debug)]
+enum NoDrop {
+    /// A folder can't go inside itself.
+    IntoItself,
+    /// Moving things to the folder they're already in.
+    AlreadyThere,
+}
+
+/// What dropping `srcs` on `dest` does, and to which of them.
+fn drop_plan(srcs: &[PathBuf], dest: &Path, mode: DropMode) -> Result<(Op, Vec<PathBuf>), NoDrop> {
+    let srcs: Vec<PathBuf> = srcs.iter().filter(|s| !fsx::same_path(s, dest) && !fsx::is_under(dest, s)).cloned().collect();
+    if srcs.is_empty() {
+        return Err(NoDrop::IntoItself);
+    }
+    // across drives a plain drop copies, like Explorer
+    let same_drive = srcs.iter().all(|s| s.components().next() == dest.components().next());
+    let op = match mode {
+        DropMode::Copy => Op::Copy,
+        DropMode::Move => Op::Move,
+        DropMode::Auto if same_drive => Op::Move,
+        DropMode::Auto => Op::Copy,
+    };
+    if op == Op::Move && srcs.iter().all(|s| s.parent().is_some_and(|p| fsx::same_path(p, dest))) {
+        return Err(NoDrop::AlreadyThere);
+    }
+    Ok((op, srcs))
+}
+
 #[derive(Clone)]
 enum Act {
     OpenMany(Vec<PathBuf>),
@@ -355,7 +407,7 @@ enum Act {
     MapDrive,
     Disconnect(char),
     SelectAll,
-    Drop { srcs: Vec<PathBuf>, dest: PathBuf, copy: bool },
+    Drop { srcs: Vec<PathBuf>, dest: PathBuf, mode: DropMode },
     Import(Vec<PathBuf>),
     ShellInvoke(u32),
     CopyContents(PathBuf),
@@ -1129,6 +1181,10 @@ pub struct App {
     indexes: Vec<Arc<Index>>,
     preview: Preview,
     toast: Option<(String, Instant, bool)>,
+    /// The folder dragged files are over this frame, for the label under the pointer.
+    drop_hint: Option<PathBuf>,
+    /// A tab dragged files have been held over since then: it opens after a moment, so they can go into its folders.
+    drag_tab_hover: Option<(usize, Instant)>,
     focus_search: bool,
     editing_address: Option<String>,
     focus_address: bool,
@@ -1248,6 +1304,8 @@ impl App {
             indexes: Vec::new(),
             preview: Preview { path: None, entry: None, generation: 0, content: PvContent::Nothing },
             toast: None,
+            drop_hint: None,
+            drag_tab_hover: None,
             focus_search: false,
             editing_address: None,
             focus_address: false,
@@ -2558,15 +2616,17 @@ impl eframe::App for App {
             }
             let pos = pos2(nums[0], nums[1]);
             let at = 60 + gap * i as u32;
-            // "drag:x1,y1,x2,y2": press at the first point, move in steps, release at the second
+            // "drag:x1,y1,x2,y2[,hold]": press at the first point, move in steps, wait `hold` frames, release at the second
             if kind == "drag" && nums.len() >= 4 {
                 let to = pos2(nums[2], nums[3]);
+                let hold = nums.get(4).map_or(0, |h| *h as u32);
                 let button = egui::PointerButton::Primary;
                 match f.wrapping_sub(at - 8) {
                     0 => raw.events.push(egui::Event::PointerMoved(pos)),
                     8 => raw.events.push(egui::Event::PointerButton { pos, button, pressed: true, modifiers: Default::default() }),
                     d @ 9..=14 => raw.events.push(egui::Event::PointerMoved(pos.lerp(to, (d - 8) as f32 / 6.0))),
-                    16 => raw.events.push(egui::Event::PointerButton { pos: to, button, pressed: false, modifiers: Default::default() }),
+                    d if (15..16 + hold).contains(&d) => raw.events.push(egui::Event::PointerMoved(to)),
+                    d if d == 16 + hold => raw.events.push(egui::Event::PointerButton { pos: to, button, pressed: false, modifiers: Default::default() }),
                     _ => {}
                 }
                 continue;
@@ -2743,6 +2803,11 @@ impl App {
     fn keyboard(&mut self, ctx: &egui::Context, t: &mut Tab) {
         if self.popup.is_some() {
             return; // the open menu owns Enter / Escape
+        }
+        // Escape while dragging files puts them down where they were
+        if egui::DragAndDrop::has_payload_of_type::<DragFiles>(ctx) && ctx.input(|i| i.key_pressed(Key::Escape)) {
+            egui::DragAndDrop::clear_payload(ctx);
+            return;
         }
         let typing = ctx.egui_wants_keyboard_input();
         let (mods, events, focused) = ctx.input(|i| (i.modifiers, i.events.clone(), i.focused));
@@ -3011,6 +3076,22 @@ mod tests {
         assert!(body.contains("search_skip_pattern=\\.(key|pem)$\n"), "a pattern gets a line of its own");
         s.skip_types = policy::items(policy::SKIP_TYPES, "*.ISO|bak").iter().filter_map(|t| search::file_type(t)).collect();
         assert_eq!(s.skip_types, [".iso", ".bak"]);
+    }
+
+    #[test]
+    #[cfg(windows)]
+    fn drops_follow_explorers_rules() {
+        let p = |s: &str| PathBuf::from(s);
+        let files = [p(r"C:\Work\a.txt"), p(r"C:\Work\Plans")];
+        assert_eq!(drop_plan(&files, &p(r"C:\Archive"), DropMode::Auto).map(|(op, _)| op), Ok(Op::Move), "the same drive moves");
+        assert_eq!(drop_plan(&files, &p(r"D:\Backup"), DropMode::Auto).map(|(op, _)| op), Ok(Op::Copy), "another drive copies");
+        assert_eq!(drop_plan(&files, &p(r"D:\Backup"), DropMode::Move).map(|(op, _)| op), Ok(Op::Move), "Shift moves anyway");
+        assert_eq!(drop_plan(&files, &p(r"C:\Archive"), DropMode::Copy).map(|(op, _)| op), Ok(Op::Copy), "Ctrl copies anyway");
+        assert_eq!(drop_plan(&files, &p(r"C:\Work"), DropMode::Auto).map(|(op, _)| op), Err(NoDrop::AlreadyThere));
+        assert_eq!(drop_plan(&files, &p(r"C:\Work"), DropMode::Copy).map(|(op, _)| op), Ok(Op::Copy), "a copy next to the original is fine");
+        assert_eq!(drop_plan(&[p(r"C:\Work\Plans")], &p(r"C:\Work\Plans\2026"), DropMode::Auto).map(|(op, _)| op), Err(NoDrop::IntoItself));
+        let (_, kept) = drop_plan(&files, &p(r"C:\Work\Plans"), DropMode::Auto).unwrap();
+        assert_eq!(kept, [p(r"C:\Work\a.txt")], "the folder dropped on itself stays where it is");
     }
 
     #[test]

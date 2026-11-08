@@ -377,13 +377,15 @@ impl App {
         if resp.drag_started() {
             resp.dnd_set_drag_payload(SideDrag { section: sec.id.clone(), key: item.key.clone() });
         }
-        if let Some(d) = resp.dnd_release_payload::<SideDrag>() {
+        // egui hands over whatever is being dragged to the first one asking, so only ask for what it is
+        let reordering = egui::DragAndDrop::has_payload_of_type::<SideDrag>(ui.ctx());
+        if let Some(d) = if reordering { resp.dnd_release_payload::<SideDrag>() } else { None } {
             if d.section == sec.id {
                 self.move_side_item(&sec.id, &d.key, Some(&item.key), 0);
             }
         }
-        if let (Some(drag), Some(Loc::Dir(dir))) = (resp.dnd_release_payload::<DragFiles>(), &item.loc) {
-            self.acts.push(Act::Drop { srcs: drag.0.clone(), dest: dir.clone(), copy: ui.input(|i| i.modifiers.ctrl) });
+        if let Some(Loc::Dir(dir)) = &item.loc {
+            self.drop_zone(ui, &resp, dir);
         }
         let resp = match &item.tip {
             Some(tip) => resp.on_hover_text(tip),
