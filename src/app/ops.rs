@@ -16,6 +16,12 @@ impl App {
             });
             ctx.request_repaint();
         });
+        // on a share, a note in each folder it touches tells other people's Daleris what's going on
+        let shared = job.sources.iter().chain(job.dest.iter()).any(|p| fsx::is_network_path(p));
+        if shared && self.settings.share_marks {
+            let j = job.clone();
+            bg::spawn("share-notes", move || note_job(&j));
+        }
         self.ops.push(job);
     }
 
@@ -349,13 +355,16 @@ mod tests {
     }
 }
 
-/// What a copy, move or delete is doing to an item the list shows.
-#[derive(Clone, Copy, PartialEq, Debug)]
+/// What a copy, move or delete is doing to an item the list shows: this window's own, another person's, or a write
+/// from anywhere, guessed from the item changing size.
+#[derive(Clone, PartialEq, Debug)]
 pub(super) struct Transit {
     pub way: Way,
     pub kind: Kind,
     /// how far along this item is, when it's the one being worked on
     pub frac: Option<f32>,
+    /// someone else, by the note they left; None for this window's own
+    pub who: Option<String>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -366,76 +375,113 @@ pub(super) enum Way {
     Leaving,
     /// being read for a copy; it stays where it is
     Source,
+    /// changing as it's looked at, by someone or some app; nothing more is known
+    Writing,
 }
 
 impl App {
-    /// Whether a copy, move or delete is working on the item at `path`, and how.
-    pub(super) fn transit(&self, path: &Path) -> Option<Transit> {
+    /// Whether a copy, move or delete is working on the item at `path`, and how: this window's own first, then what
+    /// other people's notes in `t`'s folder say, then whether it has been changing.
+    pub(super) fn transit(&self, t: &Tab, path: &Path) -> Option<Transit> {
         for j in &self.ops {
             let hand = j.in_hand();
             if let Some((_, Some(dst), frac)) = &hand {
                 if fsx::same_path(dst, path) {
-                    return Some(Transit { way: Way::Arriving, kind: j.kind, frac: Some(*frac) });
+                    return Some(Transit { way: Way::Arriving, kind: j.kind, frac: Some(*frac), who: None });
                 }
             }
             if j.sources.iter().any(|s| fsx::same_path(s, path)) {
                 let frac = hand.as_ref().filter(|(src, ..)| fsx::same_path(src, path)).map(|h| h.2);
                 let way = if j.kind == Kind::Copy { Way::Source } else { Way::Leaving };
-                return Some(Transit { way, kind: j.kind, frac });
+                return Some(Transit { way, kind: j.kind, frac, who: None });
+            }
+        }
+        if t.dir().is_some_and(|d| path.parent().is_some_and(|p| fsx::same_path(p, d))) {
+            let key = path.file_name()?.to_string_lossy().to_lowercase();
+            if let Some(m) = t.marks.get(&key) {
+                let way = match m.way {
+                    crate::marks::Way::Arriving => Way::Arriving,
+                    crate::marks::Way::Leaving => Way::Leaving,
+                    crate::marks::Way::Source => Way::Source,
+                };
+                let kind = match m.kind {
+                    'm' => Kind::Move,
+                    'd' => Kind::Delete,
+                    _ => Kind::Copy,
+                };
+                return Some(Transit { way, kind, frac: m.frac, who: Some(m.who.clone()) });
+            }
+            if t.growing.get(&key).is_some_and(|at| at.elapsed() < GROWING_FOR) {
+                return Some(Transit { way: Way::Writing, kind: Kind::Copy, frac: None, who: None });
             }
         }
         None
     }
 }
 
+/// How long an item that changed size counts as being written.
+const GROWING_FOR: Duration = Duration::from_secs(8);
+
 impl Transit {
-    /// The word after the name, so what's going on reads without pointing at it.
-    pub(super) fn chip(self) -> String {
+    /// The word after the name, so what's going on reads without pointing at it. Someone else's says who.
+    pub(super) fn chip(&self) -> String {
         let pct = self.frac.map(|f| format!(" {:.0} %", f * 100.0)).unwrap_or_default();
-        match (self.way, self.kind) {
+        let what = match (self.way, self.kind) {
+            (Way::Writing, _) => return "being written".into(),
             (Way::Arriving, Kind::Move) => format!("moving here{pct}"),
             (Way::Arriving, _) => format!("copying here{pct}"),
             (Way::Leaving, Kind::Delete) => format!("deleting{pct}"),
             (Way::Leaving, _) => format!("moving away{pct}"),
             (Way::Source, _) => format!("copying from{pct}"),
+        };
+        match &self.who {
+            Some(who) => format!("{who}: {what}"),
+            None => what,
         }
     }
 
     /// More, when pointed at.
-    pub(super) fn tip(self) -> String {
+    pub(super) fn tip(&self) -> String {
         let what = match (self.way, self.kind) {
+            (Way::Writing, _) => "Its size changed while you were looking. Someone or some app is writing it: wait before opening or changing it.",
             (Way::Arriving, Kind::Move) => "Being moved here.",
             (Way::Arriving, _) => "Being copied here. Wait until it's done before opening it.",
             (Way::Leaving, Kind::Delete) => "Being deleted.",
             (Way::Leaving, _) => "Being moved away from here.",
             (Way::Source, _) => "Being copied somewhere else. It stays here and can still be used.",
         };
+        let by = self.who.as_ref().map(|w| format!("\nBy {w}, in Daleris on their PC.")).unwrap_or_default();
         match self.frac {
-            Some(f) => format!("{what} {:.0} % done.", f * 100.0),
-            None => what.to_string(),
+            Some(f) => format!("{what} {:.0} % done.{by}", f * 100.0),
+            None => format!("{what}{by}"),
         }
     }
 
-    /// The colour of its name: greyed while it arrives, fainter while it leaves, as usual while it's only read.
-    pub(super) fn text(self) -> Color32 {
+    /// The colour of its name: greyed while it arrives or is written, fainter while it leaves, as usual while it's only
+    /// read.
+    pub(super) fn text(&self) -> Color32 {
         match self.way {
-            Way::Arriving => DIM(),
+            Way::Arriving | Way::Writing => DIM(),
             Way::Leaving => FAINT(),
             Way::Source => TEXT(),
         }
     }
 
-    fn colour(self) -> Color32 {
+    /// The accent for this window's own work; orange for other people's, so a clash is seen coming.
+    fn colour(&self) -> Color32 {
+        if self.who.is_some() || self.way == Way::Writing {
+            return CAUTION();
+        }
         match self.way {
             Way::Arriving => ACCENT(),
             Way::Leaving => FAINT(),
-            Way::Source => DIM(),
+            _ => DIM(),
         }
     }
 
     /// Around the item's own icon: a ring that fills with its progress (turning while that isn't known), dotted for a
     /// copy's source; and in the corner a badge, an arrow in, an arrow out, or two sheets for a copy's source.
-    pub(super) fn draw(self, ui: &Ui, icon: Rect) {
+    pub(super) fn draw(&self, ui: &Ui, icon: Rect) {
         let p = ui.painter();
         let c = icon.center();
         let radius = icon.width().max(icon.height()) * 0.5 + 3.0;
@@ -479,17 +525,78 @@ impl Transit {
                 p.rect_stroke(Rect::from_min_size(b + vec2(-2.8, -2.8), vec2(3.6, 3.6)), CornerRadius::ZERO, s, StrokeKind::Middle);
                 p.rect_stroke(Rect::from_min_size(b + vec2(-0.8, -0.8), vec2(3.6, 3.6)), CornerRadius::ZERO, s, StrokeKind::Middle);
             }
+            Way::Writing => {
+                // a pen stroke: something is being written into it
+                p.line_segment([b + vec2(-2.4, 2.4), b + vec2(2.0, -2.0)], s);
+                p.circle_filled(b + vec2(-2.6, 2.6), 0.9, colour);
+            }
         }
         ui.ctx().request_repaint_after(Duration::from_millis(33));
     }
 
     /// The word chip itself, at `at` (its left middle); how wide it was.
-    pub(super) fn draw_chip(self, ui: &Ui, at: egui::Pos2) -> f32 {
+    pub(super) fn draw_chip(&self, ui: &Ui, at: egui::Pos2) -> f32 {
         let colour = self.colour();
         let g = ui.painter().layout_no_wrap(self.chip(), FontId::proportional(11.0), colour);
         let r = Rect::from_min_size(at - vec2(0.0, g.size().y / 2.0 + 2.0), g.size() + vec2(12.0, 4.0));
         ui.painter().rect_filled(r, CornerRadius::same(4), colour.gamma_multiply(0.14));
         ui.painter().galley(r.min + vec2(6.0, 2.0), g, colour);
         r.width()
+    }
+}
+
+/// Keeps this job's notes in the shared folders it touches up to date until it's done, then takes them away. A note is
+/// written again only when its progress moved on by 5 %, or every 15 seconds, so other people's folders don't reload
+/// all the time.
+fn note_job(job: &Job) {
+    use crate::marks::{self, Mark};
+    static JOBS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    let file = marks::file_name(JOBS.fetch_add(1, Ordering::Relaxed));
+    let who = marks::who();
+    let kind = match job.kind {
+        Kind::Copy => 'c',
+        Kind::Move => 'm',
+        Kind::Delete => 'd',
+    };
+    let mut written: HashMap<PathBuf, (Instant, Option<f32>)> = HashMap::new();
+    loop {
+        let done = job.finished();
+        let mut by_dir: HashMap<PathBuf, Vec<Mark>> = HashMap::new();
+        let hand = job.in_hand();
+        let frac_now = hand.as_ref().map(|h| h.2);
+        if !done {
+            let at = marks::now();
+            let mut note = |path: &Path, way: marks::Way, frac: Option<f32>| {
+                if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
+                    if fsx::is_network_path(path) {
+                        let m = Mark { name: name.to_string_lossy().into_owned(), way, kind, frac, who: who.clone(), at };
+                        by_dir.entry(dir.to_path_buf()).or_default().push(m);
+                    }
+                }
+            };
+            if let Some((_, Some(dst), frac)) = &hand {
+                note(dst, marks::Way::Arriving, Some(*frac));
+            }
+            for s in &job.sources {
+                let frac = hand.as_ref().filter(|h| fsx::same_path(&h.0, s)).map(|h| h.2);
+                note(s, if job.kind == Kind::Copy { marks::Way::Source } else { marks::Way::Leaving }, frac);
+            }
+        }
+        for (dir, list) in &by_dir {
+            let due = written.get(dir).is_none_or(|(when, f)| when.elapsed() >= Duration::from_secs(15) || (frac_now.unwrap_or(0.0) - f.unwrap_or(0.0)).abs() >= 0.05);
+            if due && marks::write(dir, &file, list).is_ok() {
+                written.insert(dir.clone(), (Instant::now(), frac_now));
+            }
+        }
+        // a folder nothing is happening in any more loses its note
+        let gone: Vec<PathBuf> = written.keys().filter(|d| !by_dir.contains_key(*d)).cloned().collect();
+        for d in gone {
+            marks::remove(&d, &file);
+            written.remove(&d);
+        }
+        if done {
+            return;
+        }
+        std::thread::sleep(Duration::from_millis(500));
     }
 }

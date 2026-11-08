@@ -13,6 +13,7 @@ mod fsx;
 mod integration;
 mod listing;
 mod logging;
+mod marks;
 mod newitems;
 mod policy;
 mod search;

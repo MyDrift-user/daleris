@@ -90,6 +90,10 @@ struct Rename {
 struct Tab {
     id: u64,
     loc: Loc,
+    /// what other people's Daleris says it's doing here, by item name in lower case
+    marks: HashMap<String, crate::marks::Mark>,
+    /// items whose size changed, or that appeared, while this folder was shown: someone is writing them
+    growing: HashMap<String, Instant>,
     back: Vec<Loc>,
     fwd: Vec<Loc>,
     entries: Vec<Entry>,
@@ -212,6 +216,8 @@ impl Tab {
             watcher: None,
             watched: None,
             refresh_at: None,
+            marks: HashMap::new(),
+            growing: HashMap::new(),
             select_after_load: None,
             in_cloud: false,
             typeahead: (String::new(), Instant::now()),
@@ -264,6 +270,8 @@ enum Msg {
     FileText(Result<String, String>),
     Batch { tab: u64, generation: u64, batch: Vec<Entry> },
     Done { tab: u64, generation: u64, err: Option<FolderError> },
+    /// the notes in a tab's folder, read
+    Marks { tab: u64, marks: HashMap<String, crate::marks::Mark> },
     Changed { tab: u64 },
     Drives(Vec<Drive>),
     DriveDetail(Drive),
@@ -530,6 +538,8 @@ pub struct Settings {
     open_new_drives: bool,
     /// starting Daleris again opens a new window, not a tab in the open one. Windows only
     start_new_window: bool,
+    /// on network shares, leave a note while copying or moving, so other people's Daleris shows it
+    share_marks: bool,
     /// the sort a folder gets until someone chooses one for it
     sort_key: SortKey,
     sort_asc: bool,
@@ -681,6 +691,7 @@ impl Settings {
             explorer_look: false,
             open_new_drives: true,
             start_new_window: true,
+            share_marks: true,
             sort_key: SortKey::Name,
             sort_asc: true,
             dirs_first: true,
@@ -881,6 +892,7 @@ impl Settings {
             "explorer_look" => self.explorer_look = on,
             "open_new_drives" => self.open_new_drives = on,
             "start_new_window" => self.start_new_window = on,
+            "share_marks" => self.share_marks = on,
             "sort_key" => self.sort_key = SortKey::from_word(v).unwrap_or(SortKey::Name),
             "sort_asc" => self.sort_asc = on,
             "dirs_first" => self.dirs_first = on,
@@ -937,6 +949,7 @@ impl Settings {
             ("explorer_look", b(self.explorer_look)),
             ("open_new_drives", b(self.open_new_drives)),
             ("start_new_window", b(self.start_new_window)),
+            ("share_marks", b(self.share_marks)),
             ("sort_key", self.sort_key.word().to_string()),
             ("sort_asc", b(self.sort_asc)),
             ("dirs_first", b(self.dirs_first)),
@@ -1854,10 +1867,23 @@ impl App {
                         }
                     }
                 }
+                Msg::Marks { tab, marks } => {
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab) {
+                        t.marks = marks;
+                    }
+                }
                 Msg::Done { tab, generation, err } => {
                     if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.generation == generation) {
                         if t.refreshing {
                             if err.is_none() {
+                                // anything that grew, shrank or turned up since the last look is being written by someone
+                                let before: HashMap<&str, u64> = t.entries.iter().map(|e| (e.lower.as_str(), e.size)).collect();
+                                let now = Instant::now();
+                                let changed: Vec<String> = t.incoming.iter().filter(|e| !e.is_dir && !crate::marks::is_mark(&e.name) && before.get(e.lower.as_str()) != Some(&e.size)).map(|e| e.lower.clone()).collect();
+                                drop(before);
+                                for k in changed {
+                                    t.growing.insert(k, now);
+                                }
                                 t.entries = std::mem::take(&mut t.incoming);
                                 t.order.clear();
                                 t.order_for = None;
@@ -1871,6 +1897,17 @@ impl App {
                             None => {
                                 t.retry_wait = FIRST_RETRY;
                                 t.retry_at = None;
+                                // other people's notes, read off the window's thread as the folder may be on a slow server
+                                let notes: Vec<String> = t.entries.iter().filter(|e| crate::marks::is_mark(&e.name)).map(|e| e.name.clone()).collect();
+                                if notes.is_empty() {
+                                    t.marks.clear();
+                                } else if let Loc::Dir(p) = &t.loc {
+                                    let (tx, id, ctx, dir) = (self.tx.clone(), t.id, self.ctx.clone(), p.clone());
+                                    bg::submit(p, "notes", move || {
+                                        let _ = tx.send(Msg::Marks { tab: id, marks: crate::marks::read_all(&dir, &notes) });
+                                        ctx.request_repaint();
+                                    });
+                                }
                                 if let (Loc::Dir(p), None) = (&t.loc, &t.watcher) {
                                     let (tx, id, ctx) = (self.tx.clone(), t.id, self.ctx.clone());
                                     t.watcher = Some(fsx::watch(p, move || {
@@ -2072,7 +2109,8 @@ impl App {
         let mut shown_of = 0;
         for &i in &t.order {
             let Some(e) = t.entries.get(i as usize) else { continue };
-            if !listing::is_visible(e.hidden(), e.is_dotfile(), show_hidden, hide_dots) || picker.is_some_and(|p| !p.shows(&e.name, e.is_dir)) {
+            // the notes are for Daleris, never for the list
+            if !listing::is_visible(e.hidden(), e.is_dotfile(), show_hidden, hide_dots) || crate::marks::is_mark(&e.name) || picker.is_some_and(|p| !p.shows(&e.name, e.is_dir)) {
                 continue;
             }
             shown_of += 1;

@@ -454,13 +454,13 @@ impl App {
                             let icon = Rect::from_center_size(pos2(x + 17.0, cy), vec2(18.0, 18.0));
                             self.draw_icon(ui, icon, &row.path, &row.ext, row.is_dir, row.attrs);
                             // on its way here, away or being copied: a ring and a badge on its icon, and a word after its name
-                            let transit = self.transit(&row.path);
-                            if let Some(tr) = transit {
+                            let transit = self.transit(t, &row.path);
+                            if let Some(tr) = &transit {
                                 tr.draw(ui, icon);
                             }
                             let chip_w = if transit.is_some() { 120.0 } else { 0.0 };
                             let tx = x + 36.0;
-                            let name_col = match transit {
+                            let name_col = match &transit {
                                 Some(tr) => tr.text(),
                                 None if row.attrs & fsx::A_HIDDEN != 0 => DIM(),
                                 None => TEXT(),
@@ -497,7 +497,7 @@ impl App {
                                 };
                                 let name_w = g.size().x;
                                 ui.painter().galley(pos2(tx, cy - g.size().y / 2.0), g, name_col);
-                                if let Some(tr) = transit {
+                                if let Some(tr) = &transit {
                                     tr.draw_chip(ui, pos2(tx + name_w + 8.0, cy));
                                 }
                             }
@@ -597,8 +597,8 @@ impl App {
                         }
                         let img = Rect::from_min_size(inner.min + vec2(10.0, 6.0), vec2(inner.width() - 20.0, 76.0));
                         self.draw_thumb(ui, img, &row.path, &row.ext, row.is_dir, row.attrs, row.mtime);
-                        let transit = self.transit(&row.path);
-                        if let Some(tr) = transit {
+                        let transit = self.transit(t, &row.path);
+                        if let Some(tr) = &transit {
                             // a small ring and badge in the picture's corner, and the word over its foot
                             tr.draw(ui, Rect::from_center_size(img.right_top() + vec2(-14.0, 14.0), vec2(16.0, 16.0)));
                             let chip_w = ui.painter().layout_no_wrap(tr.chip(), FontId::proportional(11.0), TEXT()).size().x + 12.0;
@@ -606,7 +606,7 @@ impl App {
                         }
                         cloud_badge(ui.painter(), pos2(img.left() + 6.0, img.bottom() - 6.0), self.cloud_of(&row.path, row.attrs, t));
                         let shown = display_name(&row, self.settings.show_ext);
-                        let mut job = egui::text::LayoutJob::simple(shown, FontId::proportional(12.5), transit.map_or(TEXT(), |tr| tr.text()), inner.width() - 8.0);
+                        let mut job = egui::text::LayoutJob::simple(shown, FontId::proportional(12.5), transit.as_ref().map_or(TEXT(), |tr| tr.text()), inner.width() - 8.0);
                         job.halign = egui::Align::Center;
                         job.wrap = egui::text::TextWrapping { max_width: inner.width() - 8.0, max_rows: 2, break_anywhere: true, overflow_character: Some('…') };
                         let g = ui.fonts_mut(|f| f.layout_job(job));
@@ -644,7 +644,7 @@ impl App {
     }
 
     fn row_interact(&mut self, ui: &Ui, t: &mut Tab, resp: &Response, row: &Row, i: usize) {
-        if let Some(tr) = self.transit(&row.path) {
+        if let Some(tr) = self.transit(t, &row.path) {
             resp.clone().on_hover_text(tr.tip());
         }
         let mods = ui.input(|i| i.modifiers);
