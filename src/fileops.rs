@@ -136,10 +136,17 @@ impl Job {
     /// The top-level item being worked on right now: where from, where to under its final name (none for a delete), and
     /// how far along it is.
     pub fn in_hand(&self) -> Option<(PathBuf, Option<PathBuf>, f32)> {
+        self.hand().map(|h| {
+            let frac = h.frac();
+            (h.src, h.dst, frac)
+        })
+    }
+
+    /// The same, with its own bytes done and in all, and which of the chosen items it is.
+    pub fn hand(&self) -> Option<Hand> {
         let h = self.in_hand.lock().unwrap().clone()?;
-        let done = self.bytes_done().saturating_sub(h.start_bytes);
-        let frac = if h.bytes == 0 { 0.0 } else { (done as f32 / h.bytes as f32).clamp(0.0, 1.0) };
-        Some((h.src, h.dst, frac))
+        let done = self.bytes_done().saturating_sub(h.start_bytes).min(h.bytes);
+        Some(Hand { src: h.src, dst: h.dst, done, total: h.bytes, index: h.index, count: h.count })
     }
 
     pub fn cancel(&self) {
@@ -179,7 +186,7 @@ impl Job {
 
     /// Does the whole job, asking `ask` whenever it needs a decision.
     pub fn run(&self, ask: &dyn Fn(Question) -> Answer) {
-        let mut r = Run { job: self, ask, rule: None, skip_errors: false, conflicts_left: 0, item_bytes: 0 };
+        let mut r = Run { job: self, ask, rule: None, skip_errors: false, conflicts_left: 0, item_bytes: 0, item_place: (0, 0) };
         let outcome = if self.kind == Kind::Delete { r.delete_all() } else { r.transfer_all() };
         self.update(|p| {
             if let Err(Stop::HandOff(rest)) = outcome {
@@ -201,6 +208,25 @@ struct InHand {
     /// the job's bytes done when it started, and its own size
     start_bytes: u64,
     bytes: u64,
+    /// which of how many the person chose
+    index: usize,
+    count: usize,
+}
+
+/// The item in hand, as the window shows it.
+pub struct Hand {
+    pub src: PathBuf,
+    pub dst: Option<PathBuf>,
+    pub done: u64,
+    pub total: u64,
+    pub index: usize,
+    pub count: usize,
+}
+
+impl Hand {
+    pub fn frac(&self) -> f32 {
+        if self.total == 0 { 0.0 } else { (self.done as f32 / self.total as f32).clamp(0.0, 1.0) }
+    }
 }
 
 enum Stop {
@@ -224,6 +250,8 @@ struct Run<'a> {
     conflicts_left: u64,
     /// the size of the top-level item about to be worked on
     item_bytes: u64,
+    /// and which of how many it is
+    item_place: (usize, usize),
 }
 
 #[derive(Default)]
@@ -275,6 +303,7 @@ impl Run<'_> {
         });
         for (i, (src, target)) in todo.iter().enumerate() {
             self.item_bytes = sizes[i];
+            self.item_place = (i, todo.len());
             match self.transfer(src, target, moving, true) {
                 Err(Stop::HandOff(_)) => return Err(Stop::HandOff(todo[i..].iter().map(|(s, _)| s.clone()).collect())),
                 other => other?,
@@ -324,7 +353,7 @@ impl Run<'_> {
             }
         }
         if top {
-            *job.in_hand.lock().unwrap() = Some(InHand { src: src.to_path_buf(), dst: Some(dst.clone()), start_bytes: job.bytes_done(), bytes: self.item_bytes });
+            *job.in_hand.lock().unwrap() = Some(InHand { src: src.to_path_buf(), dst: Some(dst.clone()), start_bytes: job.bytes_done(), bytes: self.item_bytes, index: self.item_place.0, count: self.item_place.1 });
         }
         if is_dir {
             if std::fs::symlink_metadata(&dst).is_err() {
@@ -446,8 +475,9 @@ impl Run<'_> {
             p.bytes_total = tally.bytes;
             p.stage = Stage::Working;
         });
-        for (src, bytes) in job.sources.iter().zip(sizes) {
-            *job.in_hand.lock().unwrap() = Some(InHand { src: src.clone(), dst: None, start_bytes: job.bytes_done(), bytes });
+        let count = job.sources.len();
+        for (index, (src, bytes)) in job.sources.iter().zip(sizes).enumerate() {
+            *job.in_hand.lock().unwrap() = Some(InHand { src: src.clone(), dst: None, start_bytes: job.bytes_done(), bytes, index, count });
             self.delete(src)?;
         }
         Ok(())

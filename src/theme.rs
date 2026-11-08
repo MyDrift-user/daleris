@@ -374,6 +374,7 @@ pub fn ic(glyph: &'static str) -> &'static str {
         I_CUT => ph::SCISSORS,
         I_PASTE => ph::CLIPBOARD,
         I_RENAME => ph::PENCIL_SIMPLE,
+        I_EDIT => ph::PENCIL_SIMPLE_LINE,
         I_DELETE => ph::TRASH,
         I_NEWFOLDER => ph::FOLDER_PLUS,
         I_SORT => ph::ARROWS_DOWN_UP,
@@ -422,6 +423,8 @@ pub const I_COPY: &str = "\u{E8C8}";
 pub const I_CUT: &str = "\u{E8C6}";
 pub const I_PASTE: &str = "\u{E77F}";
 pub const I_RENAME: &str = "\u{E8AC}";
+/// a pencil: something is being written
+pub const I_EDIT: &str = "\u{E70F}";
 pub const I_DELETE: &str = "\u{E74D}";
 pub const I_NEWFOLDER: &str = "\u{E8F4}";
 pub const I_SORT: &str = "\u{E8CB}";

@@ -367,6 +367,24 @@ pub(super) struct Transit {
     pub who: Option<String>,
     /// the folder at the other end: where it comes from or goes to, when this window is doing it
     pub there: Option<PathBuf>,
+    pub info: Info,
+}
+
+/// The details the tooltip shows, as far as they're known.
+#[derive(Clone, Default, PartialEq, Debug)]
+pub(super) struct Info {
+    /// this item's bytes done and in all; for one being written, its size now
+    pub done: Option<u64>,
+    pub total: Option<u64>,
+    /// bytes a second
+    pub speed: Option<u64>,
+    pub left: Option<Duration>,
+    /// how long ago it started, or was first seen changing
+    pub since: Option<Duration>,
+    /// how long ago the other person's note was written, or the item last changed
+    pub heard: Option<Duration>,
+    /// which of how many items chosen together
+    pub place: Option<(usize, usize)>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -386,17 +404,28 @@ impl App {
     /// other people's notes in `t`'s folder say, then whether it has been changing.
     pub(super) fn transit(&self, t: &Tab, path: &Path) -> Option<Transit> {
         for j in &self.ops {
-            let hand = j.in_hand();
-            if let Some((src, Some(dst), frac)) = &hand {
-                if fsx::same_path(dst, path) {
-                    let there = src.parent().map(Path::to_path_buf);
-                    return Some(Transit { way: Way::Arriving, kind: j.kind, frac: Some(*frac), who: None, there });
-                }
+            let hand = j.hand();
+            let p = j.progress();
+            let secs = p.started.elapsed().as_secs_f64();
+            let speed = (secs > 1.0 && p.bytes_done > 0).then(|| (p.bytes_done as f64 / secs) as u64);
+            // what's known when it's the item being worked on
+            let info = |h: Option<&crate::fileops::Hand>| Info {
+                done: h.map(|h| h.done),
+                total: h.map(|h| h.total),
+                speed,
+                left: h.zip(speed).filter(|(_, s)| *s > 0).map(|(h, s)| Duration::from_secs_f64((h.total - h.done) as f64 / s as f64)),
+                since: Some(p.started.elapsed()),
+                heard: None,
+                place: h.filter(|h| h.count > 1).map(|h| (h.index + 1, h.count)),
+            };
+            if let Some(h) = hand.as_ref().filter(|h| h.dst.as_deref().is_some_and(|d| fsx::same_path(d, path))) {
+                let there = h.src.parent().map(Path::to_path_buf);
+                return Some(Transit { way: Way::Arriving, kind: j.kind, frac: Some(h.frac()), who: None, there, info: info(Some(h)) });
             }
             if j.sources.iter().any(|s| fsx::same_path(s, path)) {
-                let frac = hand.as_ref().filter(|(src, ..)| fsx::same_path(src, path)).map(|h| h.2);
+                let mine = hand.as_ref().filter(|h| fsx::same_path(&h.src, path));
                 let way = if j.kind == Kind::Copy { Way::Source } else { Way::Leaving };
-                return Some(Transit { way, kind: j.kind, frac, who: None, there: j.dest.clone() });
+                return Some(Transit { way, kind: j.kind, frac: mine.map(|h| h.frac()), who: None, there: j.dest.clone(), info: info(mine) });
             }
         }
         if t.dir().is_some_and(|d| path.parent().is_some_and(|p| fsx::same_path(p, d))) {
@@ -412,10 +441,29 @@ impl App {
                     'd' => Kind::Delete,
                     _ => Kind::Copy,
                 };
-                return Some(Transit { way, kind, frac: m.frac, who: Some(m.who.clone()), there: None });
+                let now = crate::marks::now();
+                let heard = now.saturating_sub(m.at);
+                let info = Info {
+                    done: m.done,
+                    total: m.total,
+                    speed: None,
+                    left: m.left.map(|l| Duration::from_secs(l.saturating_sub(heard))),
+                    since: Some(Duration::from_secs(now.saturating_sub(m.started))),
+                    heard: Some(Duration::from_secs(heard)),
+                    place: None,
+                };
+                return Some(Transit { way, kind, frac: m.frac, who: Some(m.who.clone()), there: None, info });
             }
-            if t.growing.get(&key).is_some_and(|at| at.elapsed() < GROWING_FOR) {
-                return Some(Transit { way: Way::Writing, kind: Kind::Copy, frac: None, who: None, there: None });
+            if let Some(g) = t.growing.get(&key).filter(|g| g.last.elapsed() < GROWING_FOR) {
+                let span = g.last.duration_since(g.first).as_secs_f64();
+                let info = Info {
+                    done: Some(g.size),
+                    speed: (span > 0.5 && g.size > g.first_size).then(|| ((g.size - g.first_size) as f64 / span) as u64),
+                    since: Some(g.first.elapsed()),
+                    heard: Some(g.last.elapsed()),
+                    ..Info::default()
+                };
+                return Some(Transit { way: Way::Writing, kind: Kind::Copy, frac: None, who: None, there: None, info });
             }
         }
         None
@@ -473,6 +521,36 @@ impl Transit {
                 ui.label(name).on_hover_text(p.display().to_string());
                 ui.end_row();
             }
+            let i = &self.info;
+            let size = crate::util::fmt_size;
+            match (i.done, i.total) {
+                (Some(d), Some(t)) if self.way != Way::Writing => {
+                    key(ui, "Size");
+                    ui.label(format!("{} of {}", size(d), size(t)));
+                    ui.end_row();
+                }
+                (Some(d), _) if self.way == Way::Writing => {
+                    key(ui, "Size");
+                    ui.label(format!("{} so far", size(d)));
+                    ui.end_row();
+                }
+                _ => {}
+            }
+            if let Some(s) = i.speed {
+                key(ui, if self.way == Way::Writing { "Growing" } else { "Speed" });
+                ui.label(format!("{}/s", size(s)));
+                ui.end_row();
+            }
+            if let Some(l) = i.left {
+                key(ui, "Time left");
+                ui.label(time_left(l.as_secs_f64()));
+                ui.end_row();
+            }
+            if let Some((n, of)) = i.place {
+                key(ui, "Item");
+                ui.label(format!("{n} of {of} chosen together"));
+                ui.end_row();
+            }
             key(ui, "By");
             ui.label(match (&self.who, self.way) {
                 (Some(who), _) => who.clone(),
@@ -480,6 +558,16 @@ impl Transit {
                 (None, _) => "You, in this window".into(),
             });
             ui.end_row();
+            if let Some(d) = i.since {
+                key(ui, if self.way == Way::Writing { "Noticed" } else { "Started" });
+                ui.label(ago(d));
+                ui.end_row();
+            }
+            if let Some(d) = i.heard {
+                key(ui, if self.way == Way::Writing { "Last change" } else { "Last heard" });
+                ui.label(ago(d));
+                ui.end_row();
+            }
         });
         ui.add_space(4.0);
         ui.label(egui::RichText::new(self.note()).small().color(DIM()));
@@ -535,7 +623,8 @@ impl Transit {
             }
         }
         // the badge, on the icon's bottom right
-        let b = icon.right_bottom() + vec2(1.0, 1.0);
+        // a little inside the corner, so it stays within a compact row
+        let b = icon.right_bottom() + vec2(1.0, -1.5);
         p.circle_filled(b, 5.5, BG());
         p.circle_stroke(b, 5.5, Stroke::new(1.0_f32, colour));
         let s = Stroke::new(1.3_f32, colour);
@@ -554,9 +643,10 @@ impl Transit {
                 p.rect_stroke(Rect::from_min_size(b + vec2(-0.8, -0.8), vec2(3.6, 3.6)), CornerRadius::ZERO, s, StrokeKind::Middle);
             }
             Way::Writing => {
-                // a pen stroke: something is being written into it
-                p.line_segment([b + vec2(-2.4, 2.4), b + vec2(2.0, -2.0)], s);
-                p.circle_filled(b + vec2(-2.6, 2.6), 0.9, colour);
+                // the pencil from the icon font, which reads at this size where a drawn one doesn't
+                p.circle_filled(b, 7.0, BG());
+                p.circle_stroke(b, 7.0, Stroke::new(1.0_f32, colour));
+                p.text(b, Align2::CENTER_CENTER, ic(I_EDIT), icon_font(9.0), colour);
             }
         }
         ui.ctx().request_repaint_after(Duration::from_millis(33));
@@ -583,12 +673,21 @@ fn note_job(job: &Job) {
         let mut by_dir: HashMap<PathBuf, Vec<Mark>> = HashMap::new();
         let hand = job.in_hand();
         let frac_now = hand.as_ref().map(|h| h.2);
+        // the details other people's tooltips show: when it started, and this item's bytes and time left
+        let p = job.progress();
+        let started = marks::now().saturating_sub(p.started.elapsed().as_secs());
+        let speed = (p.started.elapsed().as_secs_f64() > 1.0).then(|| p.bytes_done as f64 / p.started.elapsed().as_secs_f64()).filter(|s| *s > 0.0);
+        let detail = job.hand();
         if !done {
             let at = marks::now();
             let mut note = |path: &Path, way: marks::Way, frac: Option<f32>| {
                 if let (Some(dir), Some(name)) = (path.parent(), path.file_name()) {
                     if fsx::is_network_path(path) {
-                        let m = Mark { name: name.to_string_lossy().into_owned(), way, kind, frac, who: who.clone(), at };
+                        // bytes and time left only for the item being worked on
+                        let mine = detail.as_ref().filter(|h| fsx::same_path(&h.src, path) || h.dst.as_deref().is_some_and(|d| fsx::same_path(d, path)));
+                        let (done, total) = (mine.map(|h| h.done), mine.map(|h| h.total));
+                        let left = mine.zip(speed).map(|(h, s)| ((h.total - h.done) as f64 / s) as u64);
+                        let m = Mark { name: name.to_string_lossy().into_owned(), way, kind, frac, who: who.clone(), at, started, done, total, left };
                         by_dir.entry(dir.to_path_buf()).or_default().push(m);
                     }
                 }
@@ -617,5 +716,15 @@ fn note_job(job: &Job) {
             return;
         }
         std::thread::sleep(Duration::from_millis(500));
+    }
+}
+
+/// "just now", "12 s ago", "3 min ago", "2 h ago".
+fn ago(d: Duration) -> String {
+    match d.as_secs() {
+        0..=2 => "just now".into(),
+        s @ 3..=59 => format!("{s} s ago"),
+        s @ 60..=3599 => format!("{} min ago", s / 60),
+        s => format!("{} h ago", s / 3600),
     }
 }

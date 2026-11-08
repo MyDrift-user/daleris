@@ -87,13 +87,22 @@ struct Rename {
     focus: bool,
 }
 
+/// An item seen changing size: since when, its size then and now, and when it last changed.
+#[derive(Clone, Copy, Debug)]
+struct Growth {
+    first: Instant,
+    first_size: u64,
+    last: Instant,
+    size: u64,
+}
+
 struct Tab {
     id: u64,
     loc: Loc,
     /// what other people's Daleris says it's doing here, by item name in lower case
     marks: HashMap<String, crate::marks::Mark>,
     /// items whose size changed, or that appeared, while this folder was shown: someone is writing them
-    growing: HashMap<String, Instant>,
+    growing: HashMap<String, Growth>,
     back: Vec<Loc>,
     fwd: Vec<Loc>,
     entries: Vec<Entry>,
@@ -1879,10 +1888,21 @@ impl App {
                                 // anything that grew, shrank or turned up since the last look is being written by someone
                                 let before: HashMap<&str, u64> = t.entries.iter().map(|e| (e.lower.as_str(), e.size)).collect();
                                 let now = Instant::now();
-                                let changed: Vec<String> = t.incoming.iter().filter(|e| !e.is_dir && !crate::marks::is_mark(&e.name) && before.get(e.lower.as_str()) != Some(&e.size)).map(|e| e.lower.clone()).collect();
+                                let changed: Vec<(String, u64, u64)> = t
+                                    .incoming
+                                    .iter()
+                                    .filter(|e| !e.is_dir && !crate::marks::is_mark(&e.name) && before.get(e.lower.as_str()) != Some(&e.size))
+                                    .map(|e| (e.lower.clone(), before.get(e.lower.as_str()).copied().unwrap_or(0), e.size))
+                                    .collect();
                                 drop(before);
-                                for k in changed {
-                                    t.growing.insert(k, now);
+                                for (k, was, size) in changed {
+                                    let g = t.growing.entry(k).or_insert(Growth { first: now, first_size: was, last: now, size });
+                                    // a pause long enough to have stopped counts as starting again
+                                    if g.last.elapsed() > Duration::from_secs(8) {
+                                        *g = Growth { first: now, first_size: was, last: now, size };
+                                    }
+                                    g.last = now;
+                                    g.size = size;
                                 }
                                 t.entries = std::mem::take(&mut t.incoming);
                                 t.order.clear();
