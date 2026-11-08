@@ -115,6 +115,12 @@ impl App {
                 if tab_under_drag.is_none() {
                     self.drag_tab_hover = None;
                 }
+                // Explorer's look: a line under the strip that rises around the tab in front
+                if pal().explorer {
+                    if let Some(r) = slots.get(self.active) {
+                        tab_outline(ui, *r, ctx.content_rect().x_range());
+                    }
+                }
                 self.tab_dragging(ui, &slots);
                 ui.add_space(2.0);
                 ui.vertical(|ui| {
@@ -209,7 +215,7 @@ impl App {
 
     pub(super) fn toolbar(&mut self, root: &mut Ui, t: &mut Tab) {
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::symmetric(8, 7));
-        egui::Panel::top("toolbar").exact_size(46.0).frame(frame).show_separator_line(false).show(root, |ui| {
+        egui::Panel::top("toolbar").exact_size(46.0).frame(frame).show_separator_line(pal().explorer).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 if icon_button(ui, I_BACK, "Back (Alt+Left)", !t.back.is_empty()).clicked() {
@@ -1309,4 +1315,23 @@ impl App {
             None => self.acts.push(Act::TabOut(from)),
         }
     }
+}
+
+/// The line along the bottom of the tab strip, going up and around the tab in front, as Explorer draws it.
+fn tab_outline(ui: &Ui, tab: Rect, across: egui::Rangef) {
+    let y = tab.bottom() - 0.5;
+    let (l, r, t, k) = (tab.left() + 0.5, tab.right() - 0.5, tab.top() + 0.5, 8.0);
+    let mut pts = vec![pos2(across.min, y), pos2(l, y), pos2(l, t + k)];
+    // the rounded top corners, a few steps each
+    for i in 1..=6 {
+        let a = std::f32::consts::FRAC_PI_2 * i as f32 / 6.0;
+        pts.push(pos2(l + k - k * a.cos(), t + k - k * a.sin()));
+    }
+    for i in 0..=6 {
+        let a = std::f32::consts::FRAC_PI_2 * i as f32 / 6.0;
+        pts.push(pos2(r - k + k * a.sin(), t + k - k * a.cos()));
+    }
+    pts.extend([pos2(r, y), pos2(across.max, y)]);
+    // the strip's own clip would cut the line along its bottom edge in half
+    ui.ctx().layer_painter(ui.layer_id()).add(egui::Shape::line(pts, Stroke::new(1.0_f32, LINE())));
 }
