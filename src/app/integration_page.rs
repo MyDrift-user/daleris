@@ -189,7 +189,7 @@ impl App {
             }
             ui.label(
                 egui::RichText::new(
-                    "Explorer's colours in light and dark mode, following Windows, with its flat sidebar and This PC, \n                     Windows's own icons, and no logo or name in the title bar. The settings it decides are greyed out under Appearance.",
+                    "Explorer's colours in light and dark mode, following Windows, with its flat sidebar and This PC, Windows's own icons, and no logo or name in the title bar. The settings it decides are greyed out under Appearance.",
                 )
                 .color(DIM()),
             );
