@@ -606,7 +606,9 @@ impl App {
         match id {
             "new" => {
                 ui.add_enabled_ui(in_dir, |ui| {
-                    ui.menu_button(egui::RichText::new(format!("{}  New", ic(I_ADD))).font(icon_font(13.5)), |ui| {
+                    // the arrow says it opens a list, as Explorer's does
+                    let label = (egui::RichText::new(format!("{}  New", ic(I_ADD))).font(icon_font(13.5)), egui::RichText::new(ic(I_CHEV_D)).font(icon_font(9.0)).color(DIM()));
+                    ui.menu_button(label, |ui| {
                         if menu_item(ui, I_NEWFOLDER, "Folder", "Ctrl+Shift+N") {
                             self.acts.push(Act::NewFolder);
                         }
