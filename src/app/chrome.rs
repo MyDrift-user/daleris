@@ -576,7 +576,7 @@ impl App {
         if left.is_empty() && right.is_empty() {
             return;
         }
-        let frame = egui::Frame::new().fill(RIBBON()).inner_margin(egui::Margin { left: 8, right: 8, top: 0, bottom: 6 });
+        let frame = egui::Frame::new().fill(RIBBON()).inner_margin(egui::Margin { left: 8, right: 8, top: 3, bottom: 3 });
         egui::Panel::top("commands").exact_size(40.0).frame(frame).show(root, |ui| {
             // right-click the empty part of the bar to customize it
             ui.interact(ui.max_rect(), ui.scope_id().with("ribbon_bg"), Sense::click()).context_menu(|ui| {
@@ -723,7 +723,9 @@ impl App {
                 }
             }
             _ => {
-                ui.add(egui::Separator::default().vertical().spacing(10.0));
+                // a divider shorter than the bar, centred, as a full-height one runs into the edges
+                let (r, _) = ui.allocate_exact_size(vec2(11.0, 20.0), Sense::hover());
+                ui.painter().vline(r.center().x, r.y_range(), Stroke::new(1.0_f32, LINE()));
             }
         }
     }
