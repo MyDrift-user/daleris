@@ -85,6 +85,31 @@ impl App {
                 }
                 return;
             }
+            Act::MoveTab(from, to) => {
+                self.tabs[ai] = t;
+                if from < self.tabs.len() && to < self.tabs.len() {
+                    let tab = self.tabs.remove(from);
+                    self.tabs.insert(to, tab);
+                    // the tab in front stays in front, wherever it is now
+                    self.active = if self.active == from {
+                        to
+                    } else if from < self.active && to >= self.active {
+                        self.active - 1
+                    } else if from > self.active && to <= self.active {
+                        self.active + 1
+                    } else {
+                        self.active
+                    };
+                }
+                return;
+            }
+            Act::TabOut(i) => {
+                self.tabs[ai] = t;
+                if let Some(loc) = self.tabs.get(i).map(|t| t.loc.clone()) {
+                    self.tab_out(i, loc);
+                }
+                return;
+            }
             Act::SwitchTab(i) => {
                 self.tabs[ai] = t;
                 if i < self.tabs.len() {
@@ -636,4 +661,65 @@ pub(super) fn save_png(path: &Path, img: &egui::ColorImage) -> std::io::Result<(
 /// Daleris's own text document, there whatever the system offers.
 fn text_document() -> Template {
     Template { label: "Text document".into(), name: "New Text Document.txt".into(), how: How::Empty }
+}
+
+impl App {
+    /// A tab let go of off the strip: Windows says what's under the pointer. Over another Daleris window, that one
+    /// takes it; anywhere else, it gets a window of its own there. The last tab only moves to another window.
+    #[cfg(windows)]
+    fn tab_out(&mut self, i: usize, loc: Loc) {
+        use crate::integration::TabLanding;
+        use daleris_integration::pipe::Request;
+        let request = match &loc {
+            Loc::Dir(p) => Request::Open(p.clone().into_os_string()),
+            Loc::ThisPc => Request::ThisPc,
+            Loc::Settings => return,
+        };
+        match crate::integration::tab_landing() {
+            TabLanding::Here => {}
+            TabLanding::Window(pid) => {
+                if crate::integration::hand_tab_to(pid, &request) {
+                    // the last tab leaving takes the window with it
+                    self.apply(Act::CloseTab(i));
+                } else {
+                    self.toast("That window didn't take the tab. It may be running as administrator.", true);
+                }
+            }
+            TabLanding::Desktop(x, y) => {
+                let ppp = self.ctx.pixels_per_point();
+                if self.tabs.len() > 1 && self.new_window_with(&loc, Some(pos2(x as f32 / ppp, y as f32 / ppp))) {
+                    self.apply(Act::CloseTab(i));
+                }
+            }
+        }
+    }
+
+    /// Off Windows there's no asking what's under the pointer: off this window, the tab gets a window of its own.
+    #[cfg(not(windows))]
+    fn tab_out(&mut self, i: usize, loc: Loc) {
+        let outside = self.ctx.input(|inp| inp.pointer.latest_pos()).is_none_or(|p| !self.ctx.content_rect().contains(p));
+        if outside && self.tabs.len() > 1 && !matches!(loc, Loc::Settings) && self.new_window_with(&loc, None) {
+            self.apply(Act::CloseTab(i));
+        }
+    }
+
+    /// Starts another Daleris window showing `loc`, its top left near `at`, in points, when given.
+    fn new_window_with(&self, loc: &Loc, at: Option<egui::Pos2>) -> bool {
+        let Ok(exe) = std::env::current_exe() else { return false };
+        let mut c = std::process::Command::new(exe);
+        c.arg("--new-window");
+        match loc {
+            Loc::Dir(p) => {
+                c.arg("--path").arg(p);
+            }
+            Loc::ThisPc => {
+                c.arg("--this-pc");
+            }
+            Loc::Settings => return false,
+        }
+        if let Some(p) = at {
+            c.arg("--at").arg(format!("{},{}", p.x.round(), p.y.round()));
+        }
+        c.spawn().is_ok()
+    }
 }

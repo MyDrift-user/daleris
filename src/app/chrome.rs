@@ -36,12 +36,18 @@ impl App {
                 let _ = left_w;
                 let w = (avail / count as f32).clamp(80.0, 230.0);
                 let mut tab_under_drag = None;
+                // where each tab sits, so a tab dragged along the strip knows where it would land
+                let mut slots: Vec<Rect> = Vec::with_capacity(count);
                 for i in 0..count {
                     let (loc, loading) = if i == self.active { (t.loc.clone(), t.loading) } else { (self.tabs[i].loc.clone(), self.tabs[i].loading) };
                     let active = i == self.active;
-                    let (slot, resp) = ui.allocate_exact_size(vec2(w, 32.0 + tab_y), Sense::click());
+                    let (slot, resp) = ui.allocate_exact_size(vec2(w, 32.0 + tab_y), Sense::click_and_drag());
                     let rect = Rect::from_min_max(slot.min + vec2(0.0, tab_y), slot.max);
                     let resp = resp.with_new_rect(rect);
+                    slots.push(rect);
+                    if resp.drag_started() {
+                        self.tab_drag = Some(i);
+                    }
                     if active {
                         ui.painter().rect_filled(rect, CornerRadius { nw: 8, ne: 8, sw: 0, se: 0 }, PANEL());
                     } else if resp.hovered() {
@@ -109,6 +115,7 @@ impl App {
                 if tab_under_drag.is_none() {
                     self.drag_tab_hover = None;
                 }
+                self.tab_dragging(ui, &slots);
                 ui.add_space(2.0);
                 ui.vertical(|ui| {
                     ui.add_space(tab_y + 1.0);
@@ -1261,4 +1268,45 @@ pub(super) fn shimmer(ui: &Ui, bar: Rect) {
         p.rect_filled(lit, CornerRadius::same(2), FAINT());
     }
     ui.ctx().request_repaint_after(Duration::from_millis(30));
+}
+
+impl App {
+    /// A tab being dragged: along the strip it moves to where it's let go; let go off the strip, it leaves this window,
+    /// for another Daleris window under the pointer or for a new one.
+    fn tab_dragging(&mut self, ui: &mut Ui, slots: &[Rect]) {
+        let Some(from) = self.tab_drag else { return };
+        let (pointer, down) = ui.input(|i| (i.pointer.latest_pos(), i.pointer.primary_down()));
+        let strip = slots.iter().fold(Rect::NOTHING, |a, r| a.union(*r)).expand2(vec2(40.0, 12.0));
+        // the place it would take: before the first tab whose middle is right of the pointer
+        let to = pointer.filter(|p| strip.contains(*p)).map(|p| {
+            let at = slots.iter().position(|r| p.x < r.center().x).unwrap_or(slots.len());
+            if at > from { at - 1 } else { at }
+        });
+        if down {
+            match (to, pointer) {
+                (Some(to), _) => {
+                    let r = slots[to];
+                    let x = if to > from { r.right() } else { r.left() };
+                    ui.painter().vline(x, r.y_range(), Stroke::new(2.0_f32, ACCENT()));
+                }
+                (None, Some(p)) => {
+                    // off the strip: say what letting go does
+                    let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("tabtip")));
+                    let g = painter.layout_no_wrap("Let go to open in its own window, or over another Daleris window to move it there".into(), FontId::proportional(13.0), TEXT());
+                    let r = Rect::from_min_size(p + vec2(14.0, 14.0), g.size() + vec2(16.0, 10.0));
+                    painter.rect_filled(r, CornerRadius::same(5), SEL_STRONG());
+                    painter.galley(r.min + vec2(8.0, 5.0), g, TEXT());
+                }
+                _ => {}
+            }
+            ui.ctx().request_repaint();
+            return;
+        }
+        self.tab_drag = None;
+        match to {
+            Some(to) if to != from => self.acts.push(Act::MoveTab(from, to)),
+            Some(_) => {}
+            None => self.acts.push(Act::TabOut(from)),
+        }
+    }
 }

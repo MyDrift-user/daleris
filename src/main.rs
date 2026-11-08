@@ -53,6 +53,7 @@ fn main() -> eframe::Result<()> {
     let mut wanted = app::Wanted::default();
     let mut query: Option<String> = None;
     let mut new_window = false;
+    let mut at: Option<(f32, f32)> = None;
     let mut named: Vec<OsString> = Vec::new();
     // Not `args()`: that panics on a path that isn't valid Unicode, which Windows allows.
     let mut args = std::env::args_os().skip(1);
@@ -68,6 +69,8 @@ fn main() -> eframe::Result<()> {
             }
             "--this-pc" => wanted.this_pc = true,
             "--new-window" => new_window = true,
+            // a tab dragged out: the new window's top left, in points
+            "--at" => at = lossy(args.next()).and_then(|v| v.split_once(',').and_then(|(x, y)| Some((x.trim().parse::<f32>().ok()?, y.trim().parse::<f32>().ok()?)))),
             "--pick" => {}
             "--query" => query = lossy(args.next()),
             // FIXME: Audit that the environment access only happens in single-threaded code.
@@ -116,6 +119,10 @@ fn main() -> eframe::Result<()> {
         // a dialog has the frame dialogs have
         .with_decorations(is_picker || !app::starts_with_custom_titlebar(screenshot.is_some()))
         .with_drag_and_drop(true);
+    // under the pointer, a little left of it, as if the tab were picked up by its title
+    if let Some((x, y)) = at {
+        viewport = viewport.with_position([x - 120.0, y - 16.0]);
+    }
     let background = std::env::var_os("DALERIS_TEST_BACKGROUND").is_some();
     if background {
         // test runs while someone is using this PC: out of sight, and it never takes focus

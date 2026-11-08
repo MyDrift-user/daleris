@@ -271,3 +271,71 @@ pub fn clear_jump_folder() {
         hive.delete_value(reg::OWN_KEY, reg::JUMP_PID);
     }
 }
+
+// ---------------------------------------------------------------- tabs between windows
+
+/// This window's own pipe, where another Daleris window hands over a tab dragged onto this one. Runs for the life of
+/// the process. None if it couldn't start, such as when running as administrator, as the shared pipe doesn't either.
+pub fn serve_window_requests(ctx: eframe::egui::Context) -> Option<Receiver<Request>> {
+    if is_elevated() {
+        return None;
+    }
+    let server = Server::start_for_window()?;
+    let (tx, rx) = channel();
+    let _ = std::thread::Builder::new().name("tab handover".into()).spawn(move || {
+        server.run(
+            || false,
+            |request| {
+                let _ = tx.send(request);
+                focus_this_window();
+                ctx.request_repaint();
+            },
+        );
+    });
+    Some(rx)
+}
+
+/// Where a tab let go of outside the tab strip lands.
+pub enum TabLanding {
+    /// still over this window
+    Here,
+    /// over another Daleris window, of this process id
+    Window(u32),
+    /// anywhere else, at this point on the screen in pixels
+    Desktop(i32, i32),
+}
+
+/// What's under the pointer right now, asked of Windows: the window's own coordinates don't reach past its edges.
+pub fn tab_landing() -> TabLanding {
+    let mut at = POINT::default();
+    if unsafe { GetCursorPos(&mut at) }.is_err() {
+        return TabLanding::Here;
+    }
+    let hwnd = unsafe { WindowFromPoint(at) };
+    let root = unsafe { GetAncestor(hwnd, GA_ROOT) };
+    let mut pid = 0;
+    unsafe { GetWindowThreadProcessId(root, Some(&mut pid)) };
+    if pid == std::process::id() {
+        return TabLanding::Here;
+    }
+    if pid != 0 && is_daleris(pid) {
+        return TabLanding::Window(pid);
+    }
+    TabLanding::Desktop(at.x, at.y)
+}
+
+/// Whether process `pid` is a Daleris window, by its program's name.
+fn is_daleris(pid: u32) -> bool {
+    let Ok(process) = (unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }) else { return false };
+    let mut buf = [0u16; 1024];
+    let mut len = buf.len() as u32;
+    let ok = unsafe { QueryFullProcessImageNameW(process, PROCESS_NAME_WIN32, windows::core::PWSTR(buf.as_mut_ptr()), &mut len) }.is_ok();
+    let _ = unsafe { CloseHandle(process) };
+    ok && Path::new(&String::from_utf16_lossy(&buf[..len as usize])).file_name().is_some_and(|n| n.eq_ignore_ascii_case("daleris.exe"))
+}
+
+/// Hands a tab to the window of process `pid`, letting it come to the front. True if it took it.
+pub fn hand_tab_to(pid: u32, request: &Request) -> bool {
+    let _ = unsafe { AllowSetForegroundWindow(pid) };
+    pipe::send_to_window(pid, request)
+}

@@ -95,6 +95,16 @@ pub fn pipe_name() -> Option<String> {
     Some(format!(r"\\.\pipe\daleris-{}-{}", sid_text()?, session()))
 }
 
+/// The pipe one window listens on, so another window can hand it a tab dragged onto it: `<pipe_name>-w<pid>`.
+pub fn window_pipe_name(pid: u32) -> Option<String> {
+    Some(format!("{}-w{pid}", pipe_name()?))
+}
+
+/// Hands `request` to the window of process `pid`. True only if it took it.
+pub fn send_to_window(pid: u32, request: &Request) -> bool {
+    window_pipe_name(pid).is_some_and(|name| send_to(&name, request).is_some())
+}
+
 /// Same user and session as this process?
 fn same_user_and_session(pid: u32) -> bool {
     let mut other_session = 0;
@@ -186,11 +196,16 @@ unsafe impl Send for Server {}
 
 impl Server {
     pub fn start() -> Option<Server> {
-        Self::create(FILE_FLAG_FIRST_PIPE_INSTANCE)
+        Self::create(&pipe_name()?, FILE_FLAG_FIRST_PIPE_INSTANCE)
     }
 
-    fn create(extra: FILE_FLAGS_AND_ATTRIBUTES) -> Option<Server> {
-        let name = wide(OsStr::new(&pipe_name()?));
+    /// This window's own pipe, see `window_pipe_name`.
+    pub fn start_for_window() -> Option<Server> {
+        Self::create(&window_pipe_name(std::process::id())?, FILE_FLAG_FIRST_PIPE_INSTANCE)
+    }
+
+    fn create(name: &str, extra: FILE_FLAGS_AND_ATTRIBUTES) -> Option<Server> {
+        let name = wide(OsStr::new(name));
         let sid = sid_text()?;
         // this user is the one entry, so nobody else gets in
         let sddl = wide(OsStr::new(&format!("D:P(A;;GA;;;{sid})")));

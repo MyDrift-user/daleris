@@ -118,8 +118,9 @@ impl App {
     #[cfg(windows)]
     fn take_requests(&mut self) {
         use daleris_integration::pipe::Request;
-        let Some(rx) = &self.requests else { return };
-        let list: Vec<Request> = rx.try_iter().collect();
+        // new launches, through the shared pipe, and tabs other windows hand over, through this window's own
+        let mut list: Vec<Request> = self.requests.as_ref().map(|rx| rx.try_iter().collect()).unwrap_or_default();
+        list.extend(self.tab_requests.as_ref().map(|rx| rx.try_iter().collect::<Vec<_>>()).unwrap_or_default());
         for request in list {
             log::info!("a new launch asks this window for {request:?}");
             match request {

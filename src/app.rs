@@ -434,6 +434,10 @@ enum Act {
     CredentialManager,
     /// Windows's prompt for a BitLocker drive's password
     Unlock(PathBuf),
+    /// a tab to another place in the strip
+    MoveTab(usize, usize),
+    /// a tab dragged off the strip: to the Daleris window under the pointer, or to a window of its own
+    TabOut(usize),
     ClearFilter,
 }
 
@@ -1311,6 +1315,11 @@ pub struct App {
     ops: Vec<Arc<crate::fileops::Job>>,
     /// what's about to be deleted for good, once the person says so
     confirm_delete: Option<Vec<PathBuf>>,
+    /// the tab being dragged, by its place in the strip
+    tab_drag: Option<usize>,
+    /// tabs other Daleris windows hand to this one (Windows)
+    #[cfg(windows)]
+    tab_requests: Option<Receiver<daleris_integration::pipe::Request>>,
     connect: Option<(String, String, String)>,
     /// this process is an app's Open or Save dialog. See picker.rs.
     picker: Option<Picker>,
@@ -1428,6 +1437,9 @@ impl App {
             preview_wanted: Arc::new(std::sync::atomic::AtomicU64::new(0)),
             ops: Vec::new(),
             confirm_delete: None,
+            tab_drag: None,
+            #[cfg(windows)]
+            tab_requests: None,
             connect: None,
             picker,
             explorer_applied: None,
@@ -1443,6 +1455,10 @@ impl App {
         app.refresh_drives();
         app.refresh_clouds();
         app.watch_drives();
+        #[cfg(windows)]
+        {
+            app.tab_requests = crate::integration::serve_window_requests(cc.egui_ctx.clone());
+        }
 
         let mut locs: Vec<Loc> = Vec::new();
         if wanted.this_pc {
