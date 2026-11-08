@@ -372,8 +372,7 @@ impl App {
                 self.set_titlebar();
                 self.save_settings();
             }
-            let explorer = look_fixed(ui);
-            ui.add_enabled_ui(self.settings.title_custom && !explorer, |ui| {
+            ui.add_enabled_ui(self.settings.title_custom, |ui| {
                 let mut ch = managed_toggle(ui, &mut self.settings.title_logo, "title_logo", "Show the logo");
                 ch |= managed_toggle(ui, &mut self.settings.title_name, "title_name2", "Show the app name");
                 if ch {

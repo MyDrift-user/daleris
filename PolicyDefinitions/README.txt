@@ -36,8 +36,8 @@ VALUES
   HideDotfiles              DWORD     0 off, 1 hides names that start with a dot. An item is hidden if this or ShowHiddenItems hides it.
                                       Windows only: on Linux and macOS those names are hidden items, see ShowHiddenItems
   ExplorerLook              DWORD     1 sets ExplorerColours, ExplorerLines, ExplorerMica and ExplorerMicaBar on, IconPack
-                                      to system, RowHeight to 0 and TitleBarLogo and TitleBarName off; 0 sets them back to
-                                      Daleris's own. Fixed, it fixes them all. Windows only
+                                      to system and RowHeight to 0; 0 sets them back to Daleris's own. Fixed, it fixes them
+                                      all. Windows only, where it's on by default. TitleBarLogo and TitleBarName stay apart
   ExplorerColours           DWORD     1 on, 0 off: Explorer's colours, following Windows's light or dark mode and accent colour.
                                       Theme and AccentColor don't apply then. Windows only
   ExplorerLines             DWORD     1 on, 0 off: Explorer's lines between the panes and around the tab in front, and the

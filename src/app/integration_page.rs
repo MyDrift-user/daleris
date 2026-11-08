@@ -206,13 +206,7 @@ impl App {
                     }
                     let mut compact = s.density == 0;
                     if managed_toggle(ui, &mut compact, "density", "Compact rows") {
-                        s.density = if compact { 0 } else { 1 };
-                        changed = true;
-                    }
-                    let mut bare = !s.title_logo && !s.title_name;
-                    if managed_toggle(ui, &mut bare, "title_logo", "No logo or name in the title bar") {
-                        s.title_logo = !bare;
-                        s.title_name = false;
+                        s.density = if compact { 0 } else { super::OWN_DENSITY };
                         changed = true;
                     }
                     if changed {

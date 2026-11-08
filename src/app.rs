@@ -715,14 +715,18 @@ pub fn starts_with_custom_titlebar(screenshot: bool) -> bool {
     }
 }
 
+/// Row height of Daleris's own look; Explorer's is 0, compact
+const OWN_DENSITY: u8 = 1;
+
 impl Settings {
     fn defaults() -> Settings {
         Settings {
             show_hidden: false,
             hide_dotfiles: true,
-            explorer_colours: false,
-            explorer_lines: false,
-            explorer_mica: false,
+            // Explorer's look on Windows, see `explorer_look`
+            explorer_colours: cfg!(windows),
+            explorer_lines: cfg!(windows),
+            explorer_mica: cfg!(windows),
             explorer_mica_bar: true,
             open_new_drives: true,
             start_new_window: true,
@@ -742,7 +746,7 @@ impl Settings {
             theme: 0,
             accent: ACCENTS.len(),
             icon_pack: if prefers_bundled_icons() { "flat" } else { "system" }.into(),
-            density: 1,
+            density: if cfg!(windows) { 0 } else { OWN_DENSITY },
             title_custom: true,
             title_logo: true,
             title_name: false,
@@ -860,28 +864,25 @@ impl Settings {
         cfg!(windows) && self.explorer_mica
     }
 
-    /// Every setting that makes up Explorer's look is set its way: what "Look like Windows Explorer" shows.
+    /// Every setting that makes up Explorer's look is set its way: what "Look like Windows Explorer" shows. The logo
+    /// and name in the title bar are Daleris's either way.
     fn looks_like_explorer(&self) -> bool {
         self.explorer_colours
             && self.explorer_lines
             && ((self.explorer_mica && self.explorer_mica_bar) || !shell::has_mica())
             && (self.icon_pack == "system" || prefers_bundled_icons())
             && self.density == 0
-            && !self.title_logo
-            && !self.title_name
     }
 
-    /// Set every setting that makes up Explorer's look its way, or, for off, back to Daleris's own.
+    /// Set every setting that makes up Explorer's look its way, or, for off, back to Daleris's own. Explorer's look is
+    /// the default on Windows, so Daleris's own isn't simply the defaults.
     fn explorer_look(&mut self, on: bool) {
-        let own = Settings::defaults();
         self.explorer_colours = on;
         self.explorer_lines = on;
         self.explorer_mica = on;
-        self.explorer_mica_bar = on || own.explorer_mica_bar;
-        self.icon_pack = if on && !prefers_bundled_icons() { "system".into() } else { own.icon_pack };
-        self.density = if on { 0 } else { own.density };
-        self.title_logo = !on && own.title_logo;
-        self.title_name = !on && own.title_name;
+        self.explorer_mica_bar = true;
+        self.icon_pack = if prefers_bundled_icons() { "flat" } else { "system" }.into();
+        self.density = if on { 0 } else { OWN_DENSITY };
     }
 
     fn pack(&self) -> &str {
@@ -3467,18 +3468,19 @@ mod tests {
     #[test]
     fn explorer_look_is_the_settings_it_is_made_of() {
         let mut s = Settings::defaults();
+        // Explorer's look by default on Windows, with Daleris's logo in the title bar all the same
+        assert_eq!(s.looks_like_explorer(), cfg!(windows));
+        assert!(s.title_logo && !s.title_name);
+        s.set_value("explorer_look", "0");
         assert!(!s.looks_like_explorer());
+        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica && s.density == OWN_DENSITY);
         assert!(s.set_value("explorer_look", "1"));
         assert!(s.looks_like_explorer());
-        assert!(s.explorer_colours && s.explorer_lines && s.density == 0 && !s.title_logo && !s.title_name);
+        assert!(s.explorer_colours && s.explorer_lines && s.density == 0 && s.title_logo, "the logo isn't part of the look");
         // one part set back and it no longer looks like Explorer, while the rest stay
         s.density = 1;
         assert!(!s.looks_like_explorer());
         assert!(s.explorer_colours);
-        s.set_value("explorer_look", "0");
-        let own = Settings::defaults();
-        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica);
-        assert_eq!((s.icon_pack.as_str(), s.density, s.title_logo, s.title_name), (own.icon_pack.as_str(), own.density, own.title_logo, own.title_name));
         // the whole look isn't written: its parts are
         assert!(!s.value_lines().iter().any(|(k, _)| *k == "explorer_look"));
         assert!(s.value_lines().iter().any(|(k, _)| *k == "explorer_colours"));
