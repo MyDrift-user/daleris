@@ -46,7 +46,8 @@ pub fn set_backdrop(hwnd: isize, mica: bool, dark: bool) {
     use windows::Win32::UI::Controls::MARGINS;
     let hwnd = HWND(hwnd as *mut _);
     let dark = windows::core::BOOL::from(dark);
-    let kind = if mica { DWMSBT_MAINWINDOW } else { DWMSBT_NONE };
+    // Mica Alt, as Explorer uses behind its tabs: more of the wallpaper's colour comes through than plain Mica's
+    let kind = if mica { DWMSBT_TABBEDWINDOW } else { DWMSBT_NONE };
     unsafe {
         let _ = DwmSetWindowAttribute(hwnd, DWMWA_USE_IMMERSIVE_DARK_MODE, &dark as *const _ as *const _, 4);
         let _ = DwmSetWindowAttribute(hwnd, DWMWA_SYSTEMBACKDROP_TYPE, &kind as *const _ as *const _, 4);
