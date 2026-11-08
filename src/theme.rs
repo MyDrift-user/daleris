@@ -75,7 +75,8 @@ impl Palette {
         } else {
             (0xffffff, 0xf9f9f9, 0xf3f3f3, 0xf0f0f0, 0xcce8ff, 0xe5f3ff, 0x1a1a1a, 0x5d5d5d, 0x8d8d8d, 0xe5e5e5)
         };
-        let (field, field_line) = if dark { (rgb(0x373737), rgb(0x3d3d3d)) } else { (rgb(0xffffff), rgb(0xe5e5e5)) };
+        // Explorer's address and search boxes stand out by their fill alone, with no outline
+        let (field, field_line) = if dark { (rgb(0x373737), Color32::TRANSPARENT) } else { (rgb(0xffffff), Color32::TRANSPARENT) };
         Palette {
             bg: rgb(bg),
             panel: rgb(bar),
