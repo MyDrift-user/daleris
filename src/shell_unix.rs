@@ -38,10 +38,10 @@ pub struct RawImg {
 #[derive(Clone)]
 pub enum ImgReq {
     #[allow(dead_code)]
-    Icon { key: String, path: String, by_attrs: bool, is_dir: bool },
+    Icon { key: String, path: String, by_attrs: bool, is_dir: bool, px: u32 },
     Thumb { key: String, path: PathBuf, size: i32, icon_only: bool, #[allow(dead_code)] preview_only: bool },
     #[allow(dead_code)]
-    KnownFolder { key: String, id: KfId },
+    KnownFolder { key: String, id: KfId, px: u32 },
 }
 
 impl ImgReq {

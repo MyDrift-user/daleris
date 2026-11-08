@@ -177,6 +177,9 @@ impl App {
         let p = self.settings.palette();
         let cur = pal();
         if p.accent != cur.accent || p.dark != cur.dark {
+            if p.dark != cur.dark {
+                self.forget_system_icons();
+            }
             apply(ctx, p);
             self.set_backdrop();
             let icon = egui::IconData { rgba: logo_rgba(64, p.accent), width: 64, height: 64 };
@@ -199,6 +202,11 @@ impl App {
         true
     }
 
+    /// Windows draws some of its icons for the light or the dark theme: when that changes, they're fetched again.
+    pub(super) fn forget_system_icons(&mut self) {
+        self.icons.retain(|k, _| !["e:", "p:", "kf:", "dir|"].iter().any(|s| k.starts_with(s)));
+    }
+
     /// Mica behind the window, tinted for the theme, when the window was made for it and it's wanted; none otherwise.
     pub(super) fn set_backdrop(&self) {
         #[cfg(windows)]
@@ -210,6 +218,9 @@ impl App {
 
     pub(super) fn apply_theme(&mut self) {
         let p = self.settings.palette();
+        if p.dark != pal().dark {
+            self.forget_system_icons();
+        }
         apply(&self.ctx, p);
         self.set_backdrop();
         let icon = egui::IconData { rgba: logo_rgba(64, p.accent), width: 64, height: 64 };

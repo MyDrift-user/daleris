@@ -2061,7 +2061,8 @@ impl App {
         }
         while let Ok(r) = self.loader.rx.try_recv() {
             if let Some(tn) = r.type_name {
-                self.type_names.insert(r.key.clone(), tn);
+                // a type has one name, whatever size its icon was fetched at
+                self.type_names.insert(r.key.split('|').next().unwrap_or(&r.key).to_string(), tn);
             }
             let slot = match r.img {
                 Some(img) => {
@@ -2375,24 +2376,26 @@ impl App {
 
     // ------------------------------------------------------------------ icons
 
-    fn icon_key(&self, path: &Path, ext: &str, is_dir: bool, attrs: u32) -> (String, ImgReq) {
+    /// The icon to ask Windows for, at `px` pixels; one of each size is kept, after a `|` no path can hold.
+    fn icon_key(&self, path: &Path, ext: &str, is_dir: bool, attrs: u32, px: u32) -> (String, ImgReq) {
         let ps = path.to_string_lossy().to_string();
         if is_dir {
             let is_root = path.parent().is_none() || fsx::is_server_root(path).is_some();
             let special = attrs & (fsx::A_READONLY | fsx::A_SYSTEM) != 0 || self.places.iter().any(|p| fsx::same_path(&p.path, path));
             if is_root || special {
-                let key = format!("p:{}", ps.to_lowercase());
-                return (key.clone(), ImgReq::Icon { key, path: ps, by_attrs: false, is_dir });
+                let key = format!("p:{}|{px}", ps.to_lowercase());
+                return (key.clone(), ImgReq::Icon { key, path: ps, by_attrs: false, is_dir, px });
             }
-            return ("dir".into(), ImgReq::Icon { key: "dir".into(), path: "folder".into(), by_attrs: true, is_dir });
+            let key = format!("dir|{px}");
+            return (key.clone(), ImgReq::Icon { key, path: "folder".into(), by_attrs: true, is_dir, px });
         }
         let online_only = attrs & (fsx::A_RECALL_ON_DATA | fsx::A_OFFLINE) != 0;
         if PER_FILE_ICON.contains(&ext) && !online_only {
-            let key = format!("p:{}", ps.to_lowercase());
-            return (key.clone(), ImgReq::Icon { key, path: ps, by_attrs: false, is_dir });
+            let key = format!("p:{}|{px}", ps.to_lowercase());
+            return (key.clone(), ImgReq::Icon { key, path: ps, by_attrs: false, is_dir, px });
         }
-        let key = format!("e:{ext}");
-        (key.clone(), ImgReq::Icon { key, path: format!("x.{ext}"), by_attrs: true, is_dir })
+        let key = format!("e:{ext}|{px}");
+        (key.clone(), ImgReq::Icon { key, path: format!("x.{ext}"), by_attrs: true, is_dir, px })
     }
 
     fn tex(&mut self, key: &str, req: impl FnOnce() -> ImgReq) -> Option<egui::TextureId> {
@@ -2523,13 +2526,15 @@ impl App {
             self.draw_builtin(ui, rect, &target);
             return;
         }
+        // the size it's drawn at, in pixels, so Windows's icon is fetched for it rather than stretched
+        let px = (rect.width().max(rect.height()) * ui.ctx().pixels_per_point()).round().clamp(16.0, 256.0) as u32;
         // Known folders use the icon Explorer shows (their shell identity), not the disk folder's.
         let (key, req) = match place.filter(|_| !fsx::is_network_path(path)) {
             Some((name, kf)) => {
-                let key = format!("kf:{name}");
-                (key.clone(), ImgReq::KnownFolder { key, id: kf })
+                let key = format!("kf:{name}|{px}");
+                (key.clone(), ImgReq::KnownFolder { key, id: kf, px })
             }
-            None => self.icon_key(path, ext, is_dir, attrs),
+            None => self.icon_key(path, ext, is_dir, attrs, px),
         };
         if let Some(id) = self.tex(&key, || req) {
             ui.painter().image(id, rect, uv, tint);

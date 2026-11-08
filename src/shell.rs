@@ -88,12 +88,12 @@ pub struct RawImg {
 #[derive(Clone)]
 pub enum ImgReq {
     /// Small icon + type name, by extension (cheap, shared) or by full path (exe/lnk/ico, drives).
-    Icon { key: String, path: String, by_attrs: bool, is_dir: bool },
+    Icon { key: String, path: String, by_attrs: bool, is_dir: bool, px: u32 },
     /// Shell thumbnail (images, videos, PDFs…, falls back to a big icon).
     Thumb { key: String, path: PathBuf, size: i32, icon_only: bool, preview_only: bool },
     /// The icon Explorer shows for a known folder (Desktop, Downloads…), read from its
     /// shell identity rather than its disk folder (which can carry a custom desktop.ini icon).
-    KnownFolder { key: String, id: windows::core::GUID },
+    KnownFolder { key: String, id: windows::core::GUID, px: u32 },
 }
 
 impl ImgReq {
@@ -173,16 +173,16 @@ fn spawn_workers(q: &Queue, n: usize, tx: &Sender<ImgResult>, ctx: &eframe::egui
                         v.pop().unwrap()
                     };
                     let res = match &req {
-                        ImgReq::Icon { key, path, by_attrs, is_dir } => {
-                            let (img, tn) = unsafe { file_icon(path, *by_attrs, *is_dir) };
+                        ImgReq::Icon { key, path, by_attrs, is_dir, px } => {
+                            let (img, tn) = unsafe { file_icon(path, *by_attrs, *is_dir, *px) };
                             ImgResult { key: key.clone(), img, type_name: tn }
                         }
                         ImgReq::Thumb { key, path, size, icon_only, preview_only } => {
                             let img = unsafe { thumbnail(path, *size, *icon_only, *preview_only) };
                             ImgResult { key: key.clone(), img, type_name: None }
                         }
-                        ImgReq::KnownFolder { key, id } => {
-                            let img = unsafe { known_folder_icon(id) };
+                        ImgReq::KnownFolder { key, id, px } => {
+                            let img = unsafe { known_folder_icon(id, *px) };
                             ImgResult { key: key.clone(), img, type_name: None }
                         }
                     };
@@ -196,10 +196,12 @@ fn spawn_workers(q: &Queue, n: usize, tx: &Sender<ImgResult>, ctx: &eframe::egui
     }
 }
 
-unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool) -> (Option<RawImg>, Option<String>) { unsafe {
+/// The icon for a file or folder at `px` pixels, from the smallest of Windows's icon sets at least that big, and its type
+/// name. Shrinking a bigger icon by averaging keeps it crisp where stretching the standard one made it soft.
+unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool, px: u32) -> (Option<RawImg>, Option<String>) { unsafe {
     let w = wide(path);
     let mut sfi = SHFILEINFOW::default();
-    let mut flags = SHGFI_ICON | SHGFI_LARGEICON | SHGFI_TYPENAME;
+    let mut flags = SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_LARGEICON | SHGFI_TYPENAME;
     if by_attrs {
         flags |= SHGFI_USEFILEATTRIBUTES;
     }
@@ -209,22 +211,24 @@ unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool) -> (Option<RawImg>
         return (None, None);
     }
     let tn = from_wide(&sfi.szTypeName);
-    let img = if !sfi.hIcon.is_invalid() {
+    let standard = if !sfi.hIcon.is_invalid() {
         let i = icon_to_rgba(sfi.hIcon);
         let _ = DestroyIcon(sfi.hIcon);
         i
     } else {
         None
     };
-    (img, (!tn.is_empty()).then_some(tn))
+    let sized = sized_icon(sfi.iIcon, px);
+    (sized.or(standard).map(|i| shrink(i, px)), (!tn.is_empty()).then_some(tn))
 }}
 
-unsafe fn known_folder_icon(id: &windows::core::GUID) -> Option<RawImg> { unsafe {
+unsafe fn known_folder_icon(id: &windows::core::GUID, px: u32) -> Option<RawImg> { unsafe {
     let pidl = SHGetKnownFolderIDList(id, 0, None).ok()?;
     // the shell image service returns the same modern icon Explorer's navigation pane shows
     let via_factory = (|| -> Option<RawImg> {
         let f: IShellItemImageFactory = SHCreateItemFromIDList(pidl).ok()?;
-        let hbm = f.GetImage(SIZE { cx: 48, cy: 48 }, SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0)).ok()?;
+        let side = px.max(16) as i32;
+        let hbm = f.GetImage(SIZE { cx: side, cy: side }, SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0)).ok()?;
         let r = bitmap_bgra(hbm);
         let _ = DeleteObject(hbm.into());
         let (w, h, mut px) = r?;
@@ -988,4 +992,63 @@ pub fn shortcut_target(lnk: &Path) -> Option<PathBuf> {
         let s = from_wide(&buf);
         (!s.is_empty()).then(|| PathBuf::from(s))
     }
+}
+
+/// The icon at `index` of the system image list, from the smallest of Windows's sets (small, large, extra large, jumbo)
+/// at least `px` big; the biggest when none is.
+unsafe fn sized_icon(index: i32, px: u32) -> Option<RawImg> { unsafe {
+    use windows::Win32::UI::Controls::{IImageList, ILD_TRANSPARENT};
+    let mut best: Option<(i32, IImageList)> = None;
+    for list in [SHIL_SMALL, SHIL_LARGE, SHIL_EXTRALARGE, SHIL_JUMBO] {
+        let Ok(il) = SHGetImageList::<IImageList>(list as i32) else { continue };
+        let (mut cx, mut cy) = (0, 0);
+        if il.GetIconSize(&mut cx, &mut cy).is_err() {
+            continue;
+        }
+        let fits = cx >= px as i32;
+        let better = match &best {
+            None => true,
+            Some((have, _)) => (fits && (*have < px as i32 || cx < *have)) || (!fits && *have < px as i32 && cx > *have),
+        };
+        if better {
+            best = Some((cx, il));
+        }
+    }
+    let (_, il) = best?;
+    let h = il.GetIcon(index, ILD_TRANSPARENT.0).ok()?;
+    let img = icon_to_rgba(h);
+    let _ = DestroyIcon(h);
+    img
+}}
+
+/// Fits a picture into `px` by averaging each square of pixels it covers, which keeps edges sharp where a GPU stretch
+/// blurs them. Smaller pictures are left as they are.
+fn shrink(img: RawImg, px: u32) -> RawImg {
+    let px = px.max(1) as usize;
+    if img.w <= px && img.h <= px {
+        return img;
+    }
+    let scale = img.w.max(img.h) as f32 / px as f32;
+    let (w, h) = (((img.w as f32 / scale).round() as usize).max(1), ((img.h as f32 / scale).round() as usize).max(1));
+    let mut out = vec![0u8; w * h * 4];
+    for y in 0..h {
+        let (y0, y1) = ((y as f32 * scale) as usize, (((y + 1) as f32 * scale).ceil() as usize).min(img.h));
+        for x in 0..w {
+            let (x0, x1) = ((x as f32 * scale) as usize, (((x + 1) as f32 * scale).ceil() as usize).min(img.w));
+            let mut sum = [0u32; 4];
+            for sy in y0..y1 {
+                for sx in x0..x1 {
+                    let i = (sy * img.w + sx) * 4;
+                    for c in 0..4 {
+                        sum[c] += img.rgba[i + c] as u32;
+                    }
+                }
+            }
+            let n = ((y1 - y0) * (x1 - x0)).max(1) as u32;
+            for c in 0..4 {
+                out[(y * w + x) * 4 + c] = (sum[c] / n) as u8;
+            }
+        }
+    }
+    RawImg { w, h, rgba: out, premultiplied: img.premultiplied }
 }
