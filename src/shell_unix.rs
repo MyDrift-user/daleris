@@ -221,6 +221,9 @@ pub fn open_terminal(dir: &Path) {
 }
 
 /// System folder picker: zenity / kdialog on Linux, the Finder chooser on macOS.
+/// Windows's window menu; the desktop's own title bar has one elsewhere.
+pub fn window_menu() {}
+
 pub fn pick_folder() -> Option<PathBuf> {
     let out = if cfg!(target_os = "macos") {
         Command::new("osascript").arg("-e").arg("POSIX path of (choose folder)").output().ok()?

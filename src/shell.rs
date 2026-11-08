@@ -62,6 +62,31 @@ pub fn main_hwnd() -> HWND {
     unsafe { GetActiveWindow() }
 }
 
+/// The menu every window has under its title bar (Restore, Move, Size, Minimize, Maximize, Close), at the pointer,
+/// in Windows's language. Daleris draws its own title bar, so it has to ask for it.
+pub fn window_menu() {
+    unsafe {
+        let hwnd = main_hwnd();
+        let menu = GetSystemMenu(hwnd, false);
+        if hwnd.is_invalid() || menu.is_invalid() {
+            return;
+        }
+        // as Windows sets them for a window of its own: a maximized one can be restored, not moved or sized
+        let maxed = IsZoomed(hwnd).as_bool();
+        let state = |on: bool| if on { MF_ENABLED } else { MF_GRAYED };
+        for (cmd, on) in [(SC_RESTORE, maxed), (SC_MOVE, !maxed), (SC_SIZE, !maxed), (SC_MINIMIZE, true), (SC_MAXIMIZE, !maxed), (SC_CLOSE, true)] {
+            let _ = EnableMenuItem(menu, cmd, MF_BYCOMMAND | state(on));
+        }
+        let _ = SetMenuDefaultItem(menu, SC_CLOSE, 0);
+        let mut at = POINT::default();
+        let _ = GetCursorPos(&mut at);
+        let picked = TrackPopupMenu(menu, TPM_RETURNCMD | TPM_RIGHTBUTTON, at.x, at.y, None, hwnd, None);
+        if picked.0 != 0 {
+            let _ = PostMessageW(Some(hwnd), WM_SYSCOMMAND, WPARAM(picked.0 as usize), LPARAM(0));
+        }
+    }
+}
+
 /// Test hook: this thread's windows can't take focus or show on the taskbar.
 pub fn test_never_activate() {
     use windows::Win32::Foundation::LPARAM;

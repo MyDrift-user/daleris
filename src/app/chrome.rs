@@ -12,6 +12,13 @@ impl App {
         let custom = self.settings.title_custom;
         let frame = egui::Frame::new().fill(CHROME()).inner_margin(egui::Margin { left: 8, right: if custom { 0 } else { 8 }, top: if custom { 0 } else { 6 }, bottom: 0 });
         egui::Panel::top("tabs").exact_size(if custom { 40.0 } else { 38.0 }).frame(frame).show_separator_line(false).show(root, |ui| {
+            // anywhere but a tab or a button is title bar: drag to move, double-click to maximize, right-click for
+            // Windows's window menu. Under everything else, so they keep their own clicks.
+            let bg = ui.interact(ui.max_rect(), ui.scope_id().with("titlebar_bg"), Sense::click_and_drag());
+            let mut window_menu = custom && bg.secondary_clicked();
+            if custom {
+                self.title_drag(ui, &bg);
+            }
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 // title-bar parts (each can be switched off in Settings › Appearance)
@@ -21,6 +28,7 @@ impl App {
                     let logo_w = if self.settings.shows_logo() { 26.0 } else { 0.0 };
                     let (r, resp) = ui.allocate_exact_size(vec2(logo_w + name_w + 8.0, 40.0), Sense::click_and_drag());
                     // standing in for the settings button: a button, drawn like the tabs' hover
+                    window_menu |= custom && resp.secondary_clicked();
                     let button = self.settings.brand_opens_settings();
                     if button && (resp.hovered() || matches!(t.loc, Loc::Settings)) {
                         let fill = if resp.is_pointer_button_down_on() { HOVER() } else { HOVER().gamma_multiply(0.6) };
@@ -58,9 +66,10 @@ impl App {
                 for i in 0..count {
                     let (loc, loading) = if i == self.active { (t.loc.clone(), t.loading) } else { (self.tabs[i].loc.clone(), self.tabs[i].loading) };
                     let active = i == self.active;
-                    let (slot, resp) = ui.allocate_exact_size(vec2(w, 32.0 + tab_y), Sense::click_and_drag());
+                    // the tab is only what's drawn of it: the strip above it is title bar
+                    let (slot, _) = ui.allocate_exact_size(vec2(w, 32.0 + tab_y), Sense::hover());
                     let rect = Rect::from_min_max(slot.min + vec2(0.0, tab_y), slot.max);
-                    let resp = resp.with_new_rect(rect);
+                    let resp = ui.interact(rect, ui.scope_id().with(("tab", i)), Sense::click_and_drag());
                     slots.push(rect);
                     if resp.drag_started() {
                         self.tab_drag = Some(i);
@@ -153,6 +162,7 @@ impl App {
                 let (_, rest) = ui.allocate_exact_size(vec2(free, if custom { 40.0 } else { 32.0 }), Sense::click_and_drag());
                 if custom {
                     self.title_drag(ui, &rest);
+                    window_menu |= rest.secondary_clicked();
                 } else if rest.double_clicked() {
                     self.acts.push(Act::NewTab { same: false });
                 }
@@ -187,6 +197,9 @@ impl App {
                     }
                 }
             });
+            if window_menu {
+                shell::window_menu();
+            }
         });
     }
 
