@@ -114,33 +114,49 @@ pub struct ImgResult {
 
 type Queue = Arc<(Mutex<Vec<ImgReq>>, Condvar)>;
 
+/// A queue and the workers taking from it, with when each started what it's on, so one Windows never answers can be
+/// noticed.
+struct Pool {
+    name: &'static str,
+    q: Queue,
+    busy: Arc<Mutex<Vec<Option<std::time::Instant>>>>,
+}
+
+/// How long every worker of a pool may be on one thing, with more waiting, before another worker is started
+const STUCK: std::time::Duration = std::time::Duration::from_secs(8);
+/// workers a pool may grow to, as each stuck one stays stuck
+const MOST_WORKERS: usize = 8;
+
 /// Background image loader. LIFO so whatever just scrolled into view loads first.
 pub struct Loader {
-    icons: Queue,
-    thumbs: Queue,
+    icons: Pool,
+    thumbs: Pool,
     /// Anything on a network path. Those can take a dead server's time, which local files shouldn't have to wait for.
-    net: Queue,
+    net: Pool,
+    tx: Sender<ImgResult>,
+    ctx: eframe::egui::Context,
     pub rx: Receiver<ImgResult>,
 }
 
 impl Loader {
     pub fn new(ctx: eframe::egui::Context) -> Self {
         let (tx, rx) = channel();
-        let icons: Queue = Arc::new((Mutex::new(Vec::new()), Condvar::new()));
-        let thumbs: Queue = Arc::new((Mutex::new(Vec::new()), Condvar::new()));
-        spawn_workers(&icons, 2, &tx, &ctx);
-        spawn_workers(&thumbs, 3, &tx, &ctx);
-        let net: Queue = Arc::new((Mutex::new(Vec::new()), Condvar::new()));
-        spawn_workers(&net, 2, &tx, &ctx);
-        Loader { icons, thumbs, net, rx }
+        let pool = |name| Pool { name, q: Arc::new((Mutex::new(Vec::new()), Condvar::new())), busy: Arc::new(Mutex::new(Vec::new())) };
+        let l = Loader { icons: pool("icon"), thumbs: pool("thumbnail"), net: pool("network"), tx, ctx, rx };
+        for (p, n) in [(&l.icons, 2), (&l.thumbs, 3), (&l.net, 2)] {
+            for _ in 0..n {
+                l.spawn_worker(p);
+            }
+        }
+        l
     }
 
     pub fn request(&self, r: ImgReq) {
         let q = match &r {
-            ImgReq::Icon { path, by_attrs: false, .. } if crate::fsx::is_network_path(Path::new(path)) => &self.net,
-            ImgReq::Thumb { path, .. } if crate::fsx::is_network_path(path) => &self.net,
-            ImgReq::Icon { .. } | ImgReq::KnownFolder { .. } => &self.icons,
-            ImgReq::Thumb { .. } => &self.thumbs,
+            ImgReq::Icon { path, by_attrs: false, .. } if crate::fsx::is_network_path(Path::new(path)) => &self.net.q,
+            ImgReq::Thumb { path, .. } if crate::fsx::is_network_path(path) => &self.net.q,
+            ImgReq::Icon { .. } | ImgReq::KnownFolder { .. } => &self.icons.q,
+            ImgReq::Thumb { .. } => &self.thumbs.q,
         };
         let mut v = q.0.lock().unwrap();
         v.push(r);
@@ -149,21 +165,40 @@ impl Loader {
 
     /// Drop queued thumbnails that are no longer on screen (e.g. after navigating).
     pub fn clear_thumbs(&self) -> Vec<String> {
-        let mut v = self.thumbs.0.lock().unwrap();
+        let mut v = self.thumbs.q.0.lock().unwrap();
         let mut gone: Vec<String> = v.drain(..).map(|r| r.key().to_string()).collect();
         // and whatever is waiting for a server: the person has moved on
-        gone.extend(self.net.0.lock().unwrap().drain(..).map(|r| r.key().to_string()));
+        gone.extend(self.net.q.0.lock().unwrap().drain(..).map(|r| r.key().to_string()));
         gone
     }
-}
 
-fn spawn_workers(q: &Queue, n: usize, tx: &Sender<ImgResult>, ctx: &eframe::egui::Context) {
-    for i in 0..n {
-        let q = q.clone();
-        let tx = tx.clone();
-        let ctx = ctx.clone();
+    /// A Windows call for an icon can hang for good, and with every worker of a pool on one, nothing behind them would
+    /// ever load. Then another worker starts. Cheap enough to call every frame.
+    pub fn keep_going(&self) {
+        for p in [&self.icons, &self.thumbs, &self.net] {
+            let stuck = {
+                let busy = p.busy.lock().unwrap();
+                busy.len() < MOST_WORKERS && busy.iter().all(|b| b.is_some_and(|t| t.elapsed() > STUCK))
+            };
+            if stuck && !p.q.0.lock().unwrap().is_empty() {
+                log::warn!("every {} worker has waited on Windows for over {} s; starting another", p.name, STUCK.as_secs());
+                self.spawn_worker(p);
+            }
+        }
+    }
+
+    fn spawn_worker(&self, p: &Pool) {
+        let i = {
+            let mut busy = p.busy.lock().unwrap();
+            busy.push(None);
+            busy.len() - 1
+        };
+        let q = p.q.clone();
+        let busy = p.busy.clone();
+        let tx = self.tx.clone();
+        let ctx = self.ctx.clone();
         std::thread::Builder::new()
-            .name(format!("img{i}"))
+            .name(format!("{}{i}", p.name))
             .spawn(move || {
                 init_com();
                 loop {
@@ -174,7 +209,7 @@ fn spawn_workers(q: &Queue, n: usize, tx: &Sender<ImgResult>, ctx: &eframe::egui
                         }
                         v.pop().unwrap()
                     };
-                    let res = match &req {
+                    busy.lock().unwrap()[i] = Some(std::time::Instant::now());                    let res = match &req {
                         ImgReq::Icon { key, path, by_attrs, is_dir, px } => {
                             let (img, tn) = unsafe { file_icon(path, *by_attrs, *is_dir, *px) };
                             ImgResult { key: key.clone(), img, type_name: tn }
@@ -188,6 +223,7 @@ fn spawn_workers(q: &Queue, n: usize, tx: &Sender<ImgResult>, ctx: &eframe::egui
                             ImgResult { key: key.clone(), img, type_name: None }
                         }
                     };
+                    busy.lock().unwrap()[i] = None;
                     if tx.send(res).is_err() {
                         return;
                     }

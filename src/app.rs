@@ -1377,6 +1377,8 @@ pub struct App {
     icons: HashMap<String, Slot>,
     /// Windows icons that failed to load: when last tried and how often, to be asked for again a few times.
     icon_retry: HashMap<String, (f64, u8)>,
+    /// Windows icons asked for and not back yet: when last asked and how often. A call can hang for good.
+    icon_asked: HashMap<String, (f64, u8)>,
     type_names: HashMap<String, String>,
     thumb_order: VecDeque<String>,
     indexes: Vec<Arc<Index>>,
@@ -1517,6 +1519,7 @@ impl App {
             settings,
             icons: HashMap::new(),
             icon_retry: HashMap::new(),
+            icon_asked: HashMap::new(),
             type_names: HashMap::new(),
             thumb_order: VecDeque::new(),
             indexes: Vec::new(),
@@ -1844,6 +1847,7 @@ impl App {
         t.fwd.clear();
         self.editing_address = None;
         for k in self.loader.clear_thumbs() {
+            self.icon_asked.remove(&k);
             self.icons.remove(&k);
         }
         self.start_load(t, false);
@@ -2130,7 +2134,9 @@ impl App {
                 }
             }
         }
+        self.loader.keep_going();
         while let Ok(r) = self.loader.rx.try_recv() {
+            self.icon_asked.remove(&r.key);
             if let Some(tn) = r.type_name {
                 // a type has one name, whatever size its icon was fetched at
                 self.type_names.insert(r.key.split('|').next().unwrap_or(&r.key).to_string(), tn);
@@ -2142,6 +2148,9 @@ impl App {
                     } else {
                         egui::ColorImage::from_rgba_unmultiplied([img.w, img.h], &img.rgba)
                     };
+                    if let Some((_, n)) = self.icon_retry.remove(&r.key) {
+                        log::info!("Windows gave the icon for {} on try {}", r.key, n + 1);
+                    }
                     let opts = egui::TextureOptions { mipmap_mode: Some(egui::TextureFilter::Linear), ..egui::TextureOptions::LINEAR };
                     Slot::Ready(self.ctx.load_texture(&r.key, ci, opts))
                 }
@@ -2480,20 +2489,35 @@ impl App {
     fn tex(&mut self, key: &str, req: impl FnOnce() -> ImgReq) -> Option<egui::TextureId> {
         match self.icons.get(key) {
             Some(Slot::Ready(t)) => Some(t.id()),
-            // a Windows icon that failed is asked for again after a while, up to three times: a failure can be passing,
-            // and the built-in icon would otherwise stay for good
-            Some(Slot::Failed) if self.icon_retry.get(key).is_some_and(|&(at, n)| n < 3 && self.ctx.input(|i| i.time) - at >= 2.0 * n as f64) => {
+            // a Windows icon that failed is asked for again, less often each time: Windows says "not yet" for a while
+            // after signing in, and the built-in icon would otherwise stay for good
+            Some(Slot::Failed) if self.icon_retry.get(key).is_some_and(|&(at, n)| n < ICON_TRIES && self.ctx.input(|i| i.time) - at >= icon_retry_after(n)) => {
                 self.icons.insert(key.to_string(), Slot::Pending);
-                self.loader.request(req());
+                self.ask(key, req());
+                None
+            }
+            // no answer for long enough that the call has likely hung: asked again, as another worker takes over then
+            Some(Slot::Pending) if self.icon_asked.get(key).is_some_and(|&(at, n)| n < 3 && self.ctx.input(|i| i.time) - at >= 15.0) => {
+                log::warn!("no answer from Windows for the icon {key} in 15 s; asking again");
+                self.ask(key, req());
                 None
             }
             Some(_) => None,
             None => {
                 self.icons.insert(key.to_string(), Slot::Pending);
-                self.loader.request(req());
+                self.ask(key, req());
                 None
             }
         }
+    }
+
+    fn ask(&mut self, key: &str, req: ImgReq) {
+        if is_system_icon_key(key) {
+            let now = self.ctx.input(|i| i.time);
+            let e = self.icon_asked.entry(key.to_string()).or_insert((now, 0));
+            *e = (now, e.1 + 1);
+        }
+        self.loader.request(req);
     }
 
     fn place_of(&self, path: &Path) -> Option<&Place> {
@@ -3423,6 +3447,15 @@ mod tests {
     use super::*;
 
     #[test]
+    fn a_failed_windows_icon_is_asked_for_again_for_minutes() {
+        let waits: Vec<f64> = (1..ICON_TRIES).map(icon_retry_after).collect();
+        assert_eq!(&waits[..5], &[2.0, 4.0, 8.0, 16.0, 30.0]);
+        assert!(waits.iter().all(|&w| w <= 30.0));
+        let total: f64 = waits.iter().sum();
+        assert!((180.0..=300.0).contains(&total), "{total}");
+    }
+
+    #[test]
     fn a_new_settings_file_follows_windows_theme() {
         assert_eq!(Settings::defaults().theme, 0);
         let mut s = Settings::defaults();
@@ -3529,6 +3562,14 @@ fn icon_px(ui: &Ui, rect: Rect) -> u32 {
     let small = (16.0 * ppp).round();
     let px = if (want - small) >= 0.0 && (want - small) <= 0.25 * small { small } else { want };
     px.clamp(16.0, 256.0) as u32
+}
+
+/// How often a Windows icon is asked for before the built-in one stays: over about four minutes, see `icon_retry_after`
+const ICON_TRIES: u8 = 12;
+
+/// Seconds after the `n`th failed try to ask again: 2, 4, 8, 16, then every 30.
+fn icon_retry_after(n: u8) -> f64 {
+    (2.0f64).powi(n.min(5) as i32).min(30.0)
 }
 
 /// Keys of icons asked of Windows, as opposed to thumbnails and icon packs.

@@ -206,6 +206,7 @@ impl App {
     pub(super) fn forget_system_icons(&mut self) {
         self.icons.retain(|k, _| !super::is_system_icon_key(k));
         self.icon_retry.clear();
+        self.icon_asked.clear();
     }
 
     /// Mica behind the window, tinted for the theme, when the window was made for it and it's wanted; none otherwise.

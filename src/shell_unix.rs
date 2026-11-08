@@ -90,6 +90,9 @@ impl Loader {
         *v = rest;
         thumbs.iter().map(|r| r.key().to_string()).collect()
     }
+
+    /// Only Windows's icon calls can hang: see the Windows loader.
+    pub fn keep_going(&self) {}
 }
 
 fn spawn_worker(i: usize, q: Queue, tx: Sender<ImgResult>, ctx: eframe::egui::Context) {
