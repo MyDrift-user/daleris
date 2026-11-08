@@ -325,7 +325,7 @@ impl App {
                 }
             }
             Act::RunCustom(i) => {
-                if let (Some(c), Some(dir)) = (self.settings.custom.get(i).cloned(), t.dir().map(|d| d.to_path_buf())) {
+                if let (Some(c), Some(dir)) = (self.settings.commands().get(i).cloned(), t.dir().map(|d| d.to_path_buf())) {
                     let paths = self.selected_paths(&t);
                     let dir = paths.first().and_then(|p| p.parent()).map(|p| p.to_path_buf()).unwrap_or(dir);
                     if let Err(e) = menu::run_custom(&c, &paths, &dir) {

@@ -19,7 +19,7 @@ enum Kind {
 }
 
 /// Registry value name, settings file key, what it holds.
-const VALUES: [(&str, &str, Kind); 36] = [
+const VALUES: [(&str, &str, Kind); 42] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("HideDotfiles", "hide_dots", Kind::Bool),
     ("DefaultSort", "sort_key", Kind::Text),
@@ -47,6 +47,12 @@ const VALUES: [(&str, &str, Kind); 36] = [
     ("RibbonRight", "rright", Kind::Text),
     ("RibbonHidden", "rhide", Kind::Text),
     ("SidebarHiddenSections", SIDEBAR_HIDDEN, Kind::Text),
+    ("SidebarPins", SIDEBAR_PINS, Kind::Text),
+    ("SidebarOrder", SIDEBAR_ORDER, Kind::Text),
+    ("ContextMenuHidden", MENU_HIDDEN, Kind::Text),
+    ("ContextMenuMoreOptions", MENU_MORE, Kind::Text),
+    ("ContextMenuOrder", MENU_ORDER, Kind::Text),
+    ("CustomCommands", COMMANDS, Kind::Text),
     ("ExplorerOpenFolders", "exp_folders", Kind::Bool),
     ("ExplorerWinE", "exp_win_e", Kind::Bool),
     ("ExplorerWinEHook", "exp_win_e_hook", Kind::Bool),
@@ -59,6 +65,13 @@ const VALUES: [(&str, &str, Kind); 36] = [
 ];
 
 const SIDEBAR_HIDDEN: &str = "sidebar_hidden";
+// Settings with a form of their own, which policies set as text: see the helpers further down.
+pub const SIDEBAR_PINS: &str = "sidebar_pins";
+pub const SIDEBAR_ORDER: &str = "sidebar_order";
+pub const MENU_HIDDEN: &str = "menu_hidden";
+pub const MENU_MORE: &str = "menu_more";
+pub const MENU_ORDER: &str = "menu_order";
+pub const COMMANDS: &str = "custom_commands";
 
 #[derive(Default, Clone, PartialEq)]
 pub struct Policy {
@@ -77,7 +90,10 @@ pub struct Policy {
 impl Policy {
     /// Can the person not change this settings file key?
     pub fn is_fixed(&self, key: &str) -> bool {
-        self.fixed.iter().any(|(k, _)| *k == key) || (self.lock_ribbon && matches!(key, "rleft" | "rright" | "rhide"))
+        self.fixed.iter().any(|(k, _)| *k == key)
+            || (self.lock_ribbon && matches!(key, "rleft" | "rright" | "rhide"))
+            // the settings file's own lines for sidebar pins
+            || (key == "spin" && self.has_fixed(SIDEBAR_PINS))
     }
 
     pub fn has_fixed(&self, key: &str) -> bool {
@@ -104,7 +120,28 @@ impl Policy {
     }
 
     pub fn sidebar_locked(&self) -> bool {
-        self.lock_sidebar || self.has_fixed(SIDEBAR_HIDDEN)
+        self.lock_sidebar || self.has_fixed(SIDEBAR_HIDDEN) || self.has_fixed(SIDEBAR_PINS) || self.has_fixed(SIDEBAR_ORDER)
+    }
+
+    /// Can the person not rearrange the right-click menu?
+    pub fn menu_locked(&self) -> bool {
+        self.lock_menu || self.has_fixed(MENU_HIDDEN) || self.has_fixed(MENU_MORE) || self.has_fixed(MENU_ORDER)
+    }
+
+    /// Where a policy puts a right-click menu item, if anywhere: what's fixed, or failing that the default.
+    /// A fixed list leaves every item it doesn't name where Daleris puts it.
+    pub fn menu_place(&self, key: &str, fixed: bool) -> Option<&'static str> {
+        let value = |k| if fixed { self.fixed_value(k) } else { self.recommended_value(k) };
+        let names = |k| value(k).is_some_and(|v| list(v).iter().any(|x| x == key));
+        if names(MENU_HIDDEN) {
+            Some("hide")
+        } else if names(MENU_MORE) {
+            Some("more")
+        } else if fixed && (self.has_fixed(MENU_HIDDEN) || self.has_fixed(MENU_MORE)) {
+            Some("default")
+        } else {
+            None
+        }
     }
 
     /// Sidebar sections that policy always hides.
@@ -234,6 +271,71 @@ fn read() -> Policy {
     build(|name| first(&fixed_at, name), |name| first(&default_at, name))
 }
 
+// ---------------------------------------------------------------- settings with a form of their own, as text
+
+/// Items separated by `|`, without blanks.
+pub fn list(text: &str) -> Vec<String> {
+    text.split('|').map(str::trim).filter(|s| !s.is_empty()).map(String::from).collect()
+}
+
+/// `%NAME%` replaced by that environment variable, and on Linux and macOS a leading `~` by the home folder.
+pub fn expand(text: &str) -> String {
+    let mut out = String::new();
+    let mut rest = text;
+    while let Some(start) = rest.find('%') {
+        out.push_str(&rest[..start]);
+        let after = &rest[start + 1..];
+        match after.find('%').and_then(|end| std::env::var(&after[..end]).ok().map(|v| (end, v))) {
+            Some((end, value)) => {
+                out.push_str(&value);
+                rest = &after[end + 1..];
+            }
+            None => {
+                out.push('%');
+                rest = after;
+            }
+        }
+    }
+    out.push_str(rest);
+    if cfg!(not(windows)) {
+        if let (Some(tail), Some(home)) = (out.strip_prefix('~'), std::env::var_os("HOME")) {
+            if tail.is_empty() || tail.starts_with('/') {
+                return format!("{}{tail}", home.to_string_lossy());
+            }
+        }
+    }
+    out
+}
+
+/// Sidebar pins: `section>folder` items, or just `folder` for Quick access.
+pub fn pins(text: &str) -> Vec<(String, std::path::PathBuf)> {
+    list(text)
+        .iter()
+        .map(|item| match item.split_once('>') {
+            Some((section, path)) => (section.trim().to_string(), std::path::PathBuf::from(expand(path.trim()))),
+            None => ("quick".to_string(), std::path::PathBuf::from(expand(item))),
+        })
+        .filter(|(_, p)| !p.as_os_str().is_empty())
+        .collect()
+}
+
+/// Custom commands: `name>command` items, or `name>which items>command`, where which items is all, files, folders,
+/// background or ext:jpg,png.
+pub fn commands(text: &str) -> Vec<(String, String, String)> {
+    list(text)
+        .iter()
+        .filter_map(|item| {
+            let parts: Vec<&str> = item.splitn(3, '>').map(str::trim).collect();
+            match parts.as_slice() {
+                [name, command] => Some((name.to_string(), "all".to_string(), command.to_string())),
+                [name, applies, command] => Some((name.to_string(), applies.to_string(), command.to_string())),
+                _ => None,
+            }
+        })
+        .filter(|(name, _, command)| !name.is_empty() && !command.is_empty())
+        .collect()
+}
+
 /// A policy's text as the text the settings file would hold, if it is valid.
 fn to_setting(kind: Kind, raw: String) -> Option<String> {
     let num = || raw.trim().parse::<u32>().ok();
@@ -319,6 +421,27 @@ mod tests {
         for name in VALUES.iter().map(|(name, _, _)| *name).chain(LOCKS) {
             assert!(guide.contains(name), "PolicyDefinitions/README.txt doesn't mention {name}");
         }
+    }
+
+    #[test]
+    fn pins_and_commands_are_read_from_text() {
+        let p = pins(" C:\\Users\\%CARGO_PKG_NAME%\\Work | network>\\\\server\\share ||");
+        assert_eq!(p, [("quick".to_string(), "C:\\Users\\daleris\\Work".into()), ("network".to_string(), "\\\\server\\share".into())]);
+        assert_eq!(expand("%NOT_SET_ANYWHERE%\\x"), "%NOT_SET_ANYWHERE%\\x", "an unknown variable stays as written");
+        let c = commands("Edit>code \"{path}\" | Resize>ext:jpg,png>magick {path} -resize 50% | nonsense | >empty");
+        assert_eq!(c, [("Edit".to_string(), "all".to_string(), "code \"{path}\"".to_string()), ("Resize".to_string(), "ext:jpg,png".to_string(), "magick {path} -resize 50%".to_string())]);
+    }
+
+    #[test]
+    fn menu_items_go_where_the_policy_puts_them() {
+        let p = Policy { fixed: vec![(MENU_HIDDEN, "app:terminal|v:open".into())], recommended: vec![(MENU_MORE, "app:sort".into())], ..Default::default() };
+        assert_eq!(p.menu_place("v:open", true), Some("hide"));
+        assert_eq!(p.menu_place("app:newtab", true), Some("default"), "a fixed list sets the whole menu");
+        assert_eq!(p.menu_place("app:sort", false), Some("more"));
+        assert_eq!(p.menu_place("app:newtab", false), None);
+        assert!(p.menu_locked());
+        assert!(!Policy { recommended: vec![(MENU_HIDDEN, "app:sort".into())], ..Default::default() }.menu_locked(), "a default leaves it open");
+        assert!(Policy { fixed: vec![(SIDEBAR_PINS, "C:\\x".into())], ..Default::default() }.is_fixed("spin"));
     }
 
     #[test]

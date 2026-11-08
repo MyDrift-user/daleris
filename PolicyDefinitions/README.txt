@@ -61,6 +61,21 @@ VALUES
   RibbonHidden              SZ      ribbon items that are switched off, separated by |
   SidebarHiddenSections     SZ      any of quick, cloud, pc, network, separated by |
                                     (as a default this only applies the first time the app runs)
+  SidebarPins               SZ      folders pinned to the sidebar, separated by |. section>folder pins to a
+                                    section (quick, cloud, pc, network), a plain folder to Quick access.
+                                    %USERPROFILE% and other environment variables work, and on Linux and macOS ~
+                                    (as a default this only applies the first time the app runs)
+  SidebarOrder              SZ      sections in order, any of quick, cloud, pc, network, separated by |
+                                    (as a default this only applies the first time the app runs)
+  ContextMenuHidden         SZ      right-click menu items never shown, separated by |. See MENU ITEMS below
+  ContextMenuMoreOptions    SZ      right-click menu items moved into Show more options, separated by |
+  ContextMenuOrder          SZ      right-click menu items in order, separated by |. Items left out follow
+  CustomCommands            SZ      commands in the right-click menu, separated by |. Each is name>command or
+                                    name>items>command, items being all, files, folders, background or
+                                    ext:jpg,png. {path}, {paths}, {name} and {dir} work in the command.
+                                    The command can't hold | or >. As a fixed value it replaces people's own
+                                    commands, which come back without it
+                                    (as a default this only applies the first time the app runs)
 
   ExplorerOpenFolders       DWORD   0 off, 1 on. Folders from the desktop, Start and most apps open in Daleris
   ExplorerWinE              DWORD   0 off, 1 on. Win + E opens Daleris, through the setting Windows reads for it
@@ -89,6 +104,20 @@ UPDATES ON A PC-WIDE INSTALL
   The task goes by, in order: DisableUpdates, a fixed AutomaticUpdates, the switch in Settings (which is
   kept in %ProgramData%\Daleris\auto-update.txt for the whole PC), a default AutomaticUpdates. Otherwise it's on.
   A fixed AutomaticUpdates of 1 means no user of the PC can turn updates off.
+
+MENU ITEMS
+  ContextMenuHidden, ContextMenuMoreOptions and ContextMenuOrder name items like this:
+    Daleris's own   app:newtab, app:newwindow, app:terminal, app:openwith, app:runadmin, app:location,
+                    app:linktarget, app:copycontents, app:pin, app:new, app:newtext, app:paste, app:sort,
+                    app:refresh, app:selectall, app:deleteperm, app:disconnect, app:cloudkeep, app:cloudfree,
+                    app:properties, app:moresub (Show more options), app:more (the classic Windows menu),
+                    app:customize
+    Windows'        v: and the verb, such as v:open, v:edit or v:print
+                    or l: and the label in lower case, such as l:scan with microsoft defender
+  Items people move under Settings > Right-click menu are written to the settings file as menu= lines, which show
+  the name to use for any item. A fixed hidden or more-options list sets the whole menu: items it doesn't name go
+  where Daleris puts them, and the menu can't be customized. Any of the three as a default applies to each item
+  until the person moves it.
 
 WINDOWS EXPLORER INTEGRATION
   The Explorer values above only mean something on Windows, and are ignored on Linux and macOS.

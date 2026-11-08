@@ -664,6 +664,33 @@ impl Settings {
         }
     }
 
+    /// The custom commands in force: an administrator's fixed list, or the person's own.
+    fn commands(&self) -> Vec<CustomCmd> {
+        match policy::current().fixed_value(policy::COMMANDS) {
+            Some(v) => policy::commands(v).into_iter().map(|(label, applies, command)| CustomCmd { label, command, applies }).collect(),
+            None => self.custom.clone(),
+        }
+    }
+
+    /// Sidebar pins from a policy: each in its section, or in Quick access if there's no such section.
+    fn set_pins(&mut self, text: &str) {
+        for sec in &mut self.sections {
+            sec.pins.clear();
+        }
+        for (id, path) in policy::pins(text) {
+            let id = if self.sections.iter().any(|s| s.id == id) { id } else { "quick".to_string() };
+            if let Some(sec) = self.section_mut(&id) {
+                sec.pins.push(path);
+            }
+        }
+    }
+
+    /// Sidebar sections in a policy's order. Sections it doesn't name keep their order after those it does.
+    fn order_sections(&mut self, text: &str) {
+        let order = policy::list(text);
+        self.sections.sort_by_key(|s| order.iter().position(|id| *id == s.id).unwrap_or(order.len()));
+    }
+
     fn row_h(&self) -> f32 {
         [24.0, 28.0, 34.0][self.density.min(2) as usize]
     }
@@ -819,6 +846,12 @@ impl Settings {
         if pol.ribbon_locked() {
             self.fix_ribbon();
         }
+        if let Some(v) = pol.fixed_value(policy::SIDEBAR_PINS) {
+            self.set_pins(v);
+        }
+        if let Some(v) = pol.fixed_value(policy::SIDEBAR_ORDER) {
+            self.order_sections(v);
+        }
     }
 
     fn load() -> Settings {
@@ -827,7 +860,9 @@ impl Settings {
         let mut sections: Vec<SectionCfg> = Vec::new();
         let mut legacy_pins: Vec<PathBuf> = Vec::new();
         let mut spins: Vec<(String, PathBuf)> = Vec::new();
-        if let Some(text) = Self::file().and_then(|f| std::fs::read_to_string(f).ok()) {
+        let saved = Self::file().and_then(|f| std::fs::read_to_string(f).ok());
+        let first_run = saved.is_none();
+        if let Some(text) = saved {
             for line in text.lines() {
                 let Some((k, v)) = line.split_once('=') else { continue };
                 // the person's own choice waits underneath a fixed policy
@@ -914,6 +949,18 @@ impl Settings {
         if let Some(q) = s.section_mut("quick") {
             q.pins.extend(legacy_pins);
         }
+        // the first run: what the administrator suggests for the sidebar and the person's own commands
+        if first_run {
+            if let Some(v) = pol.recommended_value(policy::SIDEBAR_PINS) {
+                s.set_pins(v);
+            }
+            if let Some(v) = pol.recommended_value(policy::SIDEBAR_ORDER) {
+                s.order_sections(v);
+            }
+            if let Some(v) = pol.recommended_value(policy::COMMANDS) {
+                s.custom = policy::commands(v).into_iter().map(|(label, applies, command)| CustomCmd { label, command, applies }).collect();
+            }
+        }
         s.fix_ribbon();
         s.enforce(&pol);
         s
@@ -949,8 +996,11 @@ impl Settings {
         }
         for sec in &self.sections {
             out += &format!("section={}\t{}\t{}\t{}\n", sec.id, b(sec.visible), b(sec.collapsed), sec.title.replace('\t', " "));
-            for p in &sec.pins {
-                out += &format!("spin={}\t{}\n", sec.id, p.display());
+            // pins a policy fixes aren't the person's: theirs wait in `kept`
+            if !pol.is_fixed("spin") {
+                for p in &sec.pins {
+                    out += &format!("spin={}\t{}\n", sec.id, p.display());
+                }
             }
         }
         for (folder, spec) in &self.folder_sorts {

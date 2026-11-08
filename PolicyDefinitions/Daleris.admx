@@ -194,6 +194,36 @@
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="SidebarHiddenSections" valueName="SidebarHiddenSections" /></elements>
     </policy>
+    <policy name="Fixed_SidebarPins" class="Both" displayName="$(string.SidebarPins)" explainText="$(string.SidebarPinsExplain_ExplainFixed)" presentation="$(presentation.SidebarPins)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="SidebarPins" valueName="SidebarPins" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Fixed_SidebarOrder" class="Both" displayName="$(string.SidebarOrder)" explainText="$(string.SidebarOrderExplain_ExplainFixed)" presentation="$(presentation.SidebarOrder)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="SidebarOrder" valueName="SidebarOrder" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Fixed_ContextMenuHidden" class="Both" displayName="$(string.ContextMenuHidden)" explainText="$(string.ContextMenuHiddenExplain_ExplainFixed)" presentation="$(presentation.ContextMenuHidden)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ContextMenuHidden" valueName="ContextMenuHidden" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Fixed_ContextMenuMoreOptions" class="Both" displayName="$(string.ContextMenuMoreOptions)" explainText="$(string.ContextMenuMoreOptionsExplain_ExplainFixed)" presentation="$(presentation.ContextMenuMoreOptions)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ContextMenuMoreOptions" valueName="ContextMenuMoreOptions" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Fixed_ContextMenuOrder" class="Both" displayName="$(string.ContextMenuOrder)" explainText="$(string.ContextMenuOrderExplain_ExplainFixed)" presentation="$(presentation.ContextMenuOrder)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ContextMenuOrder" valueName="ContextMenuOrder" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Fixed_CustomCommands" class="Both" displayName="$(string.CustomCommands)" explainText="$(string.CustomCommandsExplain_ExplainFixed)" presentation="$(presentation.CustomCommands)" key="Software\Policies\Daleris">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="CustomCommands" valueName="CustomCommands" maxLength="2000" /></elements>
+    </policy>
     <policy name="Fixed_ExplorerOpenFolders" class="Both" displayName="$(string.ExplorerOpenFolders)" explainText="$(string.ExplorerOpenFoldersExplain_ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerOpenFolders">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -455,6 +485,36 @@
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <elements><text id="SidebarHiddenSections" valueName="SidebarHiddenSections" /></elements>
+    </policy>
+    <policy name="Rec_SidebarPins" class="Both" displayName="$(string.SidebarPins)" explainText="$(string.SidebarPinsExplain_ExplainRecommended)" presentation="$(presentation.SidebarPins)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="SidebarPins" valueName="SidebarPins" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Rec_SidebarOrder" class="Both" displayName="$(string.SidebarOrder)" explainText="$(string.SidebarOrderExplain_ExplainRecommended)" presentation="$(presentation.SidebarOrder)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="SidebarOrder" valueName="SidebarOrder" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Rec_ContextMenuHidden" class="Both" displayName="$(string.ContextMenuHidden)" explainText="$(string.ContextMenuHiddenExplain_ExplainRecommended)" presentation="$(presentation.ContextMenuHidden)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ContextMenuHidden" valueName="ContextMenuHidden" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Rec_ContextMenuMoreOptions" class="Both" displayName="$(string.ContextMenuMoreOptions)" explainText="$(string.ContextMenuMoreOptionsExplain_ExplainRecommended)" presentation="$(presentation.ContextMenuMoreOptions)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ContextMenuMoreOptions" valueName="ContextMenuMoreOptions" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Rec_ContextMenuOrder" class="Both" displayName="$(string.ContextMenuOrder)" explainText="$(string.ContextMenuOrderExplain_ExplainRecommended)" presentation="$(presentation.ContextMenuOrder)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="ContextMenuOrder" valueName="ContextMenuOrder" maxLength="2000" /></elements>
+    </policy>
+    <policy name="Rec_CustomCommands" class="Both" displayName="$(string.CustomCommands)" explainText="$(string.CustomCommandsExplain_ExplainRecommended)" presentation="$(presentation.CustomCommands)" key="Software\Policies\Daleris\Recommended">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <elements><text id="CustomCommands" valueName="CustomCommands" maxLength="2000" /></elements>
     </policy>
     <policy name="Rec_ExplorerOpenFolders" class="Both" displayName="$(string.ExplorerOpenFolders)" explainText="$(string.ExplorerOpenFoldersExplain_ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerOpenFolders">
       <parentCategory ref="Recommended" />

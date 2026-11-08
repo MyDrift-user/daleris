@@ -294,7 +294,7 @@ impl App {
             return Vec::new();
         }
         self.settings
-            .custom
+            .commands()
             .iter()
             .enumerate()
             .filter(|(_, c)| custom_applies(c, row))
@@ -431,25 +431,66 @@ impl App {
 
     pub(super) fn entry_mode(&self, e: &MEntry) -> MenuMode {
         let keys = std::iter::once(e.key.as_str()).chain(e.alt_key.as_deref());
+        // An administrator's fixed lists come first, then the person's own choice, then the administrator's defaults.
+        let pol = policy::current();
+        let placed = |fixed: bool| {
+            let places: Vec<&str> = keys.clone().filter_map(|k| pol.menu_place(k, fixed)).collect();
+            if places.contains(&"hide") {
+                Some(Some(MenuMode::Hide))
+            } else if places.contains(&"more") {
+                Some(Some(MenuMode::More))
+            } else if places.contains(&"default") {
+                Some(None)
+            } else {
+                None
+            }
+        };
+        match placed(true) {
+            Some(Some(mode)) => return mode,
+            Some(None) => return builtin_mode(keys),
+            None => {}
+        }
         for k in keys.clone() {
             if let Some((m, _)) = self.settings.menu_rules.get(k) {
                 return *m;
             }
         }
-        for k in keys {
-            if DEFAULT_HIDDEN.contains(&k) {
-                return MenuMode::Hide;
-            }
-            if DEFAULT_MORE.contains(&k) {
-                return MenuMode::More;
-            }
+        if let Some(Some(mode)) = placed(false) {
+            return mode;
         }
-        MenuMode::Show
+        builtin_mode(keys)
     }
 
+    /// The order the menu's items go in: an administrator's fixed order, the person's own, or the administrator's default.
+    pub(super) fn menu_order(&self) -> Vec<String> {
+        let pol = policy::current();
+        if let Some(v) = pol.fixed_value(policy::MENU_ORDER) {
+            return policy::list(v);
+        }
+        if !self.settings.menu_order.is_empty() {
+            return self.settings.menu_order.clone();
+        }
+        pol.recommended_value(policy::MENU_ORDER).map(policy::list).unwrap_or_default()
+    }
+}
+
+/// Where Daleris itself puts a menu item.
+fn builtin_mode<'a>(keys: impl Iterator<Item = &'a str>) -> MenuMode {
+    for k in keys {
+        if DEFAULT_HIDDEN.contains(&k) {
+            return MenuMode::Hide;
+        }
+        if DEFAULT_MORE.contains(&k) {
+            return MenuMode::More;
+        }
+    }
+    MenuMode::Show
+}
+
+impl App {
     /// Entries in the person's order, each with where it should appear.
     pub(super) fn arrange(&self, mut entries: Vec<MEntry>) -> Vec<(MEntry, MenuMode)> {
-        apply_order(&mut entries, &self.settings.menu_order, |e| e.key.as_str());
+        apply_order(&mut entries, &self.menu_order(), |e| e.key.as_str());
         entries.into_iter().map(|e| (self.entry_mode(&e), e)).map(|(m, e)| (e, m)).collect()
     }
 
@@ -745,11 +786,11 @@ impl App {
         let list = self.arrange(entries);
 
         let pol = policy::current();
-        if pol.lock_menu {
+        if pol.menu_locked() {
             settings_page::managed_note(ui);
             ui.add_space(6.0);
         }
-        let menu_enabled = !pol.lock_menu;
+        let menu_enabled = !pol.menu_locked();
         let wide = ui.available_width() > 820.0;
         let menu_w = if wide { (ui.available_width() * 0.56).min(520.0) } else { ui.available_width().min(560.0) };
         let mut handled = false;
@@ -798,6 +839,15 @@ impl App {
         if pol.no_custom_commands {
             ui.label(egui::RichText::new("Your own commands").strong());
             settings_page::managed_note(ui);
+        } else if pol.has_fixed(policy::COMMANDS) {
+            ui.label(egui::RichText::new("Your own commands").strong());
+            settings_page::managed_note(ui);
+            for cmd in self.settings.commands() {
+                ui.horizontal(|ui| {
+                    ui.label(egui::RichText::new(&cmd.label).strong());
+                    ui.label(egui::RichText::new(&cmd.command).monospace().color(DIM()));
+                });
+            }
         } else {
             ui.add_enabled_ui(menu_enabled, |ui| self.custom_commands_editor(ui));
         }
@@ -976,7 +1026,7 @@ impl App {
                 .unwrap_or(keys.len()),
         };
         keys.insert(at, key.to_string());
-        let rest: Vec<String> = self.settings.menu_order.iter().filter(|k| !keys.contains(k)).cloned().collect();
+        let rest: Vec<String> = self.menu_order().iter().filter(|k| !keys.contains(k)).cloned().collect();
         keys.extend(rest);
         self.settings.menu_order = keys;
         if mode != zone {
