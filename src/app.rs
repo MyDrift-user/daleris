@@ -719,7 +719,7 @@ impl Settings {
     fn defaults() -> Settings {
         Settings {
             show_hidden: false,
-            hide_dotfiles: false,
+            hide_dotfiles: true,
             explorer_colours: false,
             explorer_lines: false,
             explorer_mica: false,
@@ -3499,7 +3499,7 @@ mod tests {
     #[test]
     fn the_new_defaults_are_what_was_asked_for() {
         let s = Settings::defaults();
-        assert!(!s.hide_dotfiles, "dotfiles show unless someone hides them");
+        assert!(s.hide_dotfiles, "dotfiles and dotfolders are hidden unless someone shows them");
         assert!(s.dirs_first && s.sort_asc && s.sort_key == SortKey::Name);
         assert!(s.downloads_newest);
     }
@@ -3527,7 +3527,7 @@ mod tests {
     fn dotfiles_are_hidden_on_their_own_only_on_windows() {
         let s = Settings { hide_dotfiles: true, ..Settings::defaults() };
         assert_eq!(s.hides_dotfiles(), cfg!(windows), "on Linux and macOS, Show hidden items decides");
-        assert!(!Settings::defaults().hides_dotfiles());
+        assert!(!Settings { hide_dotfiles: false, ..Settings::defaults() }.hides_dotfiles());
     }
 
     #[test]
