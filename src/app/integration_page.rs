@@ -173,26 +173,54 @@ impl App {
         ui.add_space(14.0);
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            if managed_toggle(ui, &mut self.settings.explorer_look, "explorer_look", "Look like Windows Explorer") {
+            // the whole look is on when every part below is set its way
+            let mut look = self.settings.looks_like_explorer();
+            if managed_toggle(ui, &mut look, "explorer_look", "Look like Windows Explorer") {
+                self.settings.explorer_look(look);
                 self.apply_theme();
             }
-            // Mica: Windows 11 only, and the window has to be made for it when it opens
-            if crate::shell::has_mica() {
-                ui.add_enabled_ui(self.settings.explorer_look, |ui| {
-                    if managed_toggle(ui, &mut self.settings.explorer_mica, "explorer_mica", "Mica behind the tab bar, as in Explorer") {
+            ui.label(egui::RichText::new("Turns everything below on at once. Off puts it all back to how Daleris looks on its own.").color(DIM()));
+            ui.add_space(8.0);
+            let parts_free = !policy::is_fixed("explorer_look");
+            ui.add_enabled_ui(parts_free, |ui| {
+                ui.indent("explorer_parts", |ui| {
+                    let s = &mut self.settings;
+                    let mut changed = managed_toggle(ui, &mut s.explorer_colours, "explorer_colours", "Explorer's colours, following Windows's light or dark mode and accent");
+                    changed |= managed_toggle(ui, &mut s.explorer_lines, "explorer_lines", "Explorer's lines between the panes and around the tab in front");
+                    // Mica: Windows 11 only, and the window has to be made for it when it opens
+                    if crate::shell::has_mica() {
+                        changed |= managed_toggle(ui, &mut s.explorer_mica, "explorer_mica", "Mica behind the tab bar");
+                    }
+                    if !prefers_bundled_icons() {
+                        let mut system = s.icon_pack == "system";
+                        if managed_toggle(ui, &mut system, "iconpack", "Windows's own icons") {
+                            s.icon_pack = if system { "system".into() } else { "flat".into() };
+                            changed = true;
+                        }
+                    }
+                    let mut compact = s.density == 0;
+                    if managed_toggle(ui, &mut compact, "density", "Compact rows") {
+                        s.density = if compact { 0 } else { 1 };
+                        changed = true;
+                    }
+                    let mut bare = !s.title_logo && !s.title_name;
+                    if managed_toggle(ui, &mut bare, "title_logo", "No logo or name in the title bar") {
+                        s.title_logo = !bare;
+                        s.title_name = false;
+                        changed = true;
+                    }
+                    if changed {
                         self.apply_theme();
                     }
                 });
-                if self.settings.explorer_look && self.settings.explorer_mica && !crate::theme::mica_window() {
-                    ui.label(egui::RichText::new("Takes effect when Daleris starts again.").size(12.0).color(DIM()));
-                }
+            });
+            if !parts_free {
+                managed_note(ui);
             }
-            ui.label(
-                egui::RichText::new(
-                    "Explorer's colours in light and dark mode, following Windows, with its flat sidebar and This PC, Windows's own icons, and no logo or name in the title bar. The settings it decides are greyed out under Appearance.",
-                )
-                .color(DIM()),
-            );
+            if self.settings.wants_mica() && crate::shell::has_mica() && !crate::theme::mica_window() {
+                ui.add_space(4.0);
+                ui.label(egui::RichText::new("Mica takes effect when Daleris starts again.").size(12.0).color(DIM()));
+            }
         });
         ui.add_space(14.0);
         let enabled = !integration::is_elevated();

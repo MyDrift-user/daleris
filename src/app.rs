@@ -552,9 +552,11 @@ pub struct Settings {
     show_hidden: bool,
     /// names starting with a dot, whatever their attributes say
     hide_dotfiles: bool,
-    /// look like Windows Explorer: its colours, its icons, no logo or name in the title bar. Windows only
-    explorer_look: bool,
-    /// with Explorer's look on Windows 11, Mica behind the tab strip
+    /// Explorer's colours, following Windows's light or dark mode and accent. Windows only
+    explorer_colours: bool,
+    /// Explorer's lines between the panes and around the front tab, the open place marked by its colour alone
+    explorer_lines: bool,
+    /// Mica behind the tab strip, on a Windows 11 that has it
     explorer_mica: bool,
     /// open a tab when Windows opens a drive that was just connected, such as a USB stick. Windows only
     open_new_drives: bool,
@@ -694,11 +696,10 @@ fn is_new_drive(dir: &Path) -> bool {
     dir.parent().is_none() && fsx::connected_for(dir).is_some_and(|d| d < NEW_DRIVE)
 }
 
-/// Whether the window starts see-through for Mica: Explorer's look with Mica on, on a Windows 11 that has it.
+/// Whether the window starts see-through for Mica: Mica on, on a Windows 11 that has it.
 #[cfg(windows)]
 pub fn starts_with_mica() -> bool {
-    let s = Settings::load();
-    s.looks_like_explorer() && s.explorer_mica && shell::has_mica()
+    Settings::load().wants_mica() && shell::has_mica()
 }
 
 pub fn starts_with_custom_titlebar(screenshot: bool) -> bool {
@@ -717,8 +718,9 @@ impl Settings {
         Settings {
             show_hidden: false,
             hide_dotfiles: false,
-            explorer_look: false,
-            explorer_mica: true,
+            explorer_colours: false,
+            explorer_lines: false,
+            explorer_mica: false,
             open_new_drives: true,
             start_new_window: true,
             share_marks: true,
@@ -844,21 +846,49 @@ impl Settings {
         self.sections.sort_by_key(|s| order.iter().position(|id| *id == s.id).unwrap_or(order.len()));
     }
 
-    fn looks_like_explorer(&self) -> bool {
-        cfg!(windows) && self.explorer_look
+    /// Explorer's colours in use. Windows only.
+    fn explorer_colours(&self) -> bool {
+        cfg!(windows) && self.explorer_colours
     }
 
-    /// The icon pack in use: Windows's icons when Daleris looks like Explorer.
+    /// Mica wanted behind the tab strip. Windows only.
+    fn wants_mica(&self) -> bool {
+        cfg!(windows) && self.explorer_mica
+    }
+
+    /// Every setting that makes up Explorer's look is set its way: what "Look like Windows Explorer" shows.
+    fn looks_like_explorer(&self) -> bool {
+        self.explorer_colours
+            && self.explorer_lines
+            && (self.explorer_mica || !shell::has_mica())
+            && (self.icon_pack == "system" || prefers_bundled_icons())
+            && self.density == 0
+            && !self.title_logo
+            && !self.title_name
+    }
+
+    /// Set every setting that makes up Explorer's look its way, or, for off, back to Daleris's own.
+    fn explorer_look(&mut self, on: bool) {
+        let own = Settings::defaults();
+        self.explorer_colours = on;
+        self.explorer_lines = on;
+        self.explorer_mica = on;
+        self.icon_pack = if on && !prefers_bundled_icons() { "system".into() } else { own.icon_pack };
+        self.density = if on { 0 } else { own.density };
+        self.title_logo = !on && own.title_logo;
+        self.title_name = !on && own.title_name;
+    }
+
     fn pack(&self) -> &str {
-        if self.looks_like_explorer() && !prefers_bundled_icons() { "system" } else { &self.icon_pack }
+        &self.icon_pack
     }
 
     fn shows_logo(&self) -> bool {
-        self.title_logo && !self.looks_like_explorer()
+        self.title_logo
     }
 
     fn shows_name(&self) -> bool {
-        self.title_name && !self.looks_like_explorer()
+        self.title_name
     }
 
     /// "Hide dotfiles" only means something on Windows: on Linux and macOS a leading dot is what makes a name hidden,
@@ -867,9 +897,8 @@ impl Settings {
         cfg!(windows) && self.hide_dotfiles
     }
 
-    /// The row height in use: Explorer's look has Explorer's compact rows.
     fn density(&self) -> u8 {
-        if self.looks_like_explorer() { 0 } else { self.density }
+        self.density
     }
 
     fn row_h(&self) -> f32 {
@@ -877,13 +906,18 @@ impl Settings {
     }
 
     fn palette(&self) -> Palette {
-        if self.looks_like_explorer() {
-            let mut p = Palette::explorer(system_dark(), system_accent().unwrap_or(ACCENTS[0].1));
-            // Mica shows where the tab strip leaves its background empty
-            if self.explorer_mica && crate::theme::mica_window() {
-                p.chrome = Color32::TRANSPARENT;
-            }
-            return p;
+        let mut p = self.colours();
+        p.explorer = cfg!(windows) && self.explorer_lines;
+        // Mica shows where the tab strip leaves its background empty
+        if self.wants_mica() && crate::theme::mica_window() {
+            p.chrome = Color32::TRANSPARENT;
+        }
+        p
+    }
+
+    fn colours(&self) -> Palette {
+        if self.explorer_colours() {
+            return Palette::explorer(system_dark(), system_accent().unwrap_or(ACCENTS[0].1));
         }
         let dark = match self.theme {
             0 => system_dark(),
@@ -924,7 +958,10 @@ impl Settings {
         match k {
             "hidden" => self.show_hidden = on,
             "hide_dots" => self.hide_dotfiles = on,
-            "explorer_look" => self.explorer_look = on,
+            // not kept itself: it sets the settings that make up Explorer's look
+            "explorer_look" => self.explorer_look(on),
+            "explorer_colours" => self.explorer_colours = on,
+            "explorer_lines" => self.explorer_lines = on,
             "explorer_mica" => self.explorer_mica = on,
             "open_new_drives" => self.open_new_drives = on,
             "start_new_window" => self.start_new_window = on,
@@ -982,7 +1019,8 @@ impl Settings {
         let mut lines = vec![
             ("hidden", b(self.show_hidden)),
             ("hide_dots", b(self.hide_dotfiles)),
-            ("explorer_look", b(self.explorer_look)),
+            ("explorer_colours", b(self.explorer_colours)),
+            ("explorer_lines", b(self.explorer_lines)),
             ("explorer_mica", b(self.explorer_mica)),
             ("open_new_drives", b(self.open_new_drives)),
             ("start_new_window", b(self.start_new_window)),
@@ -1096,6 +1134,8 @@ impl Settings {
         let mut spins: Vec<(String, PathBuf)> = Vec::new();
         let saved = Self::file().and_then(|f| std::fs::read_to_string(f).ok());
         let first_run = saved.is_none();
+        let mut old_look: Option<bool> = None;
+        let mut old_mica = true;
         let mut own_patterns = false;
         if let Some(text) = saved {
             for line in text.lines() {
@@ -1115,6 +1155,16 @@ impl Settings {
                 if pol.is_fixed(k) {
                     s.kept.push(line.to_string());
                     continue;
+                }
+                // before Explorer's look was made of settings of its own, it was one: see below
+                match k {
+                    "explorer_look" => {
+                        old_look = Some(v == "1");
+                        continue;
+                    }
+                    "explorer_colours" => old_look = None,
+                    "explorer_mica" => old_mica = v == "1",
+                    _ => {}
                 }
                 if s.set_value(k, v) {
                     continue;
@@ -1194,6 +1244,14 @@ impl Settings {
         }
         if let Some(q) = s.section_mut("quick") {
             q.pins.extend(legacy_pins);
+        }
+        // A file from before: "Look like Windows Explorer" stood in for its parts, which kept the person's own choices
+        // underneath, and Mica, on by default then (so not written), only showed with it.
+        if let Some(look) = old_look {
+            if look {
+                s.explorer_look(true);
+            }
+            s.explorer_mica = look && old_mica;
         }
         // the first run: what the administrator suggests for the sidebar and the person's own commands
         if first_run {
@@ -3353,6 +3411,26 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn explorer_look_is_the_settings_it_is_made_of() {
+        let mut s = Settings::defaults();
+        assert!(!s.looks_like_explorer());
+        assert!(s.set_value("explorer_look", "1"));
+        assert!(s.looks_like_explorer());
+        assert!(s.explorer_colours && s.explorer_lines && s.density == 0 && !s.title_logo && !s.title_name);
+        // one part set back and it no longer looks like Explorer, while the rest stay
+        s.density = 1;
+        assert!(!s.looks_like_explorer());
+        assert!(s.explorer_colours);
+        s.set_value("explorer_look", "0");
+        let own = Settings::defaults();
+        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica);
+        assert_eq!((s.icon_pack.as_str(), s.density, s.title_logo, s.title_name), (own.icon_pack.as_str(), own.density, own.title_logo, own.title_name));
+        // the whole look isn't written: its parts are
+        assert!(!s.value_lines().iter().any(|(k, _)| *k == "explorer_look"));
+        assert!(s.value_lines().iter().any(|(k, _)| *k == "explorer_colours"));
+    }
 
     /// Anything new in the settings file has to be something administrators can set too.
     #[test]

@@ -41,6 +41,18 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_ExplorerColours" class="Both" displayName="$(string.ExplorerColours)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerColours">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_ExplorerLines" class="Both" displayName="$(string.ExplorerLines)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="ExplorerLines">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Fixed_OpenNewDrives" class="Both" displayName="$(string.OpenNewDrives)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="OpenNewDrives">
       <parentCategory ref="Fixed" />
       <supportedOn ref="SUPPORTED_ANY" />
@@ -426,6 +438,18 @@
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
     <policy name="Rec_ExplorerMica" class="Both" displayName="$(string.ExplorerMica)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerMica">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerColours" class="Both" displayName="$(string.ExplorerColours)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerColours">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_ExplorerLines" class="Both" displayName="$(string.ExplorerLines)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="ExplorerLines">
       <parentCategory ref="Recommended" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

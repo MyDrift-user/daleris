@@ -165,7 +165,7 @@ impl App {
     /// With "Follow Windows" / the Windows accent, pick up changes made in Windows Settings
     /// while the app is running (checked every two seconds; two registry reads).
     pub(super) fn follow_windows_theme(&mut self, ctx: &egui::Context) {
-        if self.settings.theme != 0 && self.settings.accent < ACCENTS.len() && !self.settings.looks_like_explorer() {
+        if self.settings.theme != 0 && self.settings.accent < ACCENTS.len() && !self.settings.explorer_colours() {
             return;
         }
         let now = ctx.input(|i| i.time);
@@ -187,13 +187,13 @@ impl App {
         }
     }
 
-    /// When "Look like Windows Explorer" decides a setting, says so with a way to that switch; true then.
+    /// When Explorer's colours decide the theme and accent, says so with a way to that switch; true then.
     fn explorer_decides(&mut self, ui: &mut Ui) -> bool {
-        if !self.settings.looks_like_explorer() {
+        if !self.settings.explorer_colours() {
             return false;
         }
         ui.horizontal(|ui| {
-            ui.label(egui::RichText::new("Set by \"Look like Windows Explorer\".").small().color(DIM()));
+            ui.label(egui::RichText::new("Set by \"Explorer's colours\" under Windows Explorer.").small().color(DIM()));
             if ui.link(egui::RichText::new("Change").small()).clicked() {
                 self.acts.push(Act::OpenSettings(Some(Page::Explorer)));
             }
@@ -212,7 +212,7 @@ impl App {
     pub(super) fn set_backdrop(&self) {
         #[cfg(windows)]
         if self.hwnd != 0 && crate::theme::mica_window() {
-            let on = self.settings.looks_like_explorer() && self.settings.explorer_mica;
+            let on = self.settings.wants_mica();
             shell::set_backdrop(self.hwnd, on, pal().dark);
         }
     }
@@ -352,7 +352,7 @@ impl App {
             }));
             ui.add_space(16.0);
             managed_heading(ui, "Row height", "How tall each row in the file list is.", "density");
-            let explorer = self.explorer_decides(ui);
+            let explorer = look_fixed(ui);
             ui.add_enabled_ui(!policy::is_fixed("density") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
                 for (i, l) in ["Compact", "Normal", "Comfortable"].iter().enumerate() {
@@ -371,7 +371,7 @@ impl App {
                 self.set_titlebar();
                 self.save_settings();
             }
-            let explorer = self.explorer_decides(ui);
+            let explorer = look_fixed(ui);
             ui.add_enabled_ui(self.settings.title_custom && !explorer, |ui| {
                 let mut ch = managed_toggle(ui, &mut self.settings.title_logo, "title_logo", "Show the logo");
                 ch |= managed_toggle(ui, &mut self.settings.title_name, "title_name2", "Show the app name");
@@ -387,7 +387,7 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
-            let explorer = self.explorer_decides(ui);
+            let explorer = look_fixed(ui);
             let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris".into()), ("phosphor".into(), "Phosphor".into())];
             if !prefers_bundled_icons() {
                 packs.insert(0, ("system".into(), "Windows (system icons)".into()));
@@ -1240,4 +1240,13 @@ fn theme_card(ui: &mut Ui, name: &str, p: Palette, selected: bool) -> bool {
     painter.rect_stroke(shot, CornerRadius::same(8), Stroke::new(if selected { 2.0_f32 } else { 1.0_f32 }, if selected { ACCENT() } else { LINE() }), StrokeKind::Outside);
     painter.text(pos2(r.left() + 2.0, r.bottom() - 12.0), Align2::LEFT_CENTER, name, FontId::proportional(13.5), if selected { TEXT() } else { DIM() });
     resp.clicked()
+}
+
+/// A policy fixing "Look like Windows Explorer" fixes the settings it's made of too: says so; true then.
+fn look_fixed(ui: &mut Ui) -> bool {
+    let fixed = policy::is_fixed("explorer_look");
+    if fixed {
+        managed_note(ui);
+    }
+    fixed
 }
