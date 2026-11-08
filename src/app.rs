@@ -513,6 +513,8 @@ pub struct Settings {
     show_hidden: bool,
     /// names starting with a dot, whatever their attributes say
     hide_dotfiles: bool,
+    /// look like Windows Explorer: its colours, its icons, no logo or name in the title bar. Windows only
+    explorer_look: bool,
     /// the sort a folder gets until someone chooses one for it
     sort_key: SortKey,
     sort_asc: bool,
@@ -640,6 +642,7 @@ impl Settings {
         Settings {
             show_hidden: false,
             hide_dotfiles: false,
+            explorer_look: false,
             sort_key: SortKey::Name,
             sort_asc: true,
             dirs_first: true,
@@ -762,6 +765,23 @@ impl Settings {
         self.sections.sort_by_key(|s| order.iter().position(|id| *id == s.id).unwrap_or(order.len()));
     }
 
+    fn looks_like_explorer(&self) -> bool {
+        cfg!(windows) && self.explorer_look
+    }
+
+    /// The icon pack in use: Windows's icons when Daleris looks like Explorer.
+    fn pack(&self) -> &str {
+        if self.looks_like_explorer() && !prefers_bundled_icons() { "system" } else { &self.icon_pack }
+    }
+
+    fn shows_logo(&self) -> bool {
+        self.title_logo && !self.looks_like_explorer()
+    }
+
+    fn shows_name(&self) -> bool {
+        self.title_name && !self.looks_like_explorer()
+    }
+
     /// "Hide dotfiles" only means something on Windows: on Linux and macOS a leading dot is what makes a name hidden,
     /// so "Show hidden items" already covers them there.
     fn hides_dotfiles(&self) -> bool {
@@ -773,6 +793,9 @@ impl Settings {
     }
 
     fn palette(&self) -> Palette {
+        if self.looks_like_explorer() {
+            return Palette::explorer(system_dark(), system_accent().unwrap_or(ACCENTS[0].1));
+        }
         let dark = match self.theme {
             0 => system_dark(),
             2 => false,
@@ -812,6 +835,7 @@ impl Settings {
         match k {
             "hidden" => self.show_hidden = on,
             "hide_dots" => self.hide_dotfiles = on,
+            "explorer_look" => self.explorer_look = on,
             "sort_key" => self.sort_key = SortKey::from_word(v).unwrap_or(SortKey::Name),
             "sort_asc" => self.sort_asc = on,
             "dirs_first" => self.dirs_first = on,
@@ -865,6 +889,7 @@ impl Settings {
         let mut lines = vec![
             ("hidden", b(self.show_hidden)),
             ("hide_dots", b(self.hide_dotfiles)),
+            ("explorer_look", b(self.explorer_look)),
             ("sort_key", self.sort_key.word().to_string()),
             ("sort_asc", b(self.sort_asc)),
             ("dirs_first", b(self.dirs_first)),
@@ -2205,7 +2230,7 @@ impl App {
 
     /// An icon of the built-in pack. Pictures are drawn once per size and kept, so they stay sharp and cheap.
     fn draw_builtin(&mut self, ui: &Ui, rect: Rect, target: &IconFor) {
-        let art = if self.settings.icon_pack == "phosphor" { phosphor_icons::resolve(target) } else { file_icons::resolve(target) };
+        let art = if self.settings.pack() == "phosphor" { phosphor_icons::resolve(target) } else { file_icons::resolve(target) };
         let Art::Svg { id, svg, label } = &art else {
             file_icons::paint_font_art(ui.painter(), rect, &art, target.dim);
             return;
@@ -2263,7 +2288,7 @@ impl App {
         let target = IconFor { kind, ext, name: &name, place: place_name.as_deref(), drive, is_root, is_system: is_dir && is_system_root(path), cloud: cloud.as_deref(), dim };
 
 
-        match self.settings.icon_pack.clone().as_str() {
+        match self.settings.pack().to_string().as_str() {
             "system" => {}
             "flat" | "phosphor" => {
                 self.draw_builtin(ui, rect, &target);
@@ -2318,7 +2343,7 @@ impl App {
         let px = (rect.width().max(rect.height()) * ui.ctx().pixels_per_point()).round().clamp(32.0, 512.0) as i32;
         let online_only = attrs & (fsx::A_RECALL_ON_DATA | fsx::A_OFFLINE) != 0;
         let kind = kind_of(row_ext, is_dir);
-        let own_icons = self.settings.icon_pack != "system";
+        let own_icons = self.settings.pack() != "system";
         // with an icon pack, a picture or video only replaces its icon when it has a real preview
         let packed = own_icons && (online_only || !matches!(kind, Kind::Image | Kind::Video));
         if packed || (is_dir && self.place_of(path).is_some()) {

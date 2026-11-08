@@ -107,7 +107,7 @@ pub(super) fn managed_note(ui: &mut Ui) {
 }
 
 /// A switch for one settings value: grayed out with a note when a policy fixes that value.
-fn managed_toggle(ui: &mut Ui, on: &mut bool, key: &str, label: &str) -> bool {
+pub(super) fn managed_toggle(ui: &mut Ui, on: &mut bool, key: &str, label: &str) -> bool {
     let fixed = policy::is_fixed(key);
     let mut changed = false;
     ui.horizontal(|ui| {
@@ -165,7 +165,7 @@ impl App {
     /// With "Follow Windows" / the Windows accent, pick up changes made in Windows Settings
     /// while the app is running (checked every two seconds; two registry reads).
     pub(super) fn follow_windows_theme(&mut self, ctx: &egui::Context) {
-        if self.settings.theme != 0 && self.settings.accent < ACCENTS.len() {
+        if self.settings.theme != 0 && self.settings.accent < ACCENTS.len() && !self.settings.looks_like_explorer() {
             return;
         }
         let now = ctx.input(|i| i.time);
@@ -181,6 +181,21 @@ impl App {
             let icon = egui::IconData { rgba: logo_rgba(64, p.accent), width: 64, height: 64 };
             ctx.send_viewport_cmd(egui::ViewportCommand::Icon(Some(Arc::new(icon))));
         }
+    }
+
+    /// When "Look like Windows Explorer" decides a setting, says so with a way to that switch; true then.
+    fn explorer_decides(&mut self, ui: &mut Ui) -> bool {
+        if !self.settings.looks_like_explorer() {
+            return false;
+        }
+        ui.horizontal(|ui| {
+            ui.label(egui::RichText::new("Set by \"Look like Windows Explorer\".").small().color(DIM()));
+            if ui.link(egui::RichText::new("Change").small()).clicked() {
+                self.acts.push(Act::OpenSettings(Some(Page::Explorer)));
+            }
+        });
+        ui.add_space(4.0);
+        true
     }
 
     pub(super) fn apply_theme(&mut self) {
@@ -263,7 +278,8 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Theme", "", "theme");
-            ui.add_enabled_ui(!policy::is_fixed("theme"), |ui| ui.horizontal_wrapped(|ui| {
+            let explorer = self.explorer_decides(ui);
+            ui.add_enabled_ui(!policy::is_fixed("theme") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
                 let accent = self.settings.palette().accent;
                 for (i, name) in [(0u8, if cfg!(windows) { "Follow Windows" } else { "Follow system" }), (1, "Dark"), (2, "Light")] {
@@ -272,7 +288,9 @@ impl App {
                         1 => true,
                         _ => false,
                     };
-                    if theme_card(ui, name, Palette::new(dark, accent), self.settings.theme == i) {
+                    // what's in effect: Explorer's look follows Windows
+                    let chosen = if explorer { 0 } else { self.settings.theme };
+                    if theme_card(ui, name, Palette::new(dark, accent), chosen == i) {
                         self.settings.theme = i;
                         self.apply_theme();
                     }
@@ -280,7 +298,8 @@ impl App {
             }));
             ui.add_space(16.0);
             managed_heading(ui, "Accent colour", "", "accent2");
-            ui.add_enabled_ui(!policy::is_fixed("accent2"), |ui| ui.horizontal_wrapped(|ui| {
+            let explorer = self.explorer_decides(ui);
+            ui.add_enabled_ui(!policy::is_fixed("accent2") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(10.0, 10.0);
                 let dark = pal().dark;
                 // Windows' own accent first: it's the default
@@ -296,7 +315,8 @@ impl App {
                             ui.painter().rect_filled(q, CornerRadius::ZERO, Color32::from_white_alpha(230));
                         }
                     }
-                    if self.settings.accent == i {
+                    let chosen = if explorer { n == 0 } else { self.settings.accent == i };
+                    if chosen {
                         ui.painter().circle_stroke(r.center(), 16.0, Stroke::new(2.0_f32, TEXT()));
                     } else if resp.hovered() {
                         ui.painter().circle_stroke(r.center(), 16.0, Stroke::new(1.0_f32, FAINT()));
@@ -327,7 +347,8 @@ impl App {
                 self.set_titlebar();
                 self.save_settings();
             }
-            ui.add_enabled_ui(self.settings.title_custom, |ui| {
+            let explorer = self.explorer_decides(ui);
+            ui.add_enabled_ui(self.settings.title_custom && !explorer, |ui| {
                 let mut ch = managed_toggle(ui, &mut self.settings.title_logo, "title_logo", "Show the logo");
                 ch |= managed_toggle(ui, &mut self.settings.title_name, "title_name2", "Show the app name");
                 if ch {
@@ -342,15 +363,16 @@ impl App {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
             managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
+            let explorer = self.explorer_decides(ui);
             let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris".into()), ("phosphor".into(), "Phosphor".into())];
             if !prefers_bundled_icons() {
                 packs.insert(0, ("system".into(), "Windows (system icons)".into()));
             }
 
             packs.extend(list_icon_packs().into_iter().map(|p| (p.clone(), p)));
-            let pack_free = !policy::is_fixed("iconpack");
+            let pack_free = !policy::is_fixed("iconpack") && !explorer;
             for (id, name) in packs {
-                let selected = self.settings.icon_pack == id;
+                let selected = self.settings.pack() == id;
                 let fill = if selected { SEL() } else { RAISED() };
                 let resp = ui
                     .add_enabled_ui(pack_free, |ui| {

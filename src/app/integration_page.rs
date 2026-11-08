@@ -3,7 +3,7 @@
 
 use daleris_integration::deny;
 
-use super::settings_page::{card, managed_note, toggle};
+use super::settings_page::{card, managed_note, managed_toggle, toggle};
 use super::*;
 use crate::integration::{self, Feature, Live};
 
@@ -161,6 +161,19 @@ impl App {
                 ui.add_space(6.0);
                 ui.label(egui::RichText::new("Daleris is running as administrator, so these can't be changed here. Run it normally.").color(WARN_COLOR));
             }
+        });
+        ui.add_space(14.0);
+        card().show(ui, |ui| {
+            ui.set_width(ui.available_width());
+            if managed_toggle(ui, &mut self.settings.explorer_look, "explorer_look", "Look like Windows Explorer") {
+                self.apply_theme();
+            }
+            ui.label(
+                egui::RichText::new(
+                    "Explorer's colours in light and dark mode, following Windows, with its flat sidebar and This PC, \n                     Windows's own icons, and no logo or name in the title bar. The settings it decides are greyed out under Appearance.",
+                )
+                .color(DIM()),
+            );
         });
         ui.add_space(14.0);
         let enabled = !integration::is_elevated();

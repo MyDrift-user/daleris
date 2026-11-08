@@ -16,14 +16,14 @@ impl App {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 // title-bar parts (each can be switched off in Settings › Appearance)
                 let mut left_w = 0.0;
-                if custom && (self.settings.title_logo || self.settings.title_name) {
-                    let name_w = if self.settings.title_name { ui.fonts_mut(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
-                    let logo_w = if self.settings.title_logo { 26.0 } else { 0.0 };
+                if custom && (self.settings.shows_logo() || self.settings.shows_name()) {
+                    let name_w = if self.settings.shows_name() { ui.fonts_mut(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
+                    let logo_w = if self.settings.shows_logo() { 26.0 } else { 0.0 };
                     let (r, resp) = ui.allocate_exact_size(vec2(logo_w + name_w + 8.0, 40.0), Sense::click_and_drag());
-                    if self.settings.title_logo {
+                    if self.settings.shows_logo() {
                         paint_logo(ui.painter(), Rect::from_center_size(pos2(r.left() + 11.0, r.center().y), vec2(18.0, 18.0)), ACCENT());
                     }
-                    if self.settings.title_name {
+                    if self.settings.shows_name() {
                         ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), DIM());
                     }
                     self.title_drag(ui, &resp);
@@ -229,7 +229,7 @@ impl App {
 
     fn address_bar(&mut self, ui: &mut Ui, t: &mut Tab, width: f32) {
         let (rect, resp) = ui.allocate_exact_size(vec2(width, 32.0), Sense::click());
-        ui.painter().rect_filled(rect, CornerRadius::same(6), RAISED());
+        text_field(ui, rect);
         if self.editing_address.is_some() {
             ui.painter().rect_stroke(rect, CornerRadius::same(6), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
             let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect.shrink2(vec2(10.0, 6.0))));
@@ -339,7 +339,7 @@ impl App {
 
     fn search_box(&mut self, ui: &mut Ui, t: &mut Tab, width: f32) {
         let (rect, _) = ui.allocate_exact_size(vec2(width, 32.0), Sense::hover());
-        ui.painter().rect_filled(rect, CornerRadius::same(6), RAISED());
+        text_field(ui, rect);
         let cy = rect.center().y;
         ui.painter().text(pos2(rect.left() + 16.0, cy), Align2::CENTER_CENTER, ic(I_SEARCH), icon_font(13.0), DIM());
 
@@ -995,7 +995,7 @@ impl App {
     }
 
     pub(super) fn status_bar(&mut self, root: &mut Ui, t: &Tab) {
-        let frame = egui::Frame::new().fill(CHROME()).inner_margin(egui::Margin::symmetric(12, 4));
+        let frame = egui::Frame::new().fill(STATUS()).inner_margin(egui::Margin::symmetric(12, 4));
         egui::Panel::bottom("status").exact_size(26.0).frame(frame).show_separator_line(false).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 let small = |s: String| egui::RichText::new(s).size(12.0).color(DIM());
@@ -1115,7 +1115,7 @@ impl App {
         let (rect, resp) = ui.allocate_exact_size(vec2(200.0, 56.0), Sense::click());
         let path = path.to_path_buf();
         let drop_here = self.drop_zone(ui, &resp, &path);
-        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { HOVER() } else { PANEL() });
+        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { ROW_HOVER() } else { TILE() });
         if drop_here {
             ui.painter().rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
         }
@@ -1133,7 +1133,7 @@ impl App {
     fn drive_card(&mut self, ui: &mut Ui, d: &Drive) {
         let (rect, resp) = ui.allocate_exact_size(vec2(290.0, 72.0), Sense::click());
         let drop_here = !self.drive_offline(d) && self.drop_zone(ui, &resp, &d.root);
-        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { HOVER() } else { PANEL() });
+        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop_here { ROW_HOVER() } else { TILE() });
         if drop_here {
             ui.painter().rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
         }
@@ -1231,4 +1231,12 @@ fn square_toggle(ui: &mut Ui, r: Rect, id: &str, on: bool, enabled: bool, tip: &
     let col = if on { ACCENT() } else { DIM() };
     draw(ui.painter(), r, col);
     resp.on_hover_text(tip).clicked() && enabled
+}
+
+/// The box behind the address bar and the search box.
+fn text_field(ui: &Ui, rect: Rect) {
+    ui.painter().rect_filled(rect, CornerRadius::same(6), FIELD());
+    if FIELD_LINE() != Color32::TRANSPARENT {
+        ui.painter().rect_stroke(rect, CornerRadius::same(6), Stroke::new(1.0_f32, FIELD_LINE()), StrokeKind::Inside);
+    }
 }

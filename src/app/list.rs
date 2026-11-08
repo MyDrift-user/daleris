@@ -390,9 +390,9 @@ impl App {
                 let drop_target = row.is_dir && resp.dnd_hover_payload::<DragFiles>().is_some();
                 let inner = rect.shrink2(vec2(6.0, 1.0));
                 let bg = if selected {
-                    Some(if t.cursor == Some(i) { SEL_STRONG() } else { SEL() })
+                    Some(if t.cursor == Some(i) { ROW_CURSOR() } else { ROW_SEL() })
                 } else if resp.hovered() || drop_target {
-                    Some(HOVER())
+                    Some(ROW_HOVER())
                 } else {
                     None
                 };
@@ -529,9 +529,9 @@ impl App {
                         let inner = rect.shrink(4.0);
                         let drop_target = row.is_dir && resp.dnd_hover_payload::<DragFiles>().is_some();
                         if t.sel.contains(&row.key) {
-                            ui.painter().rect_filled(inner, CornerRadius::same(6), SEL());
+                            ui.painter().rect_filled(inner, CornerRadius::same(6), ROW_SEL());
                         } else if resp.hovered() || drop_target {
-                            ui.painter().rect_filled(inner, CornerRadius::same(6), HOVER());
+                            ui.painter().rect_filled(inner, CornerRadius::same(6), ROW_HOVER());
                         }
                         if drop_target {
                             ui.painter().rect_stroke(inner, CornerRadius::same(6), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
@@ -783,7 +783,7 @@ impl App {
                 });
             }
         }
-        let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::same(14));
+        let frame = egui::Frame::new().fill(SIDE()).inner_margin(egui::Margin::same(14));
         egui::Panel::right("preview").resizable(true).default_size(300.0).size_range(220.0..=640.0).frame(frame).show_separator_line(false).show(root, |ui| {
             let Some(e) = self.preview.entry.clone() else {
                 self.preview_summary(ui, t, paths.len());

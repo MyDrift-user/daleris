@@ -23,6 +23,20 @@ pub struct Palette {
     pub cloud: Color32,
     pub warn: Color32,
     pub code_bg: Color32,
+    /// the sidebar and the preview pane
+    pub side: Color32,
+    pub status: Color32,
+    /// the places on This PC
+    pub tile: Color32,
+    /// rows and places in lists, which Explorer colours differently from its buttons
+    pub row_hover: Color32,
+    pub row_sel: Color32,
+    pub row_cursor: Color32,
+    /// the address bar and search box, and their outline
+    pub field: Color32,
+    pub field_line: Color32,
+    /// Explorer's look, where it differs in shape as well as colour
+    pub explorer: bool,
 }
 
 /// Accent colour choices (name, colour on dark, colour on light).
@@ -43,6 +57,46 @@ fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
 
 impl Palette {
     pub fn new(dark: bool, accent: Color32) -> Palette {
+        let p = Palette::own(dark, accent);
+        Palette { side: p.panel, status: p.chrome, tile: p.panel, row_hover: p.hover, row_sel: p.sel, row_cursor: p.sel_strong, field: p.raised, ..p }
+    }
+
+    /// Windows Explorer's colours, from the visual style it draws its lists with and the WinUI colours of its bars.
+    /// Explorer's sidebar, preview pane and status bar are the same colour as its list, and its places have no boxes.
+    pub fn explorer(dark: bool, accent: Color32) -> Palette {
+        let own = Palette::own(dark, accent);
+        let rgb = |v: u32| Color32::from_rgb((v >> 16) as u8, (v >> 8) as u8, v as u8);
+        let (bg, bar, mica, hover, sel, idle, text, dim, faint, line) = if dark {
+            (0x191919, 0x2c2c2c, 0x202020, 0x383838, 0x626262, 0x4d4d4d, 0xffffff, 0xcdcdcd, 0x969696, 0x333333)
+        } else {
+            (0xffffff, 0xf9f9f9, 0xf3f3f3, 0xf0f0f0, 0xcce8ff, 0xe5f3ff, 0x1a1a1a, 0x5d5d5d, 0x8d8d8d, 0xe5e5e5)
+        };
+        let (field, field_line) = if dark { (rgb(0x373737), rgb(0x3d3d3d)) } else { (rgb(0xffffff), rgb(0xe5e5e5)) };
+        Palette {
+            bg: rgb(bg),
+            panel: rgb(bar),
+            chrome: rgb(mica),
+            raised: rgb(bar),
+            hover: rgb(hover),
+            text: rgb(text),
+            dim: rgb(dim),
+            faint: rgb(faint),
+            line: rgb(line),
+            side: rgb(bg),
+            status: rgb(bg),
+            tile: Color32::TRANSPARENT,
+            row_hover: rgb(idle),
+            row_sel: rgb(sel),
+            row_cursor: rgb(sel),
+            field,
+            field_line,
+            explorer: true,
+            ..own
+        }
+    }
+
+    fn own(dark: bool, accent: Color32) -> Palette {
+        let none = Color32::TRANSPARENT;
         if dark {
             let bg = Color32::from_rgb(0x1b, 0x1b, 0x1d);
             Palette {
@@ -63,6 +117,15 @@ impl Palette {
                 cloud: Color32::from_rgb(0x6c, 0xb4, 0xff),
                 warn: Color32::from_rgb(0xe8, 0x6a, 0x5a),
                 code_bg: Color32::from_rgb(0x16, 0x16, 0x18),
+                side: none,
+                status: none,
+                tile: none,
+                row_hover: none,
+                row_sel: none,
+                row_cursor: none,
+                field: none,
+                field_line: none,
+                explorer: false,
             }
         } else {
             let bg = Color32::from_rgb(0xfb, 0xfb, 0xfc);
@@ -84,6 +147,15 @@ impl Palette {
                 cloud: Color32::from_rgb(0x1f, 0x74, 0xd1),
                 warn: Color32::from_rgb(0xc4, 0x41, 0x3a),
                 code_bg: Color32::from_rgb(0xee, 0xef, 0xf2),
+                side: none,
+                status: none,
+                tile: none,
+                row_hover: none,
+                row_sel: none,
+                row_cursor: none,
+                field: none,
+                field_line: none,
+                explorer: false,
             }
         }
     }
@@ -103,11 +175,16 @@ macro_rules! colour_fns {
     };
 }
 colour_fns!(BG => bg, PANEL => panel, CHROME => chrome, RAISED => raised, HOVER => hover, SEL => sel, SEL_STRONG => sel_strong,
-    ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, WARN => warn);
+    ACCENT => accent, TEXT => text, DIM => dim, FAINT => faint, LINE => line, GREEN => green, CLOUD_BLUE => cloud, WARN => warn,
+    SIDE => side, STATUS => status, TILE => tile, ROW_HOVER => row_hover, ROW_SEL => row_sel, ROW_CURSOR => row_cursor, FIELD => field, FIELD_LINE => field_line);
 
 /// Is Windows itself in dark mode (apps setting)?
 #[cfg(windows)]
 pub fn system_dark() -> bool {
+    // tests look at both themes without changing the PC's
+    if let Ok(t) = std::env::var("DALERIS_TEST_THEME") {
+        return t != "light";
+    }
     use windows::core::w;
     use windows::Win32::System::Registry::*;
     let mut v: u32 = 1;

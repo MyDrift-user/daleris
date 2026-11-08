@@ -194,7 +194,7 @@ impl App {
     }
 
     pub(super) fn sidebar(&mut self, root: &mut Ui, t: &Tab) {
-        let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin { left: 8, right: 6, top: 2, bottom: 8 });
+        let frame = egui::Frame::new().fill(SIDE()).inner_margin(egui::Margin { left: 8, right: 6, top: 2, bottom: 8 });
         egui::Panel::left("sidebar").resizable(true).default_size(if self.picker.is_some() { 190.0 } else { 236.0 }).size_range(140.0..=420.0).frame(frame).show_separator_line(false).show(root, |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 1.0;
@@ -320,10 +320,13 @@ impl App {
         let files_hover = item.loc.as_ref().is_some_and(|l| matches!(l, Loc::Dir(_))) && resp.dnd_hover_payload::<DragFiles>().is_some();
         let reorder_hover = resp.dnd_hover_payload::<SideDrag>().is_some_and(|d| d.section == sec.id && d.key != item.key);
         if active {
-            ui.painter().rect_filled(rect, CornerRadius::same(5), SEL());
-            ui.painter().rect_filled(Rect::from_min_size(rect.left_top() + vec2(0.0, 7.0), vec2(3.0, 14.0)), CornerRadius::same(2), ACCENT());
+            ui.painter().rect_filled(rect, CornerRadius::same(5), ROW_SEL());
+            // Explorer marks the open place by its colour alone
+            if !pal().explorer {
+                ui.painter().rect_filled(Rect::from_min_size(rect.left_top() + vec2(0.0, 7.0), vec2(3.0, 14.0)), CornerRadius::same(2), ACCENT());
+            }
         } else if resp.hovered() || files_hover {
-            ui.painter().rect_filled(rect, CornerRadius::same(5), HOVER());
+            ui.painter().rect_filled(rect, CornerRadius::same(5), ROW_HOVER());
         }
         if files_hover {
             ui.painter().rect_stroke(rect, CornerRadius::same(5), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
