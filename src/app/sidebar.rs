@@ -104,7 +104,6 @@ impl App {
                         };
                         push(side_key(&d.root), d.title(), Some(Loc::Dir(d.root.clone())), None, None, false, Some(d.letter), tip);
                     }
-                    push("mapdrive".into(), network_label().into(), None, Some(I_NETDRIVE), None, false, None, None);
                 }
                 _ => {}
             }
@@ -206,7 +205,7 @@ impl App {
                 let visible: Vec<&SideSection> = model.iter().filter(|s| s.visible).collect();
                 let n = visible.len();
                 for (si, sec) in visible.into_iter().enumerate() {
-                    if sec.items.iter().all(|i| !i.visible) && !sec.custom && !sec.accepts_pins {
+                    if sec.items.iter().all(|i| !i.visible) && !sec.custom && !sec.accepts_pins && sec.id != "network" {
                         continue; // e.g. no cloud drives on this PC
                     }
                     self.side_header(ui, sec, si, n);
@@ -275,7 +274,16 @@ impl App {
         let id = sec.id.clone();
         let (custom, title) = (sec.custom, sec.title.clone());
         let locked = policy::current().sidebar_locked();
+        // mapping a drive lives on the section, not as an entry in it
+        let network = id == "network";
+        let resp = if network { resp.on_hover_text("Right-click to map a network drive") } else { resp };
         resp.context_menu(|ui| {
+            if network {
+                if menu_item(ui, I_NETDRIVE, network_label(), "") {
+                    self.acts.push(Act::MapDrive);
+                }
+                ui.separator();
+            }
             if menu_item(ui, if sec.collapsed { I_CHEV_D } else { I_CHEV_R }, if sec.collapsed { "Expand" } else { "Collapse" }, "") {
                 if let Some(s) = self.settings.section_mut(&id) {
                     s.collapsed = !s.collapsed;
