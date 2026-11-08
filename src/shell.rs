@@ -252,15 +252,21 @@ unsafe fn known_folder_icon(id: &windows::core::GUID, px: u32) -> Option<RawImg>
         FILE_FLAGS_AND_ATTRIBUTES(0),
         Some(&mut sfi),
         std::mem::size_of::<SHFILEINFOW>() as u32,
-        SHGFI_PIDL | SHGFI_ICON | SHGFI_LARGEICON,
+        SHGFI_PIDL | SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_LARGEICON,
     );
     ILFree(Some(pidl as *const _));
-    if r == 0 || sfi.hIcon.is_invalid() {
+    if r == 0 {
         return None;
     }
-    let img = icon_to_rgba(sfi.hIcon);
-    let _ = DestroyIcon(sfi.hIcon);
-    img
+    let standard = if !sfi.hIcon.is_invalid() {
+        let i = icon_to_rgba(sfi.hIcon);
+        let _ = DestroyIcon(sfi.hIcon);
+        i
+    } else {
+        None
+    };
+    // at the size asked for, like the image service's, not the standard 32 pixels
+    sized_icon(sfi.iIcon, px).or(standard).map(|i| shrink(i, px))
 }}
 
 /// The standard Windows "choose a folder" dialog.
