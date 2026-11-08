@@ -81,6 +81,9 @@ VALUES
   SearchRegex               DWORD     0 off, 1 on
   SearchHideSubfolders      DWORD     1 on, 0 off: the search box has no subfolders switch; SearchSubfolders still
                                       decides. Part of ExplorerLook, on by default on Windows
+  SearchHideRegex           DWORD     1 on, 0 off: the search box has no .* switch, and searches aren't regular
+                                      expressions unless SearchRegex is set. Part of ExplorerLook, on by default on
+                                      Windows
   SearchSkipAppData         DWORD     1: search never finds folders named AppData
   SearchSkipWindows         DWORD     1: search never finds folders named Windows, Program Files, Program Files (x86),
                                       ProgramData, $Recycle.Bin, System Volume Information, $WinREAgent or Recovery

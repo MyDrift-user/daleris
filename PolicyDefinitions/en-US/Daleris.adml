@@ -43,6 +43,7 @@
       <string id="SearchSubfolders">Search subfolders</string>
       <string id="SearchRegex">Treat searches as regular expressions</string>
       <string id="SearchHideSubfolders">Hide the subfolders switch in the search box</string>
+      <string id="SearchHideRegex">Hide the regular expression switch in the search box</string>
       <string id="CatSearch">Search</string>
       <string id="SearchSkipAppData">Never find app data in search</string>
       <string id="SearchSkipAppDataExplain_ExplainFixed">Search leaves out folders named AppData and everything in them. This value is fixed: it applies to everyone it reaches and is grayed out in the app. If it is not configured, people choose for themselves.</string>

@@ -177,6 +177,8 @@ impl App {
             let mut look = self.settings.looks_like_explorer();
             if managed_toggle(ui, &mut look, "explorer_look", "Look like Windows Explorer") {
                 self.settings.explorer_look(look);
+                self.settings.regex_off_if_hidden();
+                self.refilter_tabs();
                 self.apply_theme();
             }
             ui.label(egui::RichText::new("Turns everything below on at once. Off puts it all back to how Daleris looks on its own.").color(DIM()));
@@ -210,8 +212,13 @@ impl App {
                         changed = true;
                     }
                     changed |= managed_toggle(ui, &mut s.search_hide_sub, "search_hide_sub", "No subfolders switch in the search box");
+                    if managed_toggle(ui, &mut s.search_hide_regex, "search_hide_regex", "No regular expression switch in the search box") {
+                        s.regex_off_if_hidden();
+                        changed = true;
+                    }
                     if changed {
                         self.apply_theme();
+                        self.refilter_tabs();
                     }
                 });
             });

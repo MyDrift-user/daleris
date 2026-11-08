@@ -1007,6 +1007,16 @@ impl App {
                 self.refilter_tabs();
                 ch = true;
             }
+            ui.indent("search_regex_parts", |ui| {
+                if managed_toggle(ui, &mut self.settings.search_hide_regex, "search_hide_regex", "Hide its switch in the search box (and turn it off)") {
+                    let was = self.settings.regex_search;
+                    self.settings.regex_off_if_hidden();
+                    if was != self.settings.regex_search {
+                        self.refilter_tabs();
+                    }
+                    ch = true;
+                }
+            });
             if ch {
                 self.save_settings();
             }

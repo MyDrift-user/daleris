@@ -616,6 +616,8 @@ pub struct Settings {
     regex_search: bool,
     /// no subfolders switch in the search box, as in Explorer; "Search subfolders too" still decides
     search_hide_sub: bool,
+    /// no regular expression switch in the search box, as in Explorer
+    search_hide_regex: bool,
     /// what search never finds: a tick for each item of the ready-made groups, in the order of `search::SKIP_GROUPS`
     skip_groups: Vec<Vec<bool>>,
     skip_hidden: bool,
@@ -771,6 +773,7 @@ impl Settings {
             nested_search: true,
             regex_search: false,
             search_hide_sub: cfg!(windows),
+            search_hide_regex: cfg!(windows),
             // all of it but cloud folders, which hold the person's own files
             skip_groups: search::SKIP_GROUPS.iter().enumerate().map(|(g, (key, ..))| vec![*key != "search_skip_cloud"; search::group_items(g).len()]).collect(),
             skip_hidden: true,
@@ -883,6 +886,7 @@ impl Settings {
             && (self.icon_pack == "system" || prefers_bundled_icons())
             && self.density == 0
             && self.search_hide_sub
+            && self.search_hide_regex
     }
 
     /// Set every setting that makes up Explorer's look its way, or, for off, back to Daleris's own. Explorer's look is
@@ -895,6 +899,15 @@ impl Settings {
         self.icon_pack = if prefers_bundled_icons() { "flat" } else { "system" }.into();
         self.density = if on { 0 } else { OWN_DENSITY };
         self.search_hide_sub = on;
+        self.search_hide_regex = on;
+    }
+
+    /// Hiding the regular expression switch turns regular expressions off, so a search never quietly stays one. Called
+    /// where a person hides it, not by `explorer_look`, which a fixed policy runs every frame.
+    fn regex_off_if_hidden(&mut self) {
+        if self.search_hide_regex && !policy::is_fixed("regex_search") {
+            self.regex_search = false;
+        }
     }
 
     fn pack(&self) -> &str {
@@ -1013,6 +1026,7 @@ impl Settings {
             "nested_search" => self.nested_search = on,
             "regex_search" => self.regex_search = on,
             "search_hide_sub" => self.search_hide_sub = on,
+            "search_hide_regex" => self.search_hide_regex = on,
             "search_skip_hidden" => self.skip_hidden = on,
             "search_skip_system" => self.skip_system = on,
             policy::SKIP_FOLDERS => self.skip_folders = policy::items(k, v),
@@ -1086,6 +1100,7 @@ impl Settings {
             ("nested_search", b(self.nested_search)),
             ("regex_search", b(self.regex_search)),
             ("search_hide_sub", b(self.search_hide_sub)),
+            ("search_hide_regex", b(self.search_hide_regex)),
             ("rleft", self.ribbon_left.join("|")),
             ("rright", self.ribbon_right.join("|")),
             ("rhide", off.join("|")),
@@ -3545,11 +3560,15 @@ mod tests {
         assert!(s.title_logo && !s.title_name);
         s.set_value("explorer_look", "0");
         assert!(!s.looks_like_explorer());
-        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica && s.density == OWN_DENSITY && !s.search_hide_sub);
+        assert!(!s.explorer_colours && !s.explorer_lines && !s.explorer_mica && s.density == OWN_DENSITY && !s.search_hide_sub && !s.search_hide_regex);
         assert!(s.set_value("explorer_look", "1"));
         assert!(s.looks_like_explorer());
         assert!(s.explorer_colours && s.explorer_lines && s.density == 0 && s.title_logo, "the logo isn't part of the look");
         assert!(s.search_hide_sub, "Explorer's search box has no subfolders switch");
+        assert!(s.search_hide_regex, "nor a regular expression switch");
+        s.regex_search = true;
+        s.regex_off_if_hidden();
+        assert!(!s.regex_search, "a hidden switch leaves regular expressions off");
         // one part set back and it no longer looks like Explorer, while the rest stay
         s.density = 1;
         assert!(!s.looks_like_explorer());

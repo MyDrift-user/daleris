@@ -386,7 +386,7 @@ impl App {
             })
         };
         let help_r = slot(true, 12.0);
-        let regex_r = slot(true, if help_r.is_some() { 13.0 } else { 12.0 });
+        let regex_r = slot(!self.settings.search_hide_regex, if help_r.is_some() { 13.0 } else { 12.0 });
         let chip_r = slot(!self.settings.search_hide_sub, if help_r.is_some() || regex_r.is_some() { 14.0 } else { 12.0 });
         let clear_r = Rect::from_center_size(pos2(edge - 14.0, cy), vec2(20.0, 20.0));
         let in_dir = matches!(t.loc, Loc::Dir(_));
