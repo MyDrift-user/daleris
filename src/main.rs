@@ -13,6 +13,7 @@ mod fsx;
 mod integration;
 mod listing;
 mod logging;
+mod newitems;
 mod policy;
 mod search;
 #[cfg(windows)]

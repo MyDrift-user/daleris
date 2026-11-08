@@ -137,6 +137,11 @@ pub fn open_url(url: &str) {
     open(Path::new(url));
 }
 
+/// Starts a program with these arguments in `dir`. The New menu only offers templates here, so this is rarely used.
+pub fn run_program(program: &str, args: &str, dir: &Path) {
+    let _ = std::process::Command::new(program).args(args.split_whitespace()).current_dir(dir).spawn();
+}
+
 pub fn open(path: &Path) {
     let tool = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
     spawn_detached(Command::new(tool).arg(path));

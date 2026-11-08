@@ -400,6 +400,8 @@ enum Act {
     Delete(bool),
     NewFolder,
     NewTextFile,
+    /// one of `newitems::templates()`
+    NewFrom(usize),
     Properties(PathBuf),
     NativeMenu(bool),
     Unpin(PathBuf),

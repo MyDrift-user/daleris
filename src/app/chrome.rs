@@ -609,11 +609,27 @@ impl App {
                     // the arrow says it opens a list, as Explorer's does
                     let label = (egui::RichText::new(format!("{}  New", ic(I_ADD))).font(icon_font(13.5)), egui::RichText::new(ic(I_CHEV_D)).font(icon_font(9.0)).color(DIM()));
                     ui.menu_button(label, |ui| {
+                        ui.set_max_width(280.0);
                         if menu_item(ui, I_NEWFOLDER, "Folder", "Ctrl+Shift+N") {
                             self.acts.push(Act::NewFolder);
                         }
                         if menu_item(ui, I_RENAME, "Text document", "") {
                             self.acts.push(Act::NewTextFile);
+                        }
+                        // what the system offers too: Explorer's list on Windows, the Templates folder on Linux
+                        let more = crate::newitems::templates();
+                        if !more.is_empty() {
+                            ui.separator();
+                        }
+                        for (i, m) in more.iter().enumerate() {
+                            let icon = match &m.how {
+                                crate::newitems::How::Shortcut => I_FWD,
+                                _ if m.name.to_lowercase().ends_with(".zip") => I_FOLDER,
+                                _ => I_ADD,
+                            };
+                            if menu_item(ui, icon, &m.label, "") {
+                                self.acts.push(Act::NewFrom(i));
+                            }
                         }
                     });
                 });

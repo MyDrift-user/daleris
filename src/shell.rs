@@ -354,6 +354,14 @@ pub fn open(path: &Path) {
     });
 }
 
+/// Starts a program with these arguments in `dir`, as Explorer runs a New menu command.
+pub fn run_program(program: &str, args: &str, dir: &Path) {
+    let (p, a, d) = (wide(program), wide(args), wide(dir.as_os_str()));
+    unsafe {
+        ShellExecuteW(Some(main_hwnd()), PCWSTR::null(), PCWSTR(p.as_ptr()), PCWSTR(a.as_ptr()), PCWSTR(d.as_ptr()), SW_SHOWNORMAL);
+    }
+}
+
 pub fn run_as_admin(path: &Path) {
     let p = wide(path.as_os_str());
     unsafe {

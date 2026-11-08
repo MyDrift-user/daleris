@@ -536,7 +536,7 @@ unsafe fn reg_string(hk: HKEY, sub: &str, value: &str) -> Option<String> { unsaf
     (rc == ERROR_SUCCESS).then(|| from_wide(&buf))
 }}
 
-fn resolve_indirect(s: &str) -> String {
+pub fn resolve_indirect(s: &str) -> String {
     if !s.starts_with('@') {
         return s.to_string();
     }

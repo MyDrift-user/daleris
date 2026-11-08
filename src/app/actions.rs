@@ -2,6 +2,7 @@
 //! after the frame is drawn (so no UI borrow is held while dialogs run).
 
 use super::*;
+use crate::newitems::{How, Template};
 
 impl App {
     pub(super) fn apply(&mut self, a: Act) {
@@ -138,9 +139,14 @@ impl App {
                     }
                 }
             }
-            Act::NewFolder | Act::NewTextFile => {
+            Act::NewFolder | Act::NewTextFile | Act::NewFrom(_) => {
                 if let Some(dir) = t.dir().map(|d| d.to_path_buf()) {
-                    self.create_new(&mut t, &dir, matches!(a, Act::NewFolder));
+                    let what = match a {
+                        Act::NewFolder => None,
+                        Act::NewFrom(i) => crate::newitems::templates().get(i).cloned(),
+                        _ => Some(text_document()),
+                    };
+                    self.create_new(&mut t, &dir, what);
                 }
             }
             Act::NativeProperties(p) => shell::properties(&p),
@@ -452,8 +458,14 @@ impl App {
         }
     }
 
-    fn create_new(&mut self, t: &mut Tab, dir: &Path, folder: bool) {
-        let (base, ext) = if folder { ("New folder", "") } else { ("New Text Document", ".txt") };
+    /// A new folder (`what` None) or file, named so it doesn't clash, then renamed by the person.
+    fn create_new(&mut self, t: &mut Tab, dir: &Path, what: Option<Template>) {
+        let folder = what.is_none();
+        let full = what.as_ref().map(|w| w.name.clone()).unwrap_or_else(|| "New folder".into());
+        let (base, ext) = match full.rfind('.') {
+            Some(i) if !folder && i > 0 => (full[..i].to_string(), full[i..].to_string()),
+            _ => (full.clone(), String::new()),
+        };
         let mut name = format!("{base}{ext}");
         let mut k = 2;
         // what's in the list is what's there, and asking the disk could take as long as a server takes to not answer
@@ -464,9 +476,22 @@ impl App {
         }
         drop(taken);
         let p = dir.join(&name);
+        let how = what.map(|w| w.how);
+        // a program that makes it shows its own window, and the file turns up when it's done
+        if let Some(How::Command(cmd)) = &how {
+            let (prog, args) = crate::newitems::command_line(cmd, &p);
+            shell::run_program(&prog, &args, dir);
+            return;
+        }
+        let shortcut = matches!(how, Some(How::Shortcut));
         let target = p.clone();
         let done = bg::within(dir, DISK_WAIT, move || {
-            let made = if folder { std::fs::create_dir(&target) } else { std::fs::write(&target, b"") };
+            let made = match how {
+                None => std::fs::create_dir(&target),
+                Some(How::Bytes(b)) => std::fs::write(&target, b),
+                Some(How::CopyOf(f)) => std::fs::copy(f, &target).map(|_| ()),
+                Some(_) => std::fs::write(&target, b""),
+            };
             made.map(|()| fsx::stat(&target))
         });
         match done {
@@ -484,6 +509,12 @@ impl App {
                 self.toast("The server isn't answering yet. It will show up here if it gets there.", true);
                 return;
             }
+        }
+        // Windows's wizard asks what it points to and names it
+        if shortcut {
+            let (prog, args) = crate::newitems::command_line("rundll32.exe appwiz.cpl,NewLinkHere %1", &p);
+            shell::run_program(&prog, &args, dir);
+            return;
         }
         t.select_after_load = Some(name.clone());
         self.rebuild_view(t);
@@ -585,4 +616,9 @@ pub(super) fn save_png(path: &Path, img: &egui::ColorImage) -> std::io::Result<(
     let bytes: Vec<u8> = img.pixels.iter().flat_map(|c| c.to_srgba_unmultiplied()).collect();
     w.write_image_data(&bytes).map_err(std::io::Error::other)?;
     Ok(())
+}
+
+/// Daleris's own text document, there whatever the system offers.
+fn text_document() -> Template {
+    Template { label: "Text document".into(), name: "New Text Document.txt".into(), how: How::Empty }
 }
