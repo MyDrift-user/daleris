@@ -638,7 +638,8 @@ impl App {
 
     fn row_interact(&mut self, ui: &Ui, t: &mut Tab, resp: &Response, row: &Row, i: usize) {
         if let Some(tr) = self.transit(t, &row.path) {
-            resp.clone().on_hover_ui(|ui| tr.tip_ui(ui));
+            // at the pointer, as under the row it sat against the sidebar
+            resp.clone().on_hover_ui_at_pointer(|ui| tr.tip_ui(ui));
         }
         let mods = ui.input(|i| i.modifiers);
         if resp.clicked() {
