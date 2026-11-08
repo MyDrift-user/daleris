@@ -1,22 +1,21 @@
 [package]
 name = "daleris-open"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 license = "GPL-3.0-only"
 publish = false
 
 # What Windows runs for a folder or for Win + E. It's copied to each person's own folder and outlives an uninstall,
 # since that's when it's needed most: it puts Explorer back rather than leave folders that won't open.
 [target.'cfg(windows)'.dependencies.windows-core]
-version = "0.58"
+version = "0.62"
 
 [target.'cfg(windows)'.dependencies]
 daleris-integration = { path = "../integration" }
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.58"
+version = "0.62"
 features = [
-    "implement",
     "Win32_Foundation",
     "Win32_Graphics_Dwm",
     "Win32_Graphics_Gdi",

@@ -1,7 +1,7 @@
 [package]
 name = "daleris"
 version = "0.0.4"
-edition = "2021"
+edition = "2024"
 license = "GPL-3.0-only"
 
 [workspace]
@@ -12,19 +12,19 @@ members = [".", "crates/integration", "crates/open", "crates/dialogs", "crates/s
 update-test = []
 
 [dependencies]
-ed25519-dalek = { version = "2", default-features = false, features = ["std"] }
-eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow"] }
-egui-phosphor = { version = "0.9", default-features = false, features = ["regular", "fill"] }
+ed25519-dalek = { version = "3", default-features = false }
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow"] }
+egui-phosphor = { version = "0.14", default-features = false, features = ["regular", "fill"] }
 log = "0.4"
 png = "0.18"
 regex = "1.11"
 resvg = { version = "0.49", default-features = false }
-sha2 = "0.10"
+sha2 = "0.11"
 daleris-integration = { path = "crates/integration" }
 
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.58"
+version = "0.62"
 features = [
     "Win32_Foundation",
     "Win32_Graphics_Gdi",
@@ -56,7 +56,7 @@ image = { version = "0.25", default-features = false, features = ["jpeg", "png",
 
 # Linux needs a display protocol: both X11 and Wayland
 [target.'cfg(target_os = "linux")'.dependencies]
-eframe = { version = "0.31", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
+eframe = { version = "0.37", default-features = false, features = ["default_fonts", "glow", "x11", "wayland"] }
 
 # Debug builds are what get checked, so keep them quick at runtime too.
 [profile.dev]

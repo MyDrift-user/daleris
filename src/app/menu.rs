@@ -530,7 +530,7 @@ impl App {
     fn popup_level(&mut self, ctx: &egui::Context, pp: &mut Popup, entries: &[MEntry], depth: usize, anchor: Rect) {
         let key = format!("{depth}:{}", if depth == 0 { "" } else { pp.open.get(depth - 1).map(|s| s.as_str()).unwrap_or("") });
         let size = pp.sizes.get(&key).copied().unwrap_or(vec2(320.0, 200.0));
-        let screen = ctx.screen_rect().shrink(4.0);
+        let screen = ctx.content_rect().shrink(4.0);
         let pos = if depth == 0 {
             let mut p = anchor.min;
             if p.x + size.x > screen.right() {
@@ -551,7 +551,7 @@ impl App {
             }
             pos2(x, y)
         };
-        let id = egui::Id::new(("ctxpop", pp.serial, key.clone()));
+        let id = egui::Id::unique(("ctxpop", pp.serial, key.clone()));
         let width = if depth == 0 { 310.0 } else { 280.0 };
         let shown = egui::Area::new(id).order(egui::Order::Foreground).fixed_pos(pos).constrain(false).show(ctx, |ui| {
             egui::Frame::menu(ui.style()).show(ui, |ui| {
@@ -785,7 +785,7 @@ impl App {
         // the dragged item follows the pointer
         if let (Some(d), Some(pos)) = (egui::DragAndDrop::payload::<MenuDrag>(ui.ctx()), ui.ctx().pointer_interact_pos()) {
             if let Some((e, _)) = list.iter().find(|(e, _)| e.key == d.0) {
-                let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("menudrag")));
+                let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("menudrag")));
                 let g = painter.layout_no_wrap(e.label.clone(), FontId::proportional(13.5), TEXT());
                 let r = Rect::from_min_size(pos + vec2(12.0, -14.0), g.size() + vec2(20.0, 12.0));
                 painter.rect_filled(r, CornerRadius::same(6), RAISED());

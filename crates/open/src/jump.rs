@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 use daleris_integration::hookctl::JUMP;
 use daleris_integration::reg::{self, policy_fixed, Hive};
 use daleris_integration::{deny, Feature};
-use windows::core::{w, PCWSTR, PWSTR};
+use windows::core::{BOOL, w, PCWSTR, PWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Threading::*;
 use windows::Win32::UI::Input::KeyboardAndMouse::*;
@@ -156,12 +156,12 @@ fn looks_like_a_dialog(hwnd: HWND) -> bool {
 }
 
 fn descendants(parent: HWND) -> Vec<HWND> {
-    unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL {
+    unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL { unsafe {
         (*(data.0 as *mut Vec<HWND>)).push(hwnd);
         true.into()
-    }
+    }}
     let mut list: Vec<HWND> = Vec::new();
-    let _ = unsafe { EnumChildWindows(parent, Some(each), LPARAM(&mut list as *mut Vec<HWND> as isize)) };
+    let _ = unsafe { EnumChildWindows(Some(parent), Some(each), LPARAM(&mut list as *mut Vec<HWND> as isize)) };
     list
 }
 
@@ -298,9 +298,9 @@ fn jump() {
         say("Daleris can't reach that dialog. It may belong to an app running as administrator.");
         return;
     }
-    let ok = unsafe { GetDlgItem(dialog, IDOK.0) }.unwrap_or_default();
+    let ok = unsafe { GetDlgItem(Some(dialog), IDOK.0) }.unwrap_or_default();
     // Posted: this returns only after the dialog has finished navigating, or showing whatever it wants to say.
-    if unsafe { PostMessageW(dialog, WM_COMMAND, WPARAM(IDOK.0 as usize), LPARAM(ok.0 as isize)) }.is_err() {
+    if unsafe { PostMessageW(Some(dialog), WM_COMMAND, WPARAM(IDOK.0 as usize), LPARAM(ok.0 as isize)) }.is_err() {
         let _ = set_text(edit, &typed);
         say("Daleris can't reach that dialog.");
         return;
@@ -309,7 +309,7 @@ fn jump() {
     let mut arrived = false;
     while started.elapsed() < NAVIGATE_WAIT {
         std::thread::sleep(Duration::from_millis(50));
-        if !unsafe { IsWindow(dialog) }.as_bool() {
+        if !unsafe { IsWindow(Some(dialog)) }.as_bool() {
             log(&format!("the dialog closed instead of going to {}", folder.display()));
             return;
         }

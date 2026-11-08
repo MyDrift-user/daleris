@@ -168,12 +168,12 @@ impl App {
     }
 
     pub(super) fn settings_ui(&mut self, ui: &mut Ui) {
-        egui::SidePanel::left("settings_nav")
+        egui::Panel::left("settings_nav")
             .resizable(false)
-            .exact_width(210.0)
+            .exact_size(210.0)
             .frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin { left: 16, right: 8, top: 18, bottom: 12 }))
             .show_separator_line(false)
-            .show_inside(ui, |ui| {
+            .show(ui, |ui| {
                 ui.label(egui::RichText::new("Settings").size(20.0).strong());
                 ui.add_space(12.0);
                 for (p, g, label) in PAGES {
@@ -196,7 +196,7 @@ impl App {
                     }
                 }
             });
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin { left: 24, right: 24, top: 18, bottom: 12 })).show_inside(ui, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin { left: 24, right: 24, top: 18, bottom: 12 })).show(ui, |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 // cap the width on very wide windows; never wider than what's visible
                 let w = ui.available_width().min(1040.0);

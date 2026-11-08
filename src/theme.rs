@@ -213,7 +213,7 @@ pub fn apply(ctx: &egui::Context, p: Palette) {
     PAL.with(|c| c.set(p));
     // Left to follow the system, egui would swap in its own stock style whenever the system's mode differs from `p`.
     ctx.set_theme(if p.dark { egui::Theme::Dark } else { egui::Theme::Light });
-    let mut style = (*ctx.style()).clone();
+    let mut style = (*ctx.global_style()).clone();
     let v = &mut style.visuals;
     *v = if p.dark { egui::Visuals::dark() } else { egui::Visuals::light() };
     v.panel_fill = p.panel;
@@ -245,7 +245,7 @@ pub fn apply(ctx: &egui::Context, p: Palette) {
     v.widgets.noninteractive.bg_stroke = egui::Stroke::new(1.0_f32, p.line);
     v.widgets.inactive.weak_bg_fill = Color32::TRANSPARENT;
     v.widgets.inactive.bg_stroke = egui::Stroke::NONE;
-    ctx.set_style(style);
+    ctx.set_global_style(style);
 }
 
 static BUNDLED_ICONS: AtomicBool = AtomicBool::new(false);
@@ -424,9 +424,9 @@ pub fn install(ctx: &egui::Context) {
     let segoe = if prefers_bundled_icons() { None } else { load(&["SegoeIcons.ttf", "segmdl2.ttf"]) };
     let bundled = segoe.is_none();
     BUNDLED_ICONS.store(bundled, Ordering::Relaxed);
-    let icons = segoe.map(FontData::from_owned).unwrap_or_else(|| egui_phosphor::Variant::Regular.font_data());
+    let icons = segoe.map(FontData::from_owned).unwrap_or_else(|| FontData::from_static(egui_phosphor::Variant::Regular.font_bytes()));
     fonts.font_data.insert("icons".into(), Arc::new(icons));
-    fonts.font_data.insert("file-icons".into(), Arc::new(egui_phosphor::Variant::Fill.font_data()));
+    fonts.font_data.insert("file-icons".into(), Arc::new(FontData::from_static(egui_phosphor::Variant::Fill.font_bytes())));
     let mut fam = fonts.families.get(&FontFamily::Proportional).cloned().unwrap_or_default();
     // The bundled fonts have blank lowercase letters that would hide the text next to an icon, so they
     // go after the text fonts, but before the emoji fonts that use the same private character codes.
@@ -437,7 +437,7 @@ pub fn install(ctx: &egui::Context) {
     fonts.families.insert(FontFamily::Name("file-icons".into()), fam);
     ctx.set_fonts(fonts);
 
-    let mut style = (*ctx.style()).clone();
+    let mut style = (*ctx.global_style()).clone();
     style.text_styles = [
         (TextStyle::Small, FontId::proportional(11.5)),
         (TextStyle::Body, FontId::proportional(13.5)),
@@ -452,7 +452,7 @@ pub fn install(ctx: &egui::Context) {
     style.spacing.interact_size.y = 26.0;
     style.spacing.scroll.bar_width = 8.0;
     style.spacing.scroll.floating = true;
-    ctx.set_style(style);
+    ctx.set_global_style(style);
     apply(ctx, pal());
 }
 
@@ -478,7 +478,7 @@ fn logo_mark() -> &'static (usize, Vec<u8>) {
 /// Paint the app logo (rounded accent square with the white mark) into `r`.
 pub fn paint_logo(p: &egui::Painter, r: egui::Rect, accent: Color32) {
     p.rect_filled(r, egui::CornerRadius::same((r.width() * 0.23) as u8), accent);
-    let id = egui::Id::new("logo-mark");
+    let id = egui::Id::unique("logo-mark");
     let ctx = p.ctx();
     let tex = ctx.data(|d| d.get_temp::<egui::TextureHandle>(id)).unwrap_or_else(|| {
         let (side, alpha) = logo_mark();

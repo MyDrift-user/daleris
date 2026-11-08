@@ -28,7 +28,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use daleris_integration::deny;
 use daleris_integration::reg::{policy_fixed, Hive};
 use daleris_integration::Feature;
-use windows::core::{implement, IUnknown, Interface, GUID, HRESULT};
+use windows::core::{BOOL, implement, IUnknown, Interface, GUID, HRESULT};
 use windows::Win32::Foundation::*;
 use windows::Win32::Security::{GetTokenInformation, TokenElevation, TokenIsAppContainer, TOKEN_ELEVATION, TOKEN_QUERY};
 use windows::Win32::Storage::Packaging::Appx::GetCurrentPackageFullName;
@@ -70,7 +70,7 @@ type GetClassObject = unsafe extern "system" fn(*const GUID, *const GUID, *mut *
 /// `comdlg32`'s own class factory, from the system folder only.
 fn real_factory(clsid: &GUID) -> windows::core::Result<IClassFactory> {
     let module = unsafe { LoadLibraryExW(windows::core::w!("comdlg32.dll"), None, LOAD_LIBRARY_SEARCH_SYSTEM32) }?;
-    let entry = unsafe { GetProcAddress(module, windows::core::s!("DllGetClassObject")) }.ok_or_else(windows::core::Error::from_win32)?;
+    let entry = unsafe { GetProcAddress(module, windows::core::s!("DllGetClassObject")) }.ok_or_else(windows::core::Error::from_thread)?;
     // SAFETY: that export has this signature in every COM server.
     let get: GetClassObject = unsafe { std::mem::transmute::<unsafe extern "system" fn() -> isize, GetClassObject>(entry) };
     let mut out = std::ptr::null_mut();
@@ -109,7 +109,7 @@ fn any_watchful_module() -> bool {
     let count = (needed as usize / std::mem::size_of::<HMODULE>()).min(modules.len());
     modules[..count].iter().any(|&m| {
         let mut name = [0u16; 260];
-        let len = unsafe { GetModuleBaseNameW(process, m, &mut name) } as usize;
+        let len = unsafe { GetModuleBaseNameW(process, Some(m), &mut name) } as usize;
         deny::is_watchful_module(&String::from_utf16_lossy(&name[..len]))
     })
 }
@@ -133,7 +133,7 @@ fn leave_alone() -> Option<&'static str> {
         return Some("sandboxed");
     }
     let mut len = 0;
-    if unsafe { GetCurrentPackageFullName(&mut len, windows::core::PWSTR::null()) } != APPMODEL_ERROR_NO_PACKAGE {
+    if unsafe { GetCurrentPackageFullName(&mut len, Some(windows::core::PWSTR::null())) } != APPMODEL_ERROR_NO_PACKAGE {
         return Some("packaged");
     }
     let mut session = 0;
@@ -154,7 +154,8 @@ struct Factory {
 }
 
 impl IClassFactory_Impl for Factory_Impl {
-    fn CreateInstance(&self, outer: Option<&IUnknown>, iid: *const GUID, out: *mut *mut c_void) -> windows::core::Result<()> {
+    fn CreateInstance(&self, outer: windows::core::Ref<'_, IUnknown>, iid: *const GUID, out: *mut *mut c_void) -> windows::core::Result<()> {
+        let outer = outer.as_ref();
         let real = self.real.clone();
         let clsid = self.clsid;
         let made = guard(|| {
@@ -204,8 +205,8 @@ impl IClassFactory_Impl for Factory_Impl {
 ///
 /// # Safety
 /// Called by COM with valid pointers.
-#[no_mangle]
-pub unsafe extern "system" fn DllGetClassObject(clsid: *const GUID, iid: *const GUID, out: *mut *mut c_void) -> HRESULT {
+#[unsafe(no_mangle)]
+pub unsafe extern "system" fn DllGetClassObject(clsid: *const GUID, iid: *const GUID, out: *mut *mut c_void) -> HRESULT { unsafe {
     let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| -> HRESULT {
         if out.is_null() || clsid.is_null() || iid.is_null() {
             return E_POINTER;
@@ -236,10 +237,10 @@ pub unsafe extern "system" fn DllGetClassObject(clsid: *const GUID, iid: *const 
         factory.query(iid, out)
     }));
     result.unwrap_or(E_FAIL)
-}
+}}
 
 /// COM asks this before unloading the DLL.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "system" fn DllCanUnloadNow() -> HRESULT {
     if LIVE.load(Ordering::SeqCst) == 0 {
         S_OK

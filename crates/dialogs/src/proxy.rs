@@ -12,7 +12,7 @@ use std::sync::{Mutex, MutexGuard, PoisonError};
 
 use daleris_integration::pick::{first_extension, Control, ControlItem, ControlKind, HostMessage, Kind, PickReply, PickRequest, STATE_NORMAL};
 use daleris_integration::reg::Hive;
-use windows::core::{implement, IUnknown, IUnknownImpl, Interface, GUID, HRESULT, PCWSTR, PWSTR};
+use windows::core::{BOOL, implement, IUnknown, IUnknownImpl, Interface, GUID, HRESULT, PCWSTR, PWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::*;
 use windows::Win32::System::Ole::*;
@@ -207,7 +207,7 @@ impl Inner {
             st.used_windows = true;
             st.live = None;
         }
-        unsafe { self.real.Show(owner) }
+        unsafe { self.real.Show(Some(owner)) }
     }
 
     fn show(&self, owner: HWND, me: &IFileDialog, me_custom: &IFileDialogCustomize) -> windows::core::Result<()> {
@@ -569,7 +569,7 @@ macro_rules! dialog_impls {
                 match guard(|| self.0.show(owner, &me, &me_custom)) {
                     Err(e) if e.code() == E_FAIL => {
                         note("Windows' own dialog: Show failed");
-                        unsafe { self.0.real.Show(owner) }
+                        unsafe { self.0.real.Show(Some(owner)) }
                     }
                     other => other,
                 }
@@ -594,7 +594,8 @@ macro_rules! dialog_impls {
             fn GetFileTypeIndex(&self) -> windows::core::Result<u32> {
                 guard(|| self.0.file_type_index())
             }
-            fn Advise(&self, events: Option<&IFileDialogEvents>) -> windows::core::Result<u32> {
+            fn Advise(&self, events: windows::core::Ref<'_, IFileDialogEvents>) -> windows::core::Result<u32> {
+                let events = events.as_ref();
                 guard(|| self.0.advise(events))
             }
             fn Unadvise(&self, cookie: u32) -> windows::core::Result<()> {
@@ -609,10 +610,12 @@ macro_rules! dialog_impls {
             fn GetOptions(&self) -> windows::core::Result<FILEOPENDIALOGOPTIONS> {
                 guard(|| unsafe { self.0.real.GetOptions() })
             }
-            fn SetDefaultFolder(&self, item: Option<&IShellItem>) -> windows::core::Result<()> {
+            fn SetDefaultFolder(&self, item: windows::core::Ref<'_, IShellItem>) -> windows::core::Result<()> {
+                let item = item.as_ref();
                 guard(|| unsafe { self.0.real.SetDefaultFolder(item) })
             }
-            fn SetFolder(&self, item: Option<&IShellItem>) -> windows::core::Result<()> {
+            fn SetFolder(&self, item: windows::core::Ref<'_, IShellItem>) -> windows::core::Result<()> {
+                let item = item.as_ref();
                 guard(|| {
                     unsafe { self.0.real.SetFolder(item) }?;
                     let mut st = self.0.st();
@@ -668,7 +671,8 @@ macro_rules! dialog_impls {
             fn GetResult(&self) -> windows::core::Result<IShellItem> {
                 guard(|| self.0.result())
             }
-            fn AddPlace(&self, item: Option<&IShellItem>, where_: FDAP) -> windows::core::Result<()> {
+            fn AddPlace(&self, item: windows::core::Ref<'_, IShellItem>, where_: FDAP) -> windows::core::Result<()> {
+                let item = item.as_ref();
                 guard(|| unsafe { self.0.real.AddPlace(item, where_) })
             }
             fn SetDefaultExtension(&self, ext: &PCWSTR) -> windows::core::Result<()> {
@@ -688,7 +692,8 @@ macro_rules! dialog_impls {
             fn ClearClientData(&self) -> windows::core::Result<()> {
                 guard(|| unsafe { self.0.real.ClearClientData() })
             }
-            fn SetFilter(&self, filter: Option<&IShellItemFilter>) -> windows::core::Result<()> {
+            fn SetFilter(&self, filter: windows::core::Ref<'_, IShellItemFilter>) -> windows::core::Result<()> {
+                let filter = filter.as_ref();
                 guard(|| {
                     unsafe { self.0.real.SetFilter(filter) }?;
                     if filter.is_some() {
@@ -706,7 +711,8 @@ macro_rules! dialog_impls {
                     None => Ok(()),
                 })
             }
-            fn SetNavigationRoot(&self, item: Option<&IShellItem>) -> windows::core::Result<()> {
+            fn SetNavigationRoot(&self, item: windows::core::Ref<'_, IShellItem>) -> windows::core::Result<()> {
+                let item = item.as_ref();
                 guard(|| {
                     // a dialog that may only show part of the disk is one the picker can't honour
                     self.0.set_windows_only("the app limits where the dialog can go (SetNavigationRoot)");
@@ -735,14 +741,15 @@ macro_rules! dialog_impls {
             }
             fn ContextSensitiveHelp(&self, enter: BOOL) -> windows::core::Result<()> {
                 guard(|| match self.0.query_real_for::<IOleWindow>() {
-                    Some(w) => unsafe { w.ContextSensitiveHelp(enter) },
+                    Some(w) => unsafe { w.ContextSensitiveHelp(enter.as_bool()) },
                     None => Ok(()),
                 })
             }
         }
 
         impl IObjectWithSite_Impl for $impl_type {
-            fn SetSite(&self, site: Option<&IUnknown>) -> windows::core::Result<()> {
+            fn SetSite(&self, site: windows::core::Ref<'_, IUnknown>) -> windows::core::Result<()> {
+                let site = site.as_ref();
                 guard(|| match self.0.query_real_for::<IObjectWithSite>() {
                     Some(w) => unsafe { w.SetSite(site) },
                     None => Ok(()),
@@ -777,7 +784,7 @@ macro_rules! dialog_impls {
             }
             fn AddCheckButton(&self, id: u32, label: &PCWSTR, checked: BOOL) -> windows::core::Result<()> {
                 let t = text(label);
-                self.0.customize("AddCheckButton", format!("{id} {t:?} {}", checked.as_bool()), |c| unsafe { c.AddCheckButton(id, *label, checked) }, |st| {
+                self.0.customize("AddCheckButton", format!("{id} {t:?} {}", checked.as_bool()), |c| unsafe { c.AddCheckButton(id, *label, checked.as_bool()) }, |st| {
                     st.add(ControlKind::Check, id, t.clone());
                     if let Some(c) = st.control(id) {
                         c.checked = checked.as_bool();
@@ -833,7 +840,7 @@ macro_rules! dialog_impls {
                 self.0.customize_read(|c| unsafe { c.GetCheckButtonState(id) })
             }
             fn SetCheckButtonState(&self, id: u32, checked: BOOL) -> windows::core::Result<()> {
-                self.0.customize("SetCheckButtonState", format!("{id} {}", checked.as_bool()), |c| unsafe { c.SetCheckButtonState(id, checked) }, |st| {
+                self.0.customize("SetCheckButtonState", format!("{id} {}", checked.as_bool()), |c| unsafe { c.SetCheckButtonState(id, checked.as_bool()) }, |st| {
                     if let Some(c) = st.control(id) {
                         c.checked = checked.as_bool();
                     }
@@ -947,23 +954,26 @@ impl IFileOpenDialog_Impl for OpenProxy_Impl {
 }
 
 impl IFileSaveDialog_Impl for SaveProxy_Impl {
-    fn SetSaveAsItem(&self, item: Option<&IShellItem>) -> windows::core::Result<()> {
+    fn SetSaveAsItem(&self, item: windows::core::Ref<'_, IShellItem>) -> windows::core::Result<()> {
+        let item = item.as_ref();
         guard(|| {
             // a suggested existing item: the name and folder are what the picker needs of it
             self.real_save().and_then(|d| unsafe { d.SetSaveAsItem(item) })
         })
     }
-    fn SetProperties(&self, store: Option<&IPropertyStore>) -> windows::core::Result<()> {
+    fn SetProperties(&self, store: windows::core::Ref<'_, IPropertyStore>) -> windows::core::Result<()> {
+        let store = store.as_ref();
         guard(|| {
             self.0.st().properties = store.cloned();
             self.real_save().and_then(|d| unsafe { d.SetProperties(store) })
         })
     }
     /// The real dialog has a panel for editing these. The picker doesn't, so what the app set stays as it was.
-    fn SetCollectedProperties(&self, list: Option<&IPropertyDescriptionList>, append: BOOL) -> windows::core::Result<()> {
+    fn SetCollectedProperties(&self, list: windows::core::Ref<'_, IPropertyDescriptionList>, append: BOOL) -> windows::core::Result<()> {
+        let list = list.as_ref();
         guard(|| {
             note("SetCollectedProperties: the picker has no panel for these, so they aren't editable there");
-            self.real_save().and_then(|d| unsafe { d.SetCollectedProperties(list, append) })
+            self.real_save().and_then(|d| unsafe { d.SetCollectedProperties(list, append.as_bool()) })
         })
     }
     fn GetProperties(&self) -> windows::core::Result<IPropertyStore> {
@@ -981,7 +991,10 @@ impl IFileSaveDialog_Impl for SaveProxy_Impl {
             Ok(unsafe { IPropertyStore::from_raw(out) })
         })
     }
-    fn ApplyProperties(&self, item: Option<&IShellItem>, store: Option<&IPropertyStore>, hwnd: HWND, sink: Option<&IFileOperationProgressSink>) -> windows::core::Result<()> {
+    fn ApplyProperties(&self, item: windows::core::Ref<'_, IShellItem>, store: windows::core::Ref<'_, IPropertyStore>, hwnd: HWND, sink: windows::core::Ref<'_, IFileOperationProgressSink>) -> windows::core::Result<()> {
+        let item = item.as_ref();
+        let store = store.as_ref();
+        let sink = sink.as_ref();
         guard(|| {
             let forwarded = self.real_save().and_then(|d| unsafe { d.ApplyProperties(item, store, hwnd, sink) });
             if forwarded.is_ok() || self.0.st().used_windows {
@@ -1046,7 +1059,7 @@ const NEVER_FORWARDED: [GUID; 7] = [
     GUID::from_u128(0x1C733A30_2A1C_11CE_ADE5_00AA0044773D), // ICallFactory
 ];
 
-unsafe extern "system" fn query_interface(this: *mut c_void, iid: *const GUID, out: *mut *mut c_void) -> HRESULT {
+unsafe extern "system" fn query_interface(this: *mut c_void, iid: *const GUID, out: *mut *mut c_void) -> HRESULT { unsafe {
     std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let copy = *(this as *const usize);
         let table = {
@@ -1089,13 +1102,13 @@ unsafe extern "system" fn query_interface(this: *mut c_void, iid: *const GUID, o
         }
     }))
     .unwrap_or(E_NOINTERFACE)
-}
+}}
 
 /// Switches one interface of an object to the copy of its table. `words` is how many entries that table has.
 ///
 /// # Safety
 /// `interface` is an interface pointer of one of this file's objects, and has at least that many entries.
-unsafe fn watch_queries(interface: *mut c_void, words: usize) {
+unsafe fn watch_queries(interface: *mut c_void, words: usize) { unsafe {
     let slot = interface as *mut usize;
     let current = *slot;
     let mut tables = TABLES.lock().unwrap_or_else(PoisonError::into_inner);
@@ -1114,7 +1127,7 @@ unsafe fn watch_queries(interface: *mut c_void, words: usize) {
         }
     };
     *slot = copy;
-}
+}}
 
 fn words<T>() -> usize {
     std::mem::size_of::<T>() / std::mem::size_of::<usize>()

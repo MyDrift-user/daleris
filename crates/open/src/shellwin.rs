@@ -11,7 +11,8 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, RecvTimeoutError, Sender};
 use std::time::{Duration, Instant};
 
-use windows::core::{implement, w, IUnknown, IUnknownImpl, Interface, BSTR, GUID, HRESULT, PCWSTR, VARIANT};
+use windows::core::{BOOL, implement, w, IUnknown, IUnknownImpl, Interface, BSTR, GUID, HRESULT, PCWSTR};
+use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::Foundation::*;
 use windows::Win32::Graphics::Dwm::{DwmSetWindowAttribute, DWMWA_CLOAK};
 use windows::Win32::System::Com::*;
@@ -104,15 +105,15 @@ fn hidden_window() -> Option<HWND> {
     let module = unsafe { GetModuleHandleW(None) }.ok()?;
     let class = WNDCLASSW { lpfnWndProc: Some(window_proc), hInstance: module.into(), lpszClassName: w!("DalerisShellWindow"), ..Default::default() };
     unsafe { RegisterClassW(&class) };
-    let hwnd = unsafe { CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("DalerisShellWindow"), w!("Daleris"), WINDOW_STYLE(0), 0, 0, 0, 0, None, None, module, None) }.ok()?;
+    let hwnd = unsafe { CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("DalerisShellWindow"), w!("Daleris"), WINDOW_STYLE(0), 0, 0, 0, 0, None, None, Some(module.into()), None) }.ok()?;
     let cloak: BOOL = true.into();
     let _ = unsafe { DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak as *const BOOL as *const _, 4) };
     Some(hwnd)
 }
 
-unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn window_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM) -> LRESULT { unsafe {
     DefWindowProcW(hwnd, msg, wparam, lparam)
-}
+}}
 
 trait WideNull {
     fn encode_wide_null(&self) -> Vec<u16>;
@@ -190,7 +191,7 @@ impl IShellView_Impl for ShellWin_Impl {
     fn Refresh(&self) -> windows::core::Result<()> {
         Ok(())
     }
-    fn CreateViewWindow(&self, _: Option<&IShellView>, _: *const FOLDERSETTINGS, _: Option<&IShellBrowser>, _: *const RECT) -> windows::core::Result<HWND> {
+    fn CreateViewWindow(&self, _: windows::core::Ref<'_, IShellView>, _: *const FOLDERSETTINGS, _: windows::core::Ref<'_, IShellBrowser>, _: *const RECT) -> windows::core::Result<HWND> {
         Err(E_NOTIMPL.into())
     }
     fn DestroyViewWindow(&self) -> windows::core::Result<()> {

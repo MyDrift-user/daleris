@@ -68,10 +68,14 @@ fn main() -> eframe::Result<()> {
             "--new-window" => new_window = true,
             "--pick" => {}
             "--query" => query = lossy(args.next()),
-            "--icons" => std::env::set_var("DALERIS_VIEW", "icons"),
-            "--props" => std::env::set_var("DALERIS_TEST_PROPS", args.next().unwrap_or_default()),
-            "--native-title" => std::env::set_var("DALERIS_TEST_NATIVE_TITLE", "1"),
-            "--settings" => std::env::set_var("DALERIS_PAGE", args.next().unwrap_or_default()),
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            "--icons" => unsafe { std::env::set_var("DALERIS_VIEW", "icons") },
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            "--props" => unsafe { std::env::set_var("DALERIS_TEST_PROPS", args.next().unwrap_or_default()) },
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            "--native-title" => unsafe { std::env::set_var("DALERIS_TEST_NATIVE_TITLE", "1") },
+            // FIXME: Audit that the environment access only happens in single-threaded code.
+            "--settings" => unsafe { std::env::set_var("DALERIS_PAGE", args.next().unwrap_or_default()) },
             other if other.starts_with("--") => {}
             _ => named.push(a),
         }
@@ -113,7 +117,7 @@ fn main() -> eframe::Result<()> {
         // It takes the place of a window that would be owned by the app, which another process's can't be.
         viewport = viewport.with_always_on_top().with_active(true);
     }
-    let options = eframe::NativeOptions { viewport, vsync: !background, ..Default::default() };
+    let options = eframe::NativeOptions { viewport, ..Default::default() };
     let result = eframe::run_native("Daleris", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, wanted, query, screenshot, picker)))));
     match &result {
         Ok(()) => log::info!("exited"),

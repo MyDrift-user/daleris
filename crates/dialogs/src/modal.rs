@@ -9,7 +9,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use daleris_integration::pick::{HostMessage, PickReply, PickRequest};
-use windows::core::{HRESULT, PCWSTR, PWSTR};
+use windows::core::{BOOL, HRESULT, PCWSTR, PWSTR};
 use windows::Win32::Foundation::*;
 use windows::Win32::Security::SECURITY_ATTRIBUTES;
 use windows::Win32::Storage::FileSystem::{ReadFile, WriteFile};
@@ -92,10 +92,10 @@ fn start(exe: &Path, request: &PickRequest) -> Option<Child> {
     // exactly these two handles, never whatever else this app left inheritable
     let handles = [in_read.0, out_write.0];
     let mut size = 0;
-    let _ = unsafe { InitializeProcThreadAttributeList(LPPROC_THREAD_ATTRIBUTE_LIST(std::ptr::null_mut()), 1, 0, &mut size) };
+    let _ = unsafe { InitializeProcThreadAttributeList(Some(LPPROC_THREAD_ATTRIBUTE_LIST(std::ptr::null_mut())), 1, Some(0), &mut size) };
     let mut list_buf = vec![0u8; size];
     let list = LPPROC_THREAD_ATTRIBUTE_LIST(list_buf.as_mut_ptr() as *mut c_void);
-    unsafe { InitializeProcThreadAttributeList(list, 1, 0, &mut size) }.ok()?;
+    unsafe { InitializeProcThreadAttributeList(Some(list), 1, Some(0), &mut size) }.ok()?;
     let updated = unsafe { UpdateProcThreadAttribute(list, 0, PROC_THREAD_ATTRIBUTE_HANDLE_LIST as usize, Some(handles.as_ptr() as *const c_void), std::mem::size_of_val(&handles), None, None) };
     let started = updated.ok().and_then(|()| {
         let mut info = STARTUPINFOEXW::default();
@@ -111,7 +111,7 @@ fn start(exe: &Path, request: &PickRequest) -> Option<Child> {
         unsafe {
             CreateProcessW(
                 PCWSTR(app.as_ptr()),
-                PWSTR(command.as_mut_ptr()),
+                Some(PWSTR(command.as_mut_ptr())),
                 None,
                 None,
                 true,
@@ -203,7 +203,7 @@ fn window_of(pid: u32) -> Option<HWND> {
         pid: u32,
         found: Option<HWND>,
     }
-    unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL {
+    unsafe extern "system" fn each(hwnd: HWND, data: LPARAM) -> BOOL { unsafe {
         let find = &mut *(data.0 as *mut Find);
         let mut owner = 0;
         GetWindowThreadProcessId(hwnd, Some(&mut owner));
@@ -212,7 +212,7 @@ fn window_of(pid: u32) -> Option<HWND> {
             return false.into();
         }
         true.into()
-    }
+    }}
     let mut find = Find { pid, found: None };
     let _ = unsafe { EnumWindows(Some(each), LPARAM(&mut find as *mut Find as isize)) };
     find.found

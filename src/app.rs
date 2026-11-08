@@ -97,7 +97,7 @@ struct Tab {
     dirty: bool,
     loading: bool,
     refreshing: bool,
-    gen: u64,
+    generation: u64,
     cancel: Arc<AtomicBool>,
     load_start: Instant,
     load_time: Option<Duration>,
@@ -172,7 +172,7 @@ impl Tab {
             dirty: false,
             loading: false,
             refreshing: false,
-            gen: 0,
+            generation: 0,
             cancel: Arc::new(AtomicBool::new(false)),
             load_start: Instant::now(),
             load_time: None,
@@ -255,14 +255,14 @@ enum Msg {
     /// a big folder's sort is done
     Sorted { tab: u64, token: u64, order: Vec<u32>, made_for: (SortSpec, usize, u64) },
     /// what a look at an open network folder found
-    Probe { tab: u64, gen: u64, result: Result<(), FolderError> },
+    Probe { tab: u64, generation: u64, result: Result<(), FolderError> },
     Reconnected { tab: u64, result: Result<(), FolderError> },
     /// a drive came back while something was using it
     DrivesChanged,
     /// the contents of a file, read away from the window
     FileText(Result<String, String>),
-    Batch { tab: u64, gen: u64, batch: Vec<Entry> },
-    Done { tab: u64, gen: u64, err: Option<FolderError> },
+    Batch { tab: u64, generation: u64, batch: Vec<Entry> },
+    Done { tab: u64, generation: u64, err: Option<FolderError> },
     Changed { tab: u64 },
     Drives(Vec<Drive>),
     DriveDetail(Drive),
@@ -271,8 +271,8 @@ enum Msg {
     /// a server was mounted (Linux/macOS): where it appeared
     #[allow(dead_code)]
     Connected(Result<PathBuf, String>),
-    PropSize { gen: u64, bytes: u64, files: usize, dirs: usize, done: bool },
-    Preview { gen: u64, content: PvContent },
+    PropSize { generation: u64, bytes: u64, files: usize, dirs: usize, done: bool },
+    Preview { generation: u64, content: PvContent },
 }
 
 #[derive(Clone)]
@@ -288,7 +288,7 @@ enum PvContent {
 struct Preview {
     path: Option<PathBuf>,
     entry: Option<Entry>,
-    gen: u64,
+    generation: u64,
     content: PvContent,
 }
 
@@ -388,6 +388,8 @@ struct Shot {
     /// test hook: more pictures on the way, at these frames, as `<name>-<frame>.png`
     more: Vec<u32>,
     saving: Option<u32>,
+    /// Where the window's picture lands once egui has taken it.
+    taken: Arc<std::sync::Mutex<Option<Arc<egui::ColorImage>>>>,
 }
 
 /// Where a right-click menu item goes: in the menu, in its "Show more options" submenu, or nowhere.
@@ -1120,7 +1122,7 @@ impl App {
             type_names: HashMap::new(),
             thumb_order: VecDeque::new(),
             indexes: Vec::new(),
-            preview: Preview { path: None, entry: None, gen: 0, content: PvContent::Nothing },
+            preview: Preview { path: None, entry: None, generation: 0, content: PvContent::Nothing },
             toast: None,
             focus_search: false,
             editing_address: None,
@@ -1131,6 +1133,7 @@ impl App {
                 requested: false,
                 more: std::env::var("DALERIS_TEST_SHOT_MORE").unwrap_or_default().split(',').filter_map(|f| f.parse().ok()).collect(),
                 saving: None,
+                taken: Arc::default(),
             }),
             updater,
             auto_update_on: auto_update_on.clone(),
@@ -1244,7 +1247,7 @@ impl App {
     fn start_load(&mut self, t: &mut Tab, refresh: bool) {
         t.cancel.store(true, Ordering::Relaxed);
         t.cancel = Arc::new(AtomicBool::new(false));
-        t.gen += 1;
+        t.generation += 1;
         if !std::mem::take(&mut t.quiet) {
             t.error = None;
         }
@@ -1287,7 +1290,7 @@ impl App {
             Loc::Dir(p) => {
                 t.loading = true;
                 t.in_cloud = self.clouds.iter().any(|c| fsx::is_under(&p, &c.path));
-                let (tx, id, gen, cancel, ctx) = (self.tx.clone(), t.id, t.gen, t.cancel.clone(), self.ctx.clone());
+                let (tx, id, generation, cancel, ctx) = (self.tx.clone(), t.id, t.generation, t.cancel.clone(), self.ctx.clone());
                 let p2 = p.clone();
                 // Watching starts once the folder has been read: on a dead server that too can hang.
                 if t.watched.as_deref() != Some(p.as_path()) {
@@ -1301,7 +1304,7 @@ impl App {
                     }
                     let list = || {
                         fsx::list_dir(&p2, &cancel, |batch| {
-                            let _ = tx.send(Msg::Batch { tab: id, gen, batch });
+                            let _ = tx.send(Msg::Batch { tab: id, generation, batch });
                             ctx.request_repaint();
                         })
                     };
@@ -1311,7 +1314,7 @@ impl App {
                         let _ = tx.send(Msg::DrivesChanged);
                         r = list();
                     }
-                    let _ = tx.send(Msg::Done { tab: id, gen, err: r.err() });
+                    let _ = tx.send(Msg::Done { tab: id, generation, err: r.err() });
                     ctx.request_repaint();
                 });
             }
@@ -1487,8 +1490,8 @@ impl App {
                         }
                     }
                 }
-                Msg::Probe { tab, gen, result } => {
-                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.gen == gen) {
+                Msg::Probe { tab, generation, result } => {
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.generation == generation) {
                         t.probe_since = None;
                         t.stalled = false;
                         t.probe_at = Instant::now() + PROBE_EVERY;
@@ -1522,8 +1525,8 @@ impl App {
                     }
                     Err(e) => self.toast(format!("Couldn't read the file: {e}"), true),
                 },
-                Msg::Batch { tab, gen, batch } => {
-                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.gen == gen) {
+                Msg::Batch { tab, generation, batch } => {
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.generation == generation) {
                         if t.refreshing {
                             t.incoming.extend(batch);
                         } else {
@@ -1532,8 +1535,8 @@ impl App {
                         }
                     }
                 }
-                Msg::Done { tab, gen, err } => {
-                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.gen == gen) {
+                Msg::Done { tab, generation, err } => {
+                    if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.generation == generation) {
                         if t.refreshing {
                             if err.is_none() {
                                 t.entries = std::mem::take(&mut t.incoming);
@@ -1623,13 +1626,13 @@ impl App {
                         self.toast(e, true);
                     }
                 }
-                Msg::PropSize { gen, bytes, files, dirs, done } => {
-                    if let Some(p) = self.props.as_mut().filter(|p| p.gen == gen) {
+                Msg::PropSize { generation, bytes, files, dirs, done } => {
+                    if let Some(p) = self.props.as_mut().filter(|p| p.generation == generation) {
                         p.size = (bytes, files, dirs, done);
                     }
                 }
-                Msg::Preview { gen, content } => {
-                    if gen == self.preview.gen {
+                Msg::Preview { generation, content } => {
+                    if generation == self.preview.generation {
                         self.preview.content = content;
                     }
                 }
@@ -1701,10 +1704,10 @@ impl App {
             }
             None if now >= t.probe_at => {
                 t.probe_since = Some(now);
-                let (tx, ctx, tab, gen, path) = (self.tx.clone(), self.ctx.clone(), t.id, t.gen, p.clone());
+                let (tx, ctx, tab, generation, path) = (self.tx.clone(), self.ctx.clone(), t.id, t.generation, p.clone());
                 bg::submit(p, "probe", move || {
                     let result = fsx::check_folder(&path);
-                    let _ = tx.send(Msg::Probe { tab, gen, result });
+                    let _ = tx.send(Msg::Probe { tab, generation, result });
                     ctx.request_repaint();
                 });
             }
@@ -2184,13 +2187,13 @@ fn cloud_text(st: Cloud) -> &'static str {
 
 /// Width of a single line of text.
 fn text_w(ui: &Ui, text: &str, size: f32) -> f32 {
-    ui.fonts(|f| f.layout_no_wrap(text.to_string(), FontId::proportional(size), Color32::WHITE).size().x)
+    ui.fonts_mut(|f| f.layout_no_wrap(text.to_string(), FontId::proportional(size), Color32::WHITE).size().x)
 }
 
 fn truncated(ui: &Ui, text: &str, font: FontId, color: Color32, width: f32) -> Arc<egui::Galley> {
     let mut job = egui::text::LayoutJob::simple_singleline(text.to_string(), font, color);
     job.wrap = egui::text::TextWrapping { max_width: width.max(1.0), max_rows: 1, break_anywhere: true, overflow_character: Some('…') };
-    ui.fonts(|f| f.layout_job(job))
+    ui.fonts_mut(|f| f.layout_job(job))
 }
 
 /// Name with matched search terms highlighted.
@@ -2222,7 +2225,7 @@ fn highlighted(ui: &Ui, text: &str, terms: &[String], width: f32) -> Arc<egui::G
     }
     job.append(&text[start..], 0.0, if cur { hi } else { normal });
     job.wrap = egui::text::TextWrapping { max_width: width.max(1.0), max_rows: 1, break_anywhere: true, overflow_character: Some('…') };
-    ui.fonts(|f| f.layout_job(job))
+    ui.fonts_mut(|f| f.layout_job(job))
 }
 
 fn icon_button(ui: &mut Ui, glyph: &'static str, tip: &str, enabled: bool) -> Response {
@@ -2248,7 +2251,7 @@ fn menu_item(ui: &mut Ui, glyph: &'static str, label: &str, shortcut: &str) -> b
     }
     let clicked = resp.clicked();
     if clicked {
-        ui.close_menu();
+        ui.close();
     }
     clicked
 }
@@ -2256,7 +2259,8 @@ fn menu_item(ui: &mut Ui, glyph: &'static str, label: &str, shortcut: &str) -> b
 // ====================================================================== frame
 
 impl App {
-    fn frame(&mut self, ctx: &egui::Context) {
+    fn frame(&mut self, root: &mut Ui) {
+        let ctx = &root.ctx().clone();
         let frame_start = Instant::now();
         self.pump();
         self.poll_late_icons();
@@ -2299,22 +2303,22 @@ impl App {
         let in_settings = t.loc == Loc::Settings;
         // A picker is a dialog: what's for managing files or the window it doesn't need.
         if self.picker.is_some() {
-            self.picker_top(ctx, &mut t);
-            self.picker_bar(ctx, &mut t);
-            self.sidebar(ctx, &t);
+            self.picker_top(root, &mut t);
+            self.picker_bar(root, &mut t);
+            self.sidebar(root, &t);
         } else {
-            self.tab_bar(ctx, &mut t);
-            self.toolbar(ctx, &mut t);
+            self.tab_bar(root, &mut t);
+            self.toolbar(root, &mut t);
             if !in_settings {
-                self.command_bar(ctx, &mut t);
+                self.command_bar(root, &mut t);
             }
-            self.status_bar(ctx, &t);
-            self.sidebar(ctx, &t);
+            self.status_bar(root, &t);
+            self.sidebar(root, &t);
             if self.settings.show_preview && !in_settings {
-                self.preview_panel(ctx, &t);
+                self.preview_panel(root, &t);
             }
         }
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG())).show(ctx, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(BG())).show(root, |ui| {
             if in_settings {
                 self.settings_ui(ui);
             } else if t.loc == Loc::ThisPc && !t.searching() {
@@ -2366,10 +2370,10 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+    fn ui(&mut self, ui: &mut Ui, _frame: &mut eframe::Frame) {
         // Unwinding out of this would end at the window procedure, which Rust turns into an abort: the whole app gone,
         // with whatever was going on in it.
-        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.frame(ctx))).is_err() {
+        if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.frame(ui))).is_err() {
             self.recover_from_panic();
         }
     }
@@ -2442,7 +2446,7 @@ impl eframe::App for App {
             if f == at && kind == "ctrl_comma" {
                 raw.events.push(egui::Event::Key { key: Key::Comma, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::COMMAND });
             } else if f == at && kind == "wheel" {
-                raw.events.push(egui::Event::MouseWheel { unit: egui::MouseWheelUnit::Point, delta: vec2(0.0, -10_000_000.0), modifiers: Default::default() });
+                raw.events.push(egui::Event::MouseWheel { unit: egui::MouseWheelUnit::Point, delta: vec2(0.0, -10_000_000.0), phase: egui::TouchPhase::Move, source: egui::MouseWheelSource::Wheel, modifiers: Default::default() });
             } else if f == at && kind != "move" {
                 let (button, times) = match kind {
                     "right" => (egui::PointerButton::Secondary, 1),
@@ -2551,13 +2555,21 @@ impl App {
     }
 
     fn screenshot(&mut self, ctx: &egui::Context) {
+        /// Asks egui for a picture of the window, which arrives in `slot` a frame or two later.
+        fn take_picture(ctx: &egui::Context, slot: &Arc<std::sync::Mutex<Option<Arc<egui::ColorImage>>>>) {
+            let (slot, repaint) = (slot.clone(), ctx.clone());
+            ctx.request_screenshot(move |image| {
+                *slot.lock().unwrap_or_else(std::sync::PoisonError::into_inner) = Some(image);
+                repaint.request_repaint();
+            });
+        }
         let Some(shot) = &mut self.shot else { return };
         shot.frames += 1;
         // off screen there's nothing to keep it to the screen's pace
         if std::env::var_os("DALERIS_TEST_BACKGROUND").is_some() {
             std::thread::sleep(Duration::from_millis(16));
         }
-        let img = ctx.input(|i| i.raw.events.iter().find_map(|e| if let egui::Event::Screenshot { image, .. } = e { Some(image.clone()) } else { None }));
+        let img = shot.taken.lock().unwrap_or_else(std::sync::PoisonError::into_inner).take();
         if let (Some(img), Some(frame)) = (&img, shot.saving) {
             shot.saving = None;
             let stem = shot.path.with_extension("");
@@ -2572,7 +2584,7 @@ impl App {
         if let Some(pos) = shot.more.iter().position(|f| *f == shot.frames) {
             shot.more.remove(pos);
             shot.saving = Some(shot.frames);
-            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+            take_picture(ctx, &shot.taken);
             ctx.request_repaint();
             return;
         }
@@ -2587,7 +2599,7 @@ impl App {
         let at = test_number("DALERIS_TEST_SHOT_FRAMES", 120);
         if shot.frames >= at && !shot.requested {
             shot.requested = true;
-            ctx.send_viewport_cmd(egui::ViewportCommand::Screenshot(egui::UserData::default()));
+            take_picture(ctx, &shot.taken);
         }
         if shot.frames > at + 480 {
             ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -2601,7 +2613,7 @@ impl App {
         if self.popup.is_some() {
             return; // the open menu owns Enter / Escape
         }
-        let typing = ctx.wants_keyboard_input();
+        let typing = ctx.egui_wants_keyboard_input();
         let (mods, events, focused) = ctx.input(|i| (i.modifiers, i.events.clone(), i.focused));
         let n = self.row_count(t);
         let mut moved: Option<usize> = None;
@@ -2746,7 +2758,7 @@ impl App {
     }
 
     fn dropped_files(&mut self, ctx: &egui::Context, t: &Tab) {
-        let files: Vec<PathBuf> = ctx.input(|i| i.raw.dropped_files.iter().filter_map(|f| f.path.clone()).collect());
+        let files: Vec<PathBuf> = ctx.input(|i| i.raw.dropped_files.iter().map(|f| f.path().to_path_buf()).collect());
         if !files.is_empty() && t.dir().is_some() {
             self.acts.push(Act::Import(files));
         }

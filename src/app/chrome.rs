@@ -4,16 +4,17 @@
 use super::*;
 
 impl App {
-    pub(super) fn tab_bar(&mut self, ctx: &egui::Context, t: &mut Tab) {
+    pub(super) fn tab_bar(&mut self, root: &mut Ui, t: &mut Tab) {
+        let ctx = &root.ctx().clone();
         let custom = self.settings.title_custom;
         let frame = egui::Frame::new().fill(CHROME()).inner_margin(egui::Margin { left: 8, right: if custom { 0 } else { 8 }, top: if custom { 0 } else { 6 }, bottom: 0 });
-        egui::TopBottomPanel::top("tabs").exact_height(if custom { 40.0 } else { 38.0 }).frame(frame).show_separator_line(false).show(ctx, |ui| {
+        egui::Panel::top("tabs").exact_size(if custom { 40.0 } else { 38.0 }).frame(frame).show_separator_line(false).show(root, |ui| {
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 // title-bar parts (each can be switched off in Settings › Appearance)
                 let mut left_w = 0.0;
                 if custom && (self.settings.title_logo || self.settings.title_name) {
-                    let name_w = if self.settings.title_name { ui.fonts(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
+                    let name_w = if self.settings.title_name { ui.fonts_mut(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
                     let logo_w = if self.settings.title_logo { 26.0 } else { 0.0 };
                     let (r, resp) = ui.allocate_exact_size(vec2(logo_w + name_w + 8.0, 40.0), Sense::click_and_drag());
                     if self.settings.title_logo {
@@ -65,7 +66,7 @@ impl App {
                         ctx.request_repaint_after(Duration::from_millis(30));
                     }
                     let close_r = Rect::from_center_size(rect.right_center() - vec2(16.0, 0.0), vec2(20.0, 20.0));
-                    let close = ui.interact(close_r, ui.id().with(("close", i)), Sense::click());
+                    let close = ui.interact(close_r, ui.scope_id().with(("close", i)), Sense::click());
                     if resp.hovered() || active || close.hovered() {
                         if close.hovered() {
                             ui.painter().rect_filled(close_r, CornerRadius::same(4), HOVER());
@@ -153,7 +154,7 @@ impl App {
             return;
         }
         let Some(pos) = ctx.input(|i| i.pointer.hover_pos()) else { return };
-        let r = ctx.screen_rect();
+        let r = ctx.content_rect();
         let m = 5.0;
         let (l, rt, tp, bt) = (pos.x <= r.left() + m, pos.x >= r.right() - m, pos.y <= r.top() + m, pos.y >= r.bottom() - m);
         use egui::viewport::ResizeDirection as D;
@@ -179,9 +180,9 @@ impl App {
         }
     }
 
-    pub(super) fn toolbar(&mut self, ctx: &egui::Context, t: &mut Tab) {
+    pub(super) fn toolbar(&mut self, root: &mut Ui, t: &mut Tab) {
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::symmetric(8, 7));
-        egui::TopBottomPanel::top("toolbar").exact_height(46.0).frame(frame).show_separator_line(false).show(ctx, |ui| {
+        egui::Panel::top("toolbar").exact_size(46.0).frame(frame).show_separator_line(false).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 if icon_button(ui, I_BACK, "Back (Alt+Left)", !t.back.is_empty()).clicked() {
@@ -214,7 +215,7 @@ impl App {
             let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect.shrink2(vec2(10.0, 6.0))));
             let buf = self.editing_address.as_mut().unwrap();
             let te = egui::TextEdit::singleline(buf)
-                .frame(false)
+                .frame(egui::Frame::NONE)
                 .desired_width(rect.width() - 20.0)
                 .hint_text("Type a path, e.g. C:\\Users, %APPDATA% or \\\\server\\share")
                 .font(FontId::proportional(13.5));
@@ -260,7 +261,7 @@ impl App {
         child.spacing_mut().item_spacing.x = 0.0;
         child.set_clip_rect(rect);
         // when the path is too long, show its tail
-        let widths: Vec<f32> = crumbs.iter().map(|(l, _)| child.fonts(|f| f.layout_no_wrap(l.clone(), FontId::proportional(13.5), TEXT()).size().x) + 30.0).collect();
+        let widths: Vec<f32> = crumbs.iter().map(|(l, _)| child.fonts_mut(|f| f.layout_no_wrap(l.clone(), FontId::proportional(13.5), TEXT()).size().x) + 30.0).collect();
         let mut first = 0;
         while first + 1 < crumbs.len() && widths[first..].iter().sum::<f32>() > rect.width() - 40.0 {
             first += 1;
@@ -338,9 +339,9 @@ impl App {
             _ => format!("Search {}", t.loc.title()),
         };
         let te = egui::TextEdit::singleline(&mut t.query)
-            .frame(false)
+            .frame(egui::Frame::NONE)
             .margin(egui::Margin::ZERO)
-            .vertical_align(egui::Align::Center)
+            .align(Align2::LEFT_CENTER)
             .min_size(edit_r.size())
             .desired_width(edit_r.width())
             .font(FontId::proportional(13.5))
@@ -365,7 +366,7 @@ impl App {
             self.query_changed(t);
         }
         if !t.query.is_empty() {
-            let x = ui.interact(clear_r, ui.id().with("clear-search"), Sense::click());
+            let x = ui.interact(clear_r, ui.scope_id().with("clear-search"), Sense::click());
             if x.hovered() {
                 ui.painter().rect_filled(clear_r, CornerRadius::same(4), HOVER());
             }
@@ -411,7 +412,7 @@ impl App {
         }
         if let Some(e) = t.query_error.clone().filter(|_| !t.query.trim().is_empty()) {
             ui.painter().rect_stroke(rect, CornerRadius::same(6), Stroke::new(1.0_f32, WARN()), StrokeKind::Inside);
-            let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("search-err")));
+            let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("search-err")));
             let g = painter.layout_no_wrap(format!("Invalid regex: {e}"), FontId::proportional(12.0), Color32::WHITE);
             let r = Rect::from_min_size(rect.left_bottom() + vec2(0.0, 4.0), g.size() + vec2(16.0, 8.0));
             painter.rect_filled(r, CornerRadius::same(5), WARN());
@@ -459,7 +460,7 @@ impl App {
                     ui.separator();
                     if ui.button("Rescan the index").clicked() {
                         rescan = true;
-                        ui.close_menu();
+                        ui.close();
                     }
                 }
             })
@@ -533,16 +534,16 @@ impl App {
         i
     }
 
-    pub(super) fn command_bar(&mut self, ctx: &egui::Context, t: &mut Tab) {
+    pub(super) fn command_bar(&mut self, root: &mut Ui, t: &mut Tab) {
         let left = self.settings.ribbon_shown(&self.settings.ribbon_left);
         let right = self.settings.ribbon_shown(&self.settings.ribbon_right);
         if left.is_empty() && right.is_empty() {
             return;
         }
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin { left: 8, right: 8, top: 0, bottom: 6 });
-        egui::TopBottomPanel::top("commands").exact_height(40.0).frame(frame).show(ctx, |ui| {
+        egui::Panel::top("commands").exact_size(40.0).frame(frame).show(root, |ui| {
             // right-click the empty part of the bar to customize it
-            ui.interact(ui.max_rect(), ui.id().with("ribbon_bg"), Sense::click()).context_menu(|ui| {
+            ui.interact(ui.max_rect(), ui.scope_id().with("ribbon_bg"), Sense::click()).context_menu(|ui| {
                 if menu_item(ui, I_SETTINGS, "Customize ribbon bar…", "") {
                     self.acts.push(Act::OpenSettings(Some(settings_page::Page::Ribbon)));
                 }
@@ -713,7 +714,7 @@ impl App {
                 ui.add_space(2.0);
                 if ui.add_enabled(own, egui::Button::new("Reset this folder to default")).clicked() {
                     self.acts.push(Act::ResetSort);
-                    ui.close_menu();
+                    ui.close();
                 }
             }
         })
@@ -755,11 +756,11 @@ impl App {
             return;
         }
         let at = t.filter_anchor.map_or(pos2(200.0, 100.0), |r| r.left_bottom() + vec2(0.0, 6.0));
-        let screen = ctx.screen_rect();
+        let screen = ctx.content_rect();
         let width = 400.0_f32.min(screen.width() - 24.0);
         let at = pos2(at.x.min(screen.right() - width - 12.0).max(screen.left() + 12.0), at.y);
         let before = t.filter.clone();
-        let area = egui::Area::new(egui::Id::new(("filter_panel", t.id))).order(egui::Order::Foreground).fixed_pos(at).show(ctx, |ui| {
+        let area = egui::Area::new(egui::Id::unique(("filter_panel", t.id))).order(egui::Order::Foreground).fixed_pos(at).show(ctx, |ui| {
             egui::Frame::new().fill(PANEL()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(10).inner_margin(egui::Margin::same(14)).shadow(ui.visuals().popup_shadow).show(ui, |ui| {
                 ui.set_width(width - 28.0);
                 ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
@@ -867,9 +868,9 @@ impl App {
     }
 
     /// The top of a dialog: where it is, and how the list is arranged.
-    pub(super) fn picker_top(&mut self, ctx: &egui::Context, t: &mut Tab) {
+    pub(super) fn picker_top(&mut self, root: &mut Ui, t: &mut Tab) {
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::symmetric(10, 8));
-        egui::TopBottomPanel::top("picker_top").exact_height(48.0).frame(frame).show_separator_line(true).show(ctx, |ui| {
+        egui::Panel::top("picker_top").exact_size(48.0).frame(frame).show_separator_line(true).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 if icon_button(ui, I_BACK, "Back (Alt+Left)", !t.back.is_empty()).clicked() {
@@ -939,9 +940,9 @@ impl App {
         }
     }
 
-    pub(super) fn status_bar(&mut self, ctx: &egui::Context, t: &Tab) {
+    pub(super) fn status_bar(&mut self, root: &mut Ui, t: &Tab) {
         let frame = egui::Frame::new().fill(CHROME()).inner_margin(egui::Margin::symmetric(12, 4));
-        egui::TopBottomPanel::bottom("status").exact_height(26.0).frame(frame).show_separator_line(false).show(ctx, |ui| {
+        egui::Panel::bottom("status").exact_size(26.0).frame(frame).show_separator_line(false).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 let small = |s: String| egui::RichText::new(s).size(12.0).color(DIM());
                 if let Some(s) = &t.search {
@@ -1156,7 +1157,7 @@ pub(super) fn page_column(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
 
 /// A small square on/off button with a custom-drawn icon.
 fn square_toggle(ui: &mut Ui, r: Rect, id: &str, on: bool, enabled: bool, tip: &str, draw: impl FnOnce(&egui::Painter, Rect, Color32)) -> bool {
-    let resp = ui.interact(r, ui.id().with(id), if enabled { Sense::click() } else { Sense::hover() });
+    let resp = ui.interact(r, ui.scope_id().with(id), if enabled { Sense::click() } else { Sense::hover() });
     let fill = if on {
         ACCENT().gamma_multiply(if resp.hovered() { 0.42 } else { 0.28 })
     } else if resp.hovered() && enabled {

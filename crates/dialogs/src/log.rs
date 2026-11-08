@@ -42,7 +42,7 @@ pub fn this_dll() -> String {
         return "?".into();
     }
     let mut buf = [0u16; 1024];
-    let n = unsafe { GetModuleFileNameW(me, &mut buf) } as usize;
+    let n = unsafe { GetModuleFileNameW(Some(me), &mut buf) } as usize;
     String::from_utf16_lossy(&buf[..n]).rsplit('\\').next().unwrap_or("?").to_string()
 }
 

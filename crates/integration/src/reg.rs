@@ -115,7 +115,7 @@ impl Hive {
     fn open(&self, key: &str, access: REG_SAM_FLAGS) -> Option<HKEY> {
         let mut h = HKEY::default();
         let k = self.path(key);
-        unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), 0, access, &mut h) }.is_ok().then_some(h)
+        unsafe { RegOpenKeyExW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), Some(0), access, &mut h) }.is_ok().then_some(h)
     }
 
     pub fn key_exists(&self, key: &str) -> bool {
@@ -143,11 +143,11 @@ impl Hive {
     fn write_raw(&self, key: &str, name: &str, ty: u32, data: &[u8]) -> bool {
         let k = self.path(key);
         let mut h = HKEY::default();
-        if unsafe { RegCreateKeyExW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), 0, None, REG_OPTION_NON_VOLATILE, KEY_WRITE, None, &mut h, None) }.is_err() {
+        if unsafe { RegCreateKeyExW(HKEY_CURRENT_USER, PCWSTR(k.as_ptr()), Some(0), None, REG_OPTION_NON_VOLATILE, KEY_WRITE, None, &mut h, None) }.is_err() {
             return false;
         }
         let n = wide(name);
-        let ok = unsafe { RegSetValueExW(h, PCWSTR(n.as_ptr()), 0, REG_VALUE_TYPE(ty), Some(data)) }.is_ok();
+        let ok = unsafe { RegSetValueExW(h, PCWSTR(n.as_ptr()), Some(0), REG_VALUE_TYPE(ty), Some(data)) }.is_ok();
         let _ = unsafe { RegCloseKey(h) };
         ok
     }
@@ -177,7 +177,7 @@ impl Hive {
     fn delete_if_empty(&self, key: &str) -> bool {
         let Some(h) = self.open(key, KEY_READ) else { return false };
         let (mut subkeys, mut values) = (0, 0);
-        let got = unsafe { RegQueryInfoKeyW(h, windows::core::PWSTR::null(), None, None, Some(&mut subkeys), None, None, Some(&mut values), None, None, None, None) };
+        let got = unsafe { RegQueryInfoKeyW(h, Some(windows::core::PWSTR::null()), None, None, Some(&mut subkeys), None, None, Some(&mut values), None, None, None, None) };
         let _ = unsafe { RegCloseKey(h) };
         if got.is_err() || subkeys != 0 || values != 0 {
             return false;
@@ -199,7 +199,7 @@ impl Hive {
         for i in 0.. {
             let mut buf = [0u16; 256];
             let mut len = buf.len() as u32;
-            if unsafe { RegEnumKeyExW(h, i, windows::core::PWSTR(buf.as_mut_ptr()), &mut len, None, windows::core::PWSTR::null(), None, None) }.is_err() {
+            if unsafe { RegEnumKeyExW(h, i, Some(windows::core::PWSTR(buf.as_mut_ptr())), &mut len, None, Some(windows::core::PWSTR::null()), None, None) }.is_err() {
                 break;
             }
             out.push(String::from_utf16_lossy(&buf[..len as usize]));

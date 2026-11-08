@@ -121,7 +121,7 @@ mod crash {
     use std::sync::atomic::{AtomicI32, Ordering};
     use std::sync::OnceLock;
 
-    extern "C" {
+    unsafe extern "C" {
         fn backtrace(buffer: *mut *mut c_void, size: c_int) -> c_int;
         fn backtrace_symbols_fd(buffer: *const *mut c_void, size: c_int, fd: c_int);
     }

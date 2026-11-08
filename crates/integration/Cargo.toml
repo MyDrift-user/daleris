@@ -1,13 +1,13 @@
 [package]
 name = "daleris-integration"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 license = "GPL-3.0-only"
 publish = false
 
 # What the program, the launcher and the file dialog DLL share about Windows Explorer integration.
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.58"
+version = "0.62"
 features = [
     "Win32_Foundation",
     "Win32_Security",

@@ -397,7 +397,7 @@ impl Picker {
             order.remove(0);
         }
         // a small window has better things to show first
-        let tall_enough = ui.ctx().screen_rect().height() >= 560.0;
+        let tall_enough = ui.ctx().content_rect().height() >= 560.0;
         let open = *self.controls_open.get_or_insert(count <= FOLD_CONTROLS_OVER && tall_enough);
         let whose = if self.request.host.is_empty() { "Options".to_string() } else { format!("Options from {}", self.request.host) };
         let frame = egui::Frame::new().fill(BG()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(8).inner_margin(egui::Margin::symmetric(12, 8));
@@ -416,7 +416,7 @@ impl Picker {
             }
             ui.add_space(6.0);
             // the label column: as wide as the longest label needs, within reason
-            let longest = self.controls.iter().filter(|c| shown(c) && matches!(c.kind, ControlKind::Edit | ControlKind::Combo | ControlKind::Radio)).map(|c| plain(&c.label)).map(|l| ui.fonts(|f| f.layout_no_wrap(l, FontId::proportional(13.5), TEXT()).size().x)).fold(0.0_f32, f32::max);
+            let longest = self.controls.iter().filter(|c| shown(c) && matches!(c.kind, ControlKind::Edit | ControlKind::Combo | ControlKind::Radio)).map(|c| plain(&c.label)).map(|l| ui.fonts_mut(|f| f.layout_no_wrap(l, FontId::proportional(13.5), TEXT()).size().x)).fold(0.0_f32, f32::max);
             let width = ui.available_width();
             // how many rows each top-level control takes, so that the two columns come out even
             let rows = |c: &Control| -> usize {
@@ -435,7 +435,7 @@ impl Picker {
             let two = total >= 5 && width >= 620.0;
             // room for what's indented inside a group as well
             let label_w = (longest + 24.0).clamp(0.0, if two { (width / 2.0 - 180.0).max(90.0) } else { 240.0 });
-            let max_h = (ui.ctx().screen_rect().height() * 0.34).clamp(90.0, 280.0);
+            let max_h = (ui.ctx().content_rect().height() * 0.34).clamp(90.0, 280.0);
             egui::ScrollArea::vertical().id_salt("picker_controls").max_height(max_h).auto_shrink([false, true]).show(ui, |ui| {
                 if two {
                     // where the two sides come out most even
@@ -624,7 +624,7 @@ impl Picker {
                     for item in &items {
                         if ui.add_enabled(item.state & STATE_ENABLED != 0, egui::Button::new(plain(&item.label))).clicked() {
                             self.do_item(id, item.id);
-                            ui.close_menu();
+                            ui.close();
                         }
                     }
                 });
@@ -650,7 +650,7 @@ impl Picker {
 
     fn move_focus(&mut self, ctx: &egui::Context) {
         let (tab, back) = ctx.input(|i| (i.key_pressed(Key::Tab), i.modifiers.shift));
-        if !tab || self.tab_ids.is_empty() || ctx.memory(|m| m.any_popup_open()) {
+        if !tab || self.tab_ids.is_empty() || egui::Popup::is_any_open(ctx) {
             return;
         }
         let at = ctx.memory(|m| m.focused()).and_then(|f| self.tab_ids.iter().position(|i| *i == f));
@@ -732,10 +732,10 @@ const TAB_IS_OURS: egui::EventFilter = egui::EventFilter { tab: true, horizontal
 const FOLD_CONTROLS_OVER: usize = 10;
 
 /// A dropdown that looks like one: a field with an arrow at its end. Gives back the choice made, if any.
-pub(super) fn field_dropdown(ui: &mut Ui, salt: impl std::hash::Hash, width: f32, current: &str, items: &[(String, bool)], at: Option<usize>, enabled: bool) -> (Response, Option<usize>) {
+pub(super) fn field_dropdown(ui: &mut Ui, salt: impl std::hash::Hash + std::fmt::Debug, width: f32, current: &str, items: &[(String, bool)], at: Option<usize>, enabled: bool) -> (Response, Option<usize>) {
     let (rect, resp) = ui.allocate_exact_size(vec2(width, 30.0), if enabled { Sense::click() } else { Sense::hover() });
     let popup = ui.make_persistent_id(salt).with("popup");
-    let open = ui.memory(|m| m.is_popup_open(popup));
+    let open = egui::Popup::is_id_open(ui.ctx(), popup);
     let fill = if !enabled {
         BG()
     } else if resp.hovered() || open {
@@ -754,7 +754,7 @@ pub(super) fn field_dropdown(ui: &mut Ui, salt: impl std::hash::Hash, width: f32
     let mut picked = None;
     if enabled {
         if resp.clicked() {
-            ui.memory_mut(|m| m.toggle_popup(popup));
+            egui::Popup::toggle_id(ui.ctx(), popup);
         }
         // up and down change it without opening it, as in the real dialog
         if resp.has_focus() && !open {
@@ -779,12 +779,12 @@ pub(super) fn field_dropdown(ui: &mut Ui, salt: impl std::hash::Hash, width: f32
                 };
             }
         }
-        egui::popup::popup_below_widget(ui, popup, &resp, egui::PopupCloseBehavior::CloseOnClick, |ui| {
+        egui::Popup::from_response(&resp).id(popup).close_behavior(egui::PopupCloseBehavior::CloseOnClick).show(|ui| {
             ui.set_min_width(width - 12.0);
             ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
             egui::ScrollArea::vertical().max_height(320.0).show(ui, |ui| {
                 for (i, (label, on)) in items.iter().enumerate() {
-                    let row = ui.add_enabled(*on, egui::SelectableLabel::new(at == Some(i), label));
+                    let row = ui.add_enabled(*on, egui::Button::selectable(at == Some(i), label));
                     if row.clicked() {
                         picked = Some(i);
                     }
@@ -824,7 +824,8 @@ fn split_names(text: &str) -> Vec<String> {
 impl App {
     /// The dialog's top: where it is and how the list looks. Nothing for managing tabs, or the window.
     /// The bottom of the dialog: the app's controls, the name, the type and the buttons.
-    pub(super) fn picker_bar(&mut self, ctx: &egui::Context, t: &mut Tab) {
+    pub(super) fn picker_bar(&mut self, root: &mut Ui, t: &mut Tab) {
+        let ctx = &root.ctx().clone();
         let Some(mut p) = self.picker.take() else { return };
         p.frames += 1;
         p.tab_ids.clear();
@@ -865,7 +866,7 @@ impl App {
         p.tell_app(dir.as_deref(), &selected);
         let mut go_to: Option<PathBuf> = None;
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin { left: 16, right: 16, top: 12, bottom: 14 });
-        egui::TopBottomPanel::bottom("picker").frame(frame).show_separator_line(true).show(ctx, |ui| {
+        egui::Panel::bottom("picker").frame(frame).show_separator_line(true).show(root, |ui| {
             // fields look like fields whether they have focus or not
             ui.visuals_mut().widgets.inactive.bg_stroke = Stroke::new(1.0_f32, FAINT());
             ui.visuals_mut().widgets.hovered.bg_stroke = Stroke::new(1.0_f32, DIM());
@@ -901,7 +902,7 @@ impl App {
             let filters = p.request.filters.clone();
             let name_label = p.name_label();
             let type_label = if p.request.kind == Kind::Save { "Save as type" } else { "File type" };
-            let measure = |ui: &Ui, s: &str| ui.fonts(|f| f.layout_no_wrap(s.to_string(), FontId::proportional(13.5), TEXT()).size().x);
+            let measure = |ui: &Ui, s: &str| ui.fonts_mut(|f| f.layout_no_wrap(s.to_string(), FontId::proportional(13.5), TEXT()).size().x);
             let widest = if filters.is_empty() { measure(ui, &name_label) } else { measure(ui, &name_label).max(measure(ui, type_label)) };
             let label_w = (widest + 14.0).min(ui.available_width() * 0.3);
             let field_w = ui.available_width() - label_w;
@@ -969,7 +970,7 @@ impl App {
                 p.answer(PickReply::UseWindows);
             }
             let esc = ctx.input(|i| i.key_pressed(Key::Escape));
-            let elsewhere = self.popup.is_some() || self.editing_address.is_some() || t.filter_open || !t.query.is_empty() || ctx.memory(|m| m.any_popup_open());
+            let elsewhere = self.popup.is_some() || self.editing_address.is_some() || t.filter_open || !t.query.is_empty() || egui::Popup::is_any_open(ctx);
             if esc && !elsewhere && p.confirm_overwrite.is_some() {
                 // Esc takes back the last question, not the whole dialog
                 p.confirm_overwrite = None;

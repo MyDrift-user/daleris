@@ -50,7 +50,7 @@ mod win {
     use std::os::windows::ffi::OsStrExt;
     use std::time::Instant;
 
-    use windows::core::{implement, w, Interface, HRESULT, PCWSTR};
+    use windows::core::{BOOL, implement, w, Interface, HRESULT, PCWSTR};
     use windows::Win32::Foundation::*;
     use windows::Win32::System::Com::*;
     use windows::Win32::System::LibraryLoader::{GetModuleFileNameW, GetModuleHandleExW, GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT};
@@ -72,7 +72,7 @@ mod win {
             return "?".into();
         }
         let mut buf = [0u16; 512];
-        let len = unsafe { GetModuleFileNameW(module, &mut buf) } as usize;
+        let len = unsafe { GetModuleFileNameW(Some(module), &mut buf) } as usize;
         String::from_utf16_lossy(&buf[..len]).rsplit('\\').next().unwrap_or("?").to_string()
     }
 
@@ -97,7 +97,8 @@ mod win {
     }
 
     impl IFileDialogEvents_Impl for Events_Impl {
-        fn OnFileOk(&self, dialog: Option<&IFileDialog>) -> windows::core::Result<()> {
+        fn OnFileOk(&self, dialog: windows::core::Ref<'_, IFileDialog>) -> windows::core::Result<()> {
+            let dialog = dialog.as_ref();
             self.ok_calls.set(self.ok_calls.get() + 1);
             // what apps read here must already be the answer
             if let Some(d) = dialog {
@@ -112,31 +113,33 @@ mod win {
             }
             Ok(())
         }
-        fn OnFolderChanging(&self, _: Option<&IFileDialog>, _: Option<&IShellItem>) -> windows::core::Result<()> {
+        fn OnFolderChanging(&self, _: windows::core::Ref<'_, IFileDialog>, _: windows::core::Ref<'_, IShellItem>) -> windows::core::Result<()> {
             Ok(())
         }
-        fn OnFolderChange(&self, dialog: Option<&IFileDialog>) -> windows::core::Result<()> {
+        fn OnFolderChange(&self, dialog: windows::core::Ref<'_, IFileDialog>) -> windows::core::Result<()> {
+            let dialog = dialog.as_ref();
             if let Some(folder) = dialog.and_then(|d| unsafe { d.GetFolder() }.ok()) {
                 println!("event=OnFolderChange folder={}", path_of(&folder));
             }
             Ok(())
         }
-        fn OnSelectionChange(&self, _: Option<&IFileDialog>) -> windows::core::Result<()> {
+        fn OnSelectionChange(&self, _: windows::core::Ref<'_, IFileDialog>) -> windows::core::Result<()> {
             Ok(())
         }
-        fn OnShareViolation(&self, _: Option<&IFileDialog>, _: Option<&IShellItem>) -> windows::core::Result<FDE_SHAREVIOLATION_RESPONSE> {
+        fn OnShareViolation(&self, _: windows::core::Ref<'_, IFileDialog>, _: windows::core::Ref<'_, IShellItem>) -> windows::core::Result<FDE_SHAREVIOLATION_RESPONSE> {
             Ok(FDESVR_DEFAULT)
         }
-        fn OnTypeChange(&self, _: Option<&IFileDialog>) -> windows::core::Result<()> {
+        fn OnTypeChange(&self, _: windows::core::Ref<'_, IFileDialog>) -> windows::core::Result<()> {
             Ok(())
         }
-        fn OnOverwrite(&self, _: Option<&IFileDialog>, _: Option<&IShellItem>) -> windows::core::Result<FDE_OVERWRITE_RESPONSE> {
+        fn OnOverwrite(&self, _: windows::core::Ref<'_, IFileDialog>, _: windows::core::Ref<'_, IShellItem>) -> windows::core::Result<FDE_OVERWRITE_RESPONSE> {
             Ok(FDEOR_DEFAULT)
         }
     }
 
     impl IFileDialogControlEvents_Impl for Events_Impl {
-        fn OnItemSelected(&self, c: Option<&IFileDialogCustomize>, id: u32, item: u32) -> windows::core::Result<()> {
+        fn OnItemSelected(&self, c: windows::core::Ref<'_, IFileDialogCustomize>, id: u32, item: u32) -> windows::core::Result<()> {
+            let c = c.as_ref();
             println!("event=OnItemSelected control={id} item={item}");
             if id == MENU && item == 1 {
                 let ms = self.tool_ui.get();
@@ -158,18 +161,20 @@ mod win {
             }
             Ok(())
         }
-        fn OnButtonClicked(&self, c: Option<&IFileDialogCustomize>, id: u32) -> windows::core::Result<()> {
+        fn OnButtonClicked(&self, c: windows::core::Ref<'_, IFileDialogCustomize>, id: u32) -> windows::core::Result<()> {
+            let c = c.as_ref();
             println!("event=OnButtonClicked control={id}");
             if let Some(c) = c {
                 let _ = unsafe { c.SetControlState(DISABLED, CDCS_ENABLEDVISIBLE) };
             }
             Ok(())
         }
-        fn OnCheckButtonToggled(&self, _: Option<&IFileDialogCustomize>, id: u32, on: BOOL) -> windows::core::Result<()> {
+        fn OnCheckButtonToggled(&self, _: windows::core::Ref<'_, IFileDialogCustomize>, id: u32, on: BOOL) -> windows::core::Result<()> {
             println!("event=OnCheckButtonToggled control={id} on={}", on.as_bool());
             Ok(())
         }
-        fn OnControlActivating(&self, c: Option<&IFileDialogCustomize>, id: u32) -> windows::core::Result<()> {
+        fn OnControlActivating(&self, c: windows::core::Ref<'_, IFileDialogCustomize>, id: u32) -> windows::core::Result<()> {
+            let c = c.as_ref();
             println!("event=OnControlActivating control={id}");
             // Office fills its Tools menu as it opens
             if let (MENU, Some(c)) = (id, c) {
@@ -257,7 +262,7 @@ mod win {
         if let Some(ms) = value("--close-windows-dialog-after").and_then(|m| m.parse::<u64>().ok()) {
             close_windows_dialog_after(ms);
         }
-        let shown = unsafe { common.Show(HWND::default()) };
+        let shown = unsafe { common.Show(Some(HWND::default())) };
         let _ = unsafe { common.Unadvise(cookie) };
         // everything an app reads back afterwards
         unsafe {
@@ -358,7 +363,7 @@ mod win {
         }
         let events: IFileDialogEvents = Events { reject: Cell::new(reject), ok_calls: Cell::new(0), tool_ui: Cell::new(0) }.into();
         let cookie = unsafe { dialog.Advise(&events) }.unwrap();
-        let shown = unsafe { dialog.Show(HWND::default()) };
+        let shown = unsafe { dialog.Show(Some(HWND::default())) };
         let ms = started.elapsed().as_millis();
         let _ = unsafe { dialog.Unadvise(cookie) };
         if has("--print-name") {
@@ -397,7 +402,7 @@ mod win {
             drop(events);
             drop(dialog);
             // what an app that asks COM to let go right away gets; most only get it from COM's own timer, or at exit
-            unsafe { CoFreeUnusedLibrariesEx(0, 0) };
+            unsafe { CoFreeUnusedLibrariesEx(0, Some(0)) };
             println!("daleris_dll_loaded_after_free={}", ours_loaded());
         }
         code
@@ -405,17 +410,17 @@ mod win {
 
     /// A test's stand-in for a person closing Windows' own dialog, which it can tell by its class.
     fn close_windows_dialog_after(ms: u64) {
-        unsafe extern "system" fn each(hwnd: HWND, _: LPARAM) -> BOOL {
+        unsafe extern "system" fn each(hwnd: HWND, _: LPARAM) -> BOOL { unsafe {
             let mut owner = 0;
             GetWindowThreadProcessId(hwnd, Some(&mut owner));
             let mut class = [0u16; 16];
             let n = GetClassNameW(hwnd, &mut class) as usize;
             if owner == windows::Win32::System::Threading::GetCurrentProcessId() && IsWindowVisible(hwnd).as_bool() && String::from_utf16_lossy(&class[..n]) == "#32770" {
                 println!("windows_dialog_seen=1");
-                let _ = PostMessageW(hwnd, WM_CLOSE, WPARAM(0), LPARAM(0));
+                let _ = PostMessageW(Some(hwnd), WM_CLOSE, WPARAM(0), LPARAM(0));
             }
             true.into()
-        }
+        }}
         std::thread::spawn(move || loop {
             std::thread::sleep(std::time::Duration::from_millis(ms));
             let _ = unsafe { EnumWindows(Some(each), LPARAM(0)) };
@@ -436,7 +441,7 @@ mod win {
             }
             modules[..(needed as usize / std::mem::size_of::<HMODULE>()).min(modules.len())].iter().any(|&m| {
                 let mut name = [0u16; 260];
-                let len = GetModuleBaseNameW(process, m, &mut name) as usize;
+                let len = GetModuleBaseNameW(process, Some(m), &mut name) as usize;
                 String::from_utf16_lossy(&name[..len]).to_lowercase().contains("daleris")
             })
         }

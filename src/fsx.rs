@@ -143,7 +143,7 @@ fn drive_exists(letter: char) -> bool {
 }
 
 /// Not in the bindings, so found by name. 0 is success, as with the rest of this API.
-unsafe fn restore_connection(owner: HWND, device: PCWSTR, ask: bool) -> u32 {
+unsafe fn restore_connection(owner: HWND, device: PCWSTR, ask: bool) -> u32 { unsafe {
     use windows::core::{s, w};
     use windows::Win32::System::LibraryLoader::{GetProcAddress, LoadLibraryW};
     type Restore = unsafe extern "system" fn(HWND, PCWSTR, i32) -> u32;
@@ -152,7 +152,7 @@ unsafe fn restore_connection(owner: HWND, device: PCWSTR, ask: bool) -> u32 {
         Some(f) => std::mem::transmute::<_, Restore>(f)(owner, device, ask as i32),
         None => ERROR_NOT_SUPPORTED.0,
     }
-}
+}}
 
 /// Connects a mapped drive again. With `ask`, Windows may ask for a password, in a window owned by `owner`. Can take
 /// as long as a server takes to not answer.
@@ -337,7 +337,7 @@ pub fn drives_quick() -> Vec<Drive> {
             let local = wide(format!("{letter}:"));
             let mut buf = [0u16; 1024];
             let mut len = buf.len() as u32;
-            let rc = unsafe { WNetGetConnectionW(PCWSTR(local.as_ptr()), PWSTR(buf.as_mut_ptr()), &mut len) };
+            let rc = unsafe { WNetGetConnectionW(PCWSTR(local.as_ptr()), Some(PWSTR(buf.as_mut_ptr())), &mut len) };
             // 1201: remembered, not connected. The name still comes back.
             disconnected = rc == WIN32_ERROR(1201);
             if rc == NO_ERROR || disconnected {
@@ -390,7 +390,7 @@ fn remembered_drive(letter: char) -> Option<String> {
     let local = wide(format!("{letter}:"));
     let mut buf = [0u16; 1024];
     let mut len = buf.len() as u32;
-    let rc = unsafe { WNetGetConnectionW(PCWSTR(local.as_ptr()), PWSTR(buf.as_mut_ptr()), &mut len) };
+    let rc = unsafe { WNetGetConnectionW(PCWSTR(local.as_ptr()), Some(PWSTR(buf.as_mut_ptr())), &mut len) };
     (rc == WIN32_ERROR(1201)).then(|| from_wide(&buf)).filter(|r| !r.is_empty())
 }
 
@@ -449,12 +449,12 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
     let base = wide(r"SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\SyncRootManager");
     unsafe {
         let mut hk = HKEY::default();
-        if RegOpenKeyExW(HKEY_LOCAL_MACHINE, PCWSTR(base.as_ptr()), 0, KEY_READ, &mut hk) == ERROR_SUCCESS {
+        if RegOpenKeyExW(HKEY_LOCAL_MACHINE, PCWSTR(base.as_ptr()), Some(0), KEY_READ, &mut hk) == ERROR_SUCCESS {
             let mut i = 0;
             loop {
                 let mut name = [0u16; 512];
                 let mut len = name.len() as u32;
-                if RegEnumKeyExW(hk, i, PWSTR(name.as_mut_ptr()), &mut len, None, PWSTR::null(), None, None) != ERROR_SUCCESS {
+                if RegEnumKeyExW(hk, i, Some(PWSTR(name.as_mut_ptr())), &mut len, None, Some(PWSTR::null()), None, None) != ERROR_SUCCESS {
                     break;
                 }
                 i += 1;
@@ -464,7 +464,7 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
                     .filter(|s| !s.is_empty());
                 let sub = wide(format!(r"{key_name}\UserSyncRoots"));
                 let mut uk = HKEY::default();
-                if RegOpenKeyExW(hk, PCWSTR(sub.as_ptr()), 0, KEY_READ, &mut uk) != ERROR_SUCCESS {
+                if RegOpenKeyExW(hk, PCWSTR(sub.as_ptr()), Some(0), KEY_READ, &mut uk) != ERROR_SUCCESS {
                     continue;
                 }
                 let mut j = 0;
@@ -473,7 +473,7 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
                     let mut vlen = vname.len() as u32;
                     let mut data = [0u8; 2048];
                     let mut dlen = data.len() as u32;
-                    if RegEnumValueW(uk, j, PWSTR(vname.as_mut_ptr()), &mut vlen, None, None, Some(data.as_mut_ptr()), Some(&mut dlen))
+                    if RegEnumValueW(uk, j, Some(PWSTR(vname.as_mut_ptr())), &mut vlen, None, None, Some(data.as_mut_ptr()), Some(&mut dlen))
                         != ERROR_SUCCESS
                     {
                         break;
@@ -527,14 +527,14 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
 }
 
 
-unsafe fn reg_string(hk: HKEY, sub: &str, value: &str) -> Option<String> {
+unsafe fn reg_string(hk: HKEY, sub: &str, value: &str) -> Option<String> { unsafe {
     let s = wide(sub);
     let v = wide(value);
     let mut buf = [0u16; 1024];
     let mut len = (buf.len() * 2) as u32;
     let rc = RegGetValueW(hk, PCWSTR(s.as_ptr()), PCWSTR(v.as_ptr()), RRF_RT_REG_SZ, None, Some(buf.as_mut_ptr() as *mut _), Some(&mut len));
     (rc == ERROR_SUCCESS).then(|| from_wide(&buf))
-}
+}}
 
 fn resolve_indirect(s: &str) -> String {
     if !s.starts_with('@') {

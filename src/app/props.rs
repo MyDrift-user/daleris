@@ -5,7 +5,7 @@
 use super::*;
 
 pub(super) struct PropsState {
-    pub gen: u64,
+    pub generation: u64,
     paths: Vec<PathBuf>,
     entry: Option<Entry>,
     name: String,
@@ -31,7 +31,7 @@ impl App {
         if paths.is_empty() {
             return;
         }
-        let gen = self.preview.gen.wrapping_add(self.props.as_ref().map(|p| p.gen + 1).unwrap_or(1)).wrapping_add(7);
+        let generation = self.preview.generation.wrapping_add(self.props.as_ref().map(|p| p.generation + 1).unwrap_or(1)).wrapping_add(7);
         let entry = if paths.len() == 1 {
             let p = paths[0].clone();
             bg::within(&paths[0], Duration::from_millis(400), move || fsx::stat(&p)).flatten()
@@ -74,17 +74,17 @@ impl App {
                     });
                     if last.elapsed() > Duration::from_millis(80) {
                         last = Instant::now();
-                        let _ = tx.send(Msg::PropSize { gen, bytes, files, dirs, done: false });
+                        let _ = tx.send(Msg::PropSize { generation, bytes, files, dirs, done: false });
                         ctx.request_repaint();
                     }
                 }
-                let _ = tx.send(Msg::PropSize { gen, bytes, files, dirs, done: true });
+                let _ = tx.send(Msg::PropSize { generation, bytes, files, dirs, done: true });
                 ctx.request_repaint();
             });
         }
         let opens_with = entry.as_ref().filter(|e| !e.is_dir).and_then(|e| shell::default_app(&e.ext));
         self.props = Some(PropsState {
-            gen,
+            generation,
             name: entry.as_ref().map(|e| e.name.clone()).unwrap_or_default(),
             readonly: entry.as_ref().is_some_and(|e| e.attrs & fsx::A_READONLY != 0),
             hidden: entry.as_ref().is_some_and(|e| e.attrs & fsx::A_HIDDEN != 0),
@@ -108,7 +108,7 @@ impl App {
         let size = vec2(460.0, 620.0);
         if p.pos.is_none() {
             // centre on the main window the first time
-            let main = ctx.input(|i| i.viewport().outer_rect).unwrap_or(ctx.screen_rect());
+            let main = ctx.input(|i| i.viewport().outer_rect).unwrap_or(ctx.content_rect());
             p.pos = Some(main.center() - size / 2.0);
         }
         let icon = egui::IconData { rgba: logo_rgba(64, ACCENT()), width: 64, height: 64 };
@@ -118,16 +118,16 @@ impl App {
             .with_min_inner_size(vec2(400.0, 420.0))
             .with_position(p.pos.unwrap())
             .with_icon(Arc::new(icon));
-        let vid = egui::ViewportId::from_hash_of(("props", p.gen));
+        let vid = egui::ViewportId::from_hash_of(("props", p.generation));
         let mut result = PropsResult::Keep;
         if std::env::var("DALERIS_SHOT_PROPS").is_ok() {
             // test hook: the same contents drawn inside the main window so a screenshot can show them
-            egui::Window::new(title.clone()).collapsible(false).resizable(false).fixed_size(size - vec2(0.0, 40.0)).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).frame(egui::Frame::window(&ctx.style()).fill(BG()).inner_margin(0)).show(ctx, |ui| {
-                egui::TopBottomPanel::bottom("props_footer_t")
+            egui::Window::new(title.clone()).collapsible(false).resizable(false).fixed_size(size - vec2(0.0, 40.0)).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).frame(egui::Frame::window(&ctx.global_style()).fill(BG()).inner_margin(0)).show(ctx, |ui| {
+                egui::Panel::bottom("props_footer_t")
                     .frame(egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::symmetric(16, 12)))
                     .show_separator_line(false)
-                    .show_inside(ui, |ui| result = result.or(self.props_footer(ui, &p)));
-                egui::CentralPanel::default().frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin::same(16))).show_inside(ui, |ui| {
+                    .show(ui, |ui| result = result.or(self.props_footer(ui, &p)));
+                egui::CentralPanel::default().frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin::same(16))).show(ui, |ui| {
                     result = result.or(self.props_body(ui, &mut p, t));
                 });
             });
@@ -137,13 +137,11 @@ impl App {
             return;
         }
         ctx.show_viewport_immediate(vid, builder, |vctx, class| {
-            if class == egui::ViewportClass::Embedded {
-                // fallback when separate windows aren't available
-                egui::Window::new(title.clone()).collapsible(false).resizable(false).fixed_size(size).show(vctx, |ui| {
-                    result = self.props_body(ui, &mut p, t);
-                });
+            if class == egui::ViewportClass::EmbeddedWindow {
+                // fallback when separate windows aren't available: egui has already put this in a window of its own
+                result = self.props_body(vctx, &mut p, t);
             } else {
-                egui::TopBottomPanel::bottom("props_footer")
+                egui::Panel::bottom("props_footer")
                     .frame(egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::symmetric(16, 12)))
                     .show_separator_line(false)
                     .show(vctx, |ui| result = result.or(self.props_footer(ui, &p)));
@@ -157,7 +155,7 @@ impl App {
                 result = PropsResult::Cancel;
             }
             let fresh = vctx.input(|i| i.time) - p.opened < 0.3;
-            if !fresh && vctx.input(|i| i.key_pressed(Key::Enter)) && !vctx.wants_keyboard_input() {
+            if !fresh && vctx.input(|i| i.key_pressed(Key::Enter)) && !vctx.ctx().egui_wants_keyboard_input() {
                 result = PropsResult::Ok;
             }
         });
@@ -221,7 +219,7 @@ impl App {
                 ui.add_space(8.0);
                 if single {
                     egui::Frame::new().fill(RAISED()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(6).inner_margin(egui::Margin::symmetric(8, 5)).show(ui, |ui| {
-                        ui.add(egui::TextEdit::singleline(&mut p.name).frame(false).desired_width(ui.available_width()).font(FontId::proportional(15.0)));
+                        ui.add(egui::TextEdit::singleline(&mut p.name).frame(egui::Frame::NONE).desired_width(ui.available_width()).font(FontId::proportional(15.0)));
                     });
                 } else {
                     ui.label(egui::RichText::new(format!("{} items", p.paths.len())).size(16.0).strong());

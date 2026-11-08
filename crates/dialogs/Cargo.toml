@@ -1,7 +1,7 @@
 [package]
 name = "daleris-dialogs"
 version = "0.0.0"
-edition = "2021"
+edition = "2024"
 license = "GPL-3.0-only"
 publish = false
 
@@ -13,20 +13,20 @@ name = "daleris_dialogs"
 crate-type = ["cdylib", "rlib"]
 
 [target.'cfg(windows)'.dependencies.windows-core]
-version = "0.58"
+version = "0.62"
 
 [target.'cfg(windows)'.dependencies]
 daleris-integration = { path = "../integration" }
 
 [target.'cfg(windows)'.dependencies.windows]
-version = "0.58"
+version = "0.62"
 features = [
-    "implement",
     "Win32_Foundation",
     "Win32_Security",
     "Win32_Storage_FileSystem",
     "Win32_Storage_Packaging_Appx",
     "Win32_System_Com",
+    "Win32_System_Com_StructuredStorage",
     "Win32_System_IO",
     "Win32_System_LibraryLoader",
     "Win32_System_Memory",

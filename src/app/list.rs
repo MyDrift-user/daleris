@@ -122,7 +122,7 @@ impl App {
             let r = Rect::from_min_size(pos2(x, rect.top()), vec2(c.w, rect.height()));
             let visible = r.shrink2(vec2(6.0, 0.0)).intersect(rect);
             if visible.width() > 1.0 {
-                let resp = ui.interact(visible, ui.id().with(("hdr", c.id)), if c.sort.is_some() { Sense::click() } else { Sense::hover() });
+                let resp = ui.interact(visible, ui.scope_id().with(("hdr", c.id)), if c.sort.is_some() { Sense::click() } else { Sense::hover() });
                 if resp.hovered() && c.sort.is_some() {
                     painter.rect_filled(r.shrink(2.0), CornerRadius::same(4), HOVER());
                 }
@@ -157,7 +157,7 @@ impl App {
             if !rect.contains(h.center()) {
                 continue;
             }
-            let resp = ui.interact(h, ui.id().with(("coledge", id)), Sense::click_and_drag());
+            let resp = ui.interact(h, ui.scope_id().with(("coledge", id)), Sense::click_and_drag());
             let active = resp.hovered() || resp.dragged();
             if active {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeColumn);
@@ -298,7 +298,7 @@ impl App {
                 } else {
                     buttons.push(("This PC", Act::Navigate(Loc::ThisPc), false));
                 }
-                let widths: f32 = buttons.iter().map(|(l, _, _)| ui.fonts(|f| f.layout_no_wrap(l.to_string(), FontId::proportional(13.5), TEXT()).size().x).max(64.0) + 32.0 + 8.0).sum();
+                let widths: f32 = buttons.iter().map(|(l, _, _)| ui.fonts_mut(|f| f.layout_no_wrap(l.to_string(), FontId::proportional(13.5), TEXT()).size().x).max(64.0) + 32.0 + 8.0).sum();
                 ui.add_space(((ui.available_width() - widths) / 2.0).max(0.0));
                 for (label, act, primary) in buttons {
                     if action_button(ui, label, primary).clicked() {
@@ -355,7 +355,7 @@ impl App {
         let total = COL_LEFT + cols.iter().map(|c| c.w).sum::<f32>() + COL_RIGHT;
         let content_w = total.max(full);
         // the header follows the list when it is scrolled sideways
-        let hkey = egui::Id::new(("hscroll", t.id));
+        let hkey = egui::Id::unique(("hscroll", t.id));
         let hoff = ui.ctx().memory(|m| m.data.get_temp::<f32>(hkey)).unwrap_or(0.0).clamp(0.0, (content_w - full).max(0.0));
         self.header(ui, t, &cols, hoff);
         if self.empty_or_error(ui, t) {
@@ -365,8 +365,8 @@ impl App {
         let n = self.row_count(t);
         let row_h = self.settings.row_h();
         // no drag-to-scroll: it would cover the empty space once the list can scroll, and swallow its clicks
-        let mut sa = egui::ScrollArea::both().auto_shrink([false, false]).drag_to_scroll(false).id_salt(("list", t.id));
-        let mem_id = egui::Id::new(("scroll", t.id));
+        let mut sa = egui::ScrollArea::both().auto_shrink([false, false]).scroll_source(egui::scroll_area::ScrollSource { drag: egui::scroll_area::DragScroll::Never, ..Default::default() }).id_salt(("list", t.id));
+        let mem_id = egui::Id::unique(("scroll", t.id));
         if let Some(i) = t.scroll_to.take() {
             let offset = ui.ctx().memory(|m| m.data.get_temp::<f32>(mem_id)).unwrap_or(0.0);
             let view_h = ui.available_height();
@@ -455,7 +455,7 @@ impl App {
                             let c = pos2(x + w / 2.0 - 10.0, cy);
                             cloud_badge(ui.painter(), c, st);
                             if st != Cloud::None && ui.rect_contains_pointer(Rect::from_center_size(c, vec2(22.0, 22.0))) {
-                                egui::show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), ui.id().with(("cloud", i)), |ui| {
+                                egui::Tooltip::always_open(ui.ctx().clone(), ui.layer_id(), ui.scope_id().with(("cloud", i)), egui::PopupAnchor::Pointer).show(|ui| {
                                     ui.label(cloud_text(st));
                                 });
                             }
@@ -488,8 +488,8 @@ impl App {
             }
         });
         ui.ctx().memory_mut(|m| {
-            m.data.insert_temp(mem_id, out.state.offset.y);
-            m.data.insert_temp(hkey, out.state.offset.x);
+            m.data.insert_temp(mem_id, out.state.clamped_offset().y);
+            m.data.insert_temp(hkey, out.state.clamped_offset().x);
         });
         self.background_area(ui, t, bg);
     }
@@ -505,8 +505,8 @@ impl App {
         let cols = ((full - 16.0) / tile_w).floor().max(1.0) as usize;
         let n = self.row_count(t);
         let lines = n.div_ceil(cols);
-        let mut sa = egui::ScrollArea::vertical().auto_shrink([false, false]).drag_to_scroll(false).id_salt(("grid", t.id));
-        let mem_id = egui::Id::new(("gscroll", t.id));
+        let mut sa = egui::ScrollArea::vertical().auto_shrink([false, false]).scroll_source(egui::scroll_area::ScrollSource { drag: egui::scroll_area::DragScroll::Never, ..Default::default() }).id_salt(("grid", t.id));
+        let mem_id = egui::Id::unique(("gscroll", t.id));
         if let Some(i) = t.scroll_to.take() {
             let offset = ui.ctx().memory(|m| m.data.get_temp::<f32>(mem_id)).unwrap_or(0.0);
             let y = (i / cols) as f32 * tile_h;
@@ -539,14 +539,14 @@ impl App {
                         let mut job = egui::text::LayoutJob::simple(shown, FontId::proportional(12.5), TEXT(), inner.width() - 8.0);
                         job.halign = egui::Align::Center;
                         job.wrap = egui::text::TextWrapping { max_width: inner.width() - 8.0, max_rows: 2, break_anywhere: true, overflow_character: Some('…') };
-                        let g = ui.fonts(|f| f.layout_job(job));
+                        let g = ui.fonts_mut(|f| f.layout_job(job));
                         ui.painter().galley(pos2(inner.center().x, img.bottom() + 6.0), g, TEXT());
                         self.row_interact(ui, t, &resp, &row, i);
                     }
                 });
             }
         });
-        ui.ctx().memory_mut(|m| m.data.insert_temp(mem_id, out.state.offset.y));
+        ui.ctx().memory_mut(|m| m.data.insert_temp(mem_id, out.state.clamped_offset().y));
         if let Some(r) = t.rename.as_mut() {
             // the grid renames in a small floating box
             let (mut commit, mut cancel) = (false, false);
@@ -637,7 +637,7 @@ impl App {
     /// click to the last widget registered under the pointer, so the rows win.
     fn background_claim(&self, ui: &mut Ui, t: &Tab) -> Response {
         let rect = ui.available_rect_before_wrap();
-        ui.interact(rect, ui.id().with(("bg", t.id)), Sense::click())
+        ui.interact(rect, ui.scope_id().with(("bg", t.id)), Sense::click())
     }
 
     fn background_area(&mut self, ui: &mut Ui, t: &mut Tab, resp: Response) {
@@ -666,7 +666,7 @@ impl App {
     pub(super) fn drag_overlay(&self, ctx: &egui::Context) {
         let (Some(p), Some(pos)) = (egui::DragAndDrop::payload::<DragFiles>(ctx), ctx.pointer_interact_pos()) else { return };
         let copy = ctx.input(|i| i.modifiers.ctrl);
-        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::new("dragtip")));
+        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("dragtip")));
         let n = p.0.len();
         let text = format!("{} {} item{}", if copy { "Copy" } else { "Move" }, n, if n == 1 { "" } else { "s" });
         let g = painter.layout_no_wrap(text, FontId::proportional(13.0), TEXT());
@@ -681,8 +681,8 @@ impl App {
             self.toast = None;
             return;
         }
-        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::new("toast")));
-        let screen = ctx.screen_rect();
+        let painter = ctx.layer_painter(egui::LayerId::new(egui::Order::Foreground, egui::Id::unique("toast")));
+        let screen = ctx.content_rect();
         let g = painter.layout_no_wrap(msg.clone(), FontId::proportional(13.5), TEXT());
         let r = Rect::from_center_size(pos2(screen.center().x, screen.bottom() - 60.0), g.size() + vec2(28.0, 16.0));
         painter.rect_filled(r, CornerRadius::same(8), if *err { WARN().gamma_multiply(0.5) } else { RAISED() });
@@ -699,7 +699,7 @@ impl App {
             return;
         }
         let (mut install, mut later) = (false, false);
-        egui::Area::new(egui::Id::new("update_notice")).order(egui::Order::Foreground).anchor(Align2::RIGHT_BOTTOM, vec2(-16.0, -16.0)).show(ctx, |ui| {
+        egui::Area::new(egui::Id::unique("update_notice")).order(egui::Order::Foreground).anchor(Align2::RIGHT_BOTTOM, vec2(-16.0, -16.0)).show(ctx, |ui| {
             egui::Frame::new().fill(RAISED()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(8).inner_margin(12).show(ui, |ui| {
                 ui.label(format!("Daleris {version} is available."));
                 ui.add_space(6.0);
@@ -719,11 +719,12 @@ impl App {
 
     // ------------------------------------------------------------------ preview
 
-    pub(super) fn preview_panel(&mut self, ctx: &egui::Context, t: &Tab) {
+    pub(super) fn preview_panel(&mut self, root: &mut Ui, t: &Tab) {
+        let ctx = &root.ctx().clone();
         let paths = if t.sel.is_empty() { Vec::new() } else { self.selected_paths(t) };
         let target: Option<PathBuf> = if paths.len() == 1 { paths.first().cloned() } else { None };
         if target != self.preview.path {
-            self.preview.gen += 1;
+            self.preview.generation += 1;
             self.preview.path = target.clone();
             // from the list, which has it already; a look at the disk could stop the window on a dead server
             let listed = |p: &PathBuf| p.file_name().and_then(|n| t.entries.iter().find(|e| e.name.as_str() == n.to_string_lossy())).cloned();
@@ -736,24 +737,24 @@ impl App {
                 }
             });
             self.preview.content = PvContent::Nothing;
-            self.preview_wanted.store(self.preview.gen, Ordering::Relaxed);
+            self.preview_wanted.store(self.preview.generation, Ordering::Relaxed);
             if let (Some(p), Some(e)) = (&target, &self.preview.entry) {
                 self.preview.content = PvContent::Loading;
-                let (tx, gen, ctx2, p2, e) = (self.tx.clone(), self.preview.gen, ctx.clone(), p.clone(), e.clone());
+                let (tx, generation, ctx2, p2, e) = (self.tx.clone(), self.preview.generation, ctx.clone(), p.clone(), e.clone());
                 let wanted = self.preview_wanted.clone();
                 bg::submit(p, "preview", move || {
                     // moved on while this was waiting its turn
-                    if wanted.load(Ordering::Relaxed) != gen {
+                    if wanted.load(Ordering::Relaxed) != generation {
                         return;
                     }
                     let content = load_preview(&p2, &e);
-                    let _ = tx.send(Msg::Preview { gen, content });
+                    let _ = tx.send(Msg::Preview { generation, content });
                     ctx2.request_repaint();
                 });
             }
         }
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin::same(14));
-        egui::SidePanel::right("preview").resizable(true).default_width(300.0).width_range(220.0..=640.0).frame(frame).show_separator_line(false).show(ctx, |ui| {
+        egui::Panel::right("preview").resizable(true).default_size(300.0).size_range(220.0..=640.0).frame(frame).show_separator_line(false).show(root, |ui| {
             let Some(e) = self.preview.entry.clone() else {
                 self.preview_summary(ui, t, paths.len());
                 return;

@@ -37,7 +37,7 @@ pub fn run() {
     let Ok(stop) = (unsafe { CreateEventW(None, true, false, HOOK.stop) }) else { return };
     THREAD.store(unsafe { GetCurrentThreadId() }, Ordering::SeqCst);
     let Ok(module) = (unsafe { GetModuleHandleW(None) }) else { return };
-    let Ok(hook) = (unsafe { SetWindowsHookExW(WH_KEYBOARD_LL, Some(on_key), module, 0) }) else { return };
+    let Ok(hook) = (unsafe { SetWindowsHookExW(WH_KEYBOARD_LL, Some(on_key), Some(module.into()), 0) }) else { return };
     let mut msg = MSG::default();
     loop {
         let rc = unsafe { MsgWaitForMultipleObjects(Some(&[stop]), false, INFINITE, QS_ALLINPUT) };
@@ -67,7 +67,7 @@ fn pressed() {
     let _ = std::process::Command::new(me).arg("--win-e-press").spawn();
 }
 
-unsafe extern "system" fn on_key(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT {
+unsafe extern "system" fn on_key(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT { unsafe {
     let next = || CallNextHookEx(None, code, wparam, lparam);
     if code != HC_ACTION as i32 {
         return next();
@@ -106,14 +106,14 @@ unsafe extern "system" fn on_key(code: i32, wparam: WPARAM, lparam: LPARAM) -> L
         }
     }
     next()
-}
+}}
 
 /// Windows opens the Start menu when Win goes up with nothing pressed in between. Something now was.
-unsafe fn mask_start_menu() {
+unsafe fn mask_start_menu() { unsafe {
     let press = |flags: KEYBD_EVENT_FLAGS| INPUT {
         r#type: INPUT_KEYBOARD,
         Anonymous: INPUT_0 { ki: KEYBDINPUT { wVk: VIRTUAL_KEY(MASK_KEY), wScan: 0, dwFlags: flags, time: 0, dwExtraInfo: 0 } },
     };
     let inputs = [press(KEYBD_EVENT_FLAGS(0)), press(KEYEVENTF_KEYUP)];
     SendInput(&inputs, std::mem::size_of::<INPUT>() as i32);
-}
+}}

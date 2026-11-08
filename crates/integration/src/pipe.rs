@@ -80,7 +80,7 @@ fn sid_text() -> Option<String> {
     let mut text = PWSTR::null();
     unsafe { ConvertSidToStringSidW(sid_of(&me), &mut text) }.ok()?;
     let s = unsafe { text.to_string() }.ok();
-    let _ = unsafe { LocalFree(HLOCAL(text.0 as *mut c_void)) };
+    let _ = unsafe { LocalFree(Some(HLOCAL(text.0 as *mut c_void))) };
     s
 }
 
@@ -209,7 +209,7 @@ impl Server {
                 Some(&attributes),
             )
         };
-        let _ = unsafe { LocalFree(HLOCAL(sd.0)) };
+        let _ = unsafe { LocalFree(Some(HLOCAL(sd.0))) };
         (!pipe.is_invalid()).then_some(Server { pipe })
     }
 

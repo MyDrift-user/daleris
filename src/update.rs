@@ -100,7 +100,14 @@ fn verified_manifest(text: &[u8], sig: &[u8]) -> Result<Manifest, String> {
 fn sha256_of(path: &Path) -> Option<String> {
     let mut file = std::fs::File::open(path).ok()?;
     let mut hasher = Sha256::new();
-    std::io::copy(&mut file, &mut hasher).ok()?;
+    let mut buf = vec![0u8; 64 * 1024];
+    loop {
+        let n = std::io::Read::read(&mut file, &mut buf).ok()?;
+        if n == 0 {
+            break;
+        }
+        hasher.update(&buf[..n]);
+    }
     Some(hasher.finalize().iter().map(|b| format!("{b:02x}")).collect())
 }
 

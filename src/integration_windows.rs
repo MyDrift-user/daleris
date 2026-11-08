@@ -7,6 +7,7 @@ use daleris_integration::pipe::{self, Request, Server};
 use daleris_integration::reg::{self, policy_fixed, Hive, Support};
 use daleris_integration::hookctl;
 use windows::Win32::Foundation::*;
+use windows::core::BOOL;
 use windows::Win32::Security::{GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY};
 use windows::Win32::System::Threading::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
@@ -233,7 +234,7 @@ pub fn stop_serving() {
 
 /// Comes to the front on its own thread, as the window's own thread may be waiting for a frame.
 fn focus_this_window() {
-    unsafe extern "system" fn each(hwnd: HWND, _: LPARAM) -> BOOL {
+    unsafe extern "system" fn each(hwnd: HWND, _: LPARAM) -> BOOL { unsafe {
         let mut owner = 0;
         GetWindowThreadProcessId(hwnd, Some(&mut owner));
         if owner == GetCurrentProcessId() && IsWindowVisible(hwnd).as_bool() {
@@ -244,7 +245,7 @@ fn focus_this_window() {
             return false.into();
         }
         true.into()
-    }
+    }}
     let _ = unsafe { EnumWindows(Some(each), LPARAM(0)) };
 }
 

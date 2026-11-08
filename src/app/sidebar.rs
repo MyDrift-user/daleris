@@ -193,9 +193,9 @@ impl App {
         self.save_settings();
     }
 
-    pub(super) fn sidebar(&mut self, ctx: &egui::Context, t: &Tab) {
+    pub(super) fn sidebar(&mut self, root: &mut Ui, t: &Tab) {
         let frame = egui::Frame::new().fill(PANEL()).inner_margin(egui::Margin { left: 8, right: 6, top: 2, bottom: 8 });
-        egui::SidePanel::left("sidebar").resizable(true).default_width(if self.picker.is_some() { 190.0 } else { 236.0 }).width_range(140.0..=420.0).frame(frame).show_separator_line(false).show(ctx, |ui| {
+        egui::Panel::left("sidebar").resizable(true).default_size(if self.picker.is_some() { 190.0 } else { 236.0 }).size_range(140.0..=420.0).frame(frame).show_separator_line(false).show(root, |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
                 ui.spacing_mut().item_spacing.y = 1.0;
                 let cur = t.loc.clone();

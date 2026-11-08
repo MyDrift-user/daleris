@@ -39,14 +39,15 @@ pub fn main_hwnd() -> HWND {
 
 /// Test hook: this thread's windows can't take focus or show on the taskbar.
 pub fn test_never_activate() {
-    use windows::Win32::Foundation::{BOOL, LPARAM};
+    use windows::Win32::Foundation::LPARAM;
+    use windows::core::BOOL;
     use windows::Win32::System::Threading::GetCurrentThreadId;
     use windows::Win32::UI::WindowsAndMessaging::{EnumThreadWindows, GetWindowLongPtrW, SetWindowLongPtrW, GWL_EXSTYLE, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW};
-    unsafe extern "system" fn each(hwnd: HWND, _: LPARAM) -> BOOL {
+    unsafe extern "system" fn each(hwnd: HWND, _: LPARAM) -> BOOL { unsafe {
         let style = GetWindowLongPtrW(hwnd, GWL_EXSTYLE);
         SetWindowLongPtrW(hwnd, GWL_EXSTYLE, style | (WS_EX_NOACTIVATE.0 | WS_EX_TOOLWINDOW.0) as isize);
         true.into()
-    }
+    }}
     unsafe {
         let _ = EnumThreadWindows(GetCurrentThreadId(), Some(each), LPARAM(0));
     }
@@ -172,7 +173,7 @@ fn spawn_workers(q: &Queue, n: usize, tx: &Sender<ImgResult>, ctx: &eframe::egui
     }
 }
 
-unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool) -> (Option<RawImg>, Option<String>) {
+unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool) -> (Option<RawImg>, Option<String>) { unsafe {
     let w = wide(path);
     let mut sfi = SHFILEINFOW::default();
     let mut flags = SHGFI_ICON | SHGFI_LARGEICON | SHGFI_TYPENAME;
@@ -193,16 +194,16 @@ unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool) -> (Option<RawImg>
         None
     };
     (img, (!tn.is_empty()).then_some(tn))
-}
+}}
 
-unsafe fn known_folder_icon(id: &windows::core::GUID) -> Option<RawImg> {
+unsafe fn known_folder_icon(id: &windows::core::GUID) -> Option<RawImg> { unsafe {
     let pidl = SHGetKnownFolderIDList(id, 0, None).ok()?;
     // the shell image service returns the same modern icon Explorer's navigation pane shows
     let via_factory = (|| -> Option<RawImg> {
         let f: IShellItemImageFactory = SHCreateItemFromIDList(pidl).ok()?;
         let hbm = f.GetImage(SIZE { cx: 48, cy: 48 }, SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0)).ok()?;
         let r = bitmap_bgra(hbm);
-        let _ = DeleteObject(hbm);
+        let _ = DeleteObject(hbm.into());
         let (w, h, mut px) = r?;
         for p in px.chunks_exact_mut(4) {
             p.swap(0, 2);
@@ -228,7 +229,7 @@ unsafe fn known_folder_icon(id: &windows::core::GUID) -> Option<RawImg> {
     let img = icon_to_rgba(sfi.hIcon);
     let _ = DestroyIcon(sfi.hIcon);
     img
-}
+}}
 
 /// The standard Windows "choose a folder" dialog.
 pub fn pick_folder() -> Option<PathBuf> {
@@ -236,7 +237,7 @@ pub fn pick_folder() -> Option<PathBuf> {
         let d: IFileOpenDialog = CoCreateInstance(&FileOpenDialog, None, CLSCTX_INPROC_SERVER).ok()?;
         let opts = d.GetOptions().ok()?;
         d.SetOptions(FILEOPENDIALOGOPTIONS(opts.0 | FOS_PICKFOLDERS.0 | FOS_FORCEFILESYSTEM.0)).ok()?;
-        d.Show(main_hwnd()).ok()?;
+        d.Show(Some(main_hwnd())).ok()?;
         let item = d.GetResult().ok()?;
         let p = item.GetDisplayName(SIGDN_FILESYSPATH).ok()?;
         let s = p.to_string().ok();
@@ -245,13 +246,13 @@ pub fn pick_folder() -> Option<PathBuf> {
     }
 }
 
-unsafe fn icon_to_rgba(h: HICON) -> Option<RawImg> {
+unsafe fn icon_to_rgba(h: HICON) -> Option<RawImg> { unsafe {
     let mut ii = ICONINFO::default();
     GetIconInfo(h, &mut ii).ok()?;
     let color = bitmap_bgra(ii.hbmColor);
     let mask = bitmap_bgra(ii.hbmMask);
-    let _ = DeleteObject(ii.hbmColor);
-    let _ = DeleteObject(ii.hbmMask);
+    let _ = DeleteObject(ii.hbmColor.into());
+    let _ = DeleteObject(ii.hbmMask.into());
     let (w, hh, mut px) = color?;
     let has_alpha = px.chunks_exact(4).any(|p| p[3] != 0);
     if !has_alpha {
@@ -267,14 +268,14 @@ unsafe fn icon_to_rgba(h: HICON) -> Option<RawImg> {
         p.swap(0, 2);
     }
     Some(RawImg { w, h: hh, rgba: px, premultiplied: false })
-}
+}}
 
-unsafe fn bitmap_bgra(hbm: HBITMAP) -> Option<(usize, usize, Vec<u8>)> {
+unsafe fn bitmap_bgra(hbm: HBITMAP) -> Option<(usize, usize, Vec<u8>)> { unsafe {
     if hbm.is_invalid() {
         return None;
     }
     let mut bm = BITMAP::default();
-    if GetObjectW(hbm, std::mem::size_of::<BITMAP>() as i32, Some(&mut bm as *mut _ as *mut _)) == 0 {
+    if GetObjectW(hbm.into(), std::mem::size_of::<BITMAP>() as i32, Some(&mut bm as *mut _ as *mut _)) == 0 {
         return None;
     }
     let (w, h) = (bm.bmWidth, bm.bmHeight.abs());
@@ -296,9 +297,9 @@ unsafe fn bitmap_bgra(hbm: HBITMAP) -> Option<(usize, usize, Vec<u8>)> {
     let n = GetDIBits(hdc, hbm, 0, h as u32, Some(buf.as_mut_ptr() as *mut _), &mut bi, DIB_RGB_COLORS);
     let _ = DeleteDC(hdc);
     (n != 0).then_some((w as usize, h as usize, buf))
-}
+}}
 
-unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool) -> Option<RawImg> {
+unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool) -> Option<RawImg> { unsafe {
     let w = wide(path.as_os_str());
     let f: IShellItemImageFactory = SHCreateItemFromParsingName(PCWSTR(w.as_ptr()), None).ok()?;
     let flags = if icon_only {
@@ -310,7 +311,7 @@ unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool)
     };
     let hbm = f.GetImage(SIZE { cx: size, cy: size }, flags).ok()?;
     let r = bitmap_bgra(hbm);
-    let _ = DeleteObject(hbm);
+    let _ = DeleteObject(hbm.into());
     let (w, h, mut px) = r?;
     let has_alpha = px.chunks_exact(4).any(|p| p[3] != 0);
     for p in px.chunks_exact_mut(4) {
@@ -320,7 +321,7 @@ unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool)
         }
     }
     Some(RawImg { w, h, rgba: px, premultiplied: true })
-}
+}}
 
 // ---------------------------------------------------------------- simple verbs
 
@@ -328,7 +329,7 @@ unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool)
 pub fn open_url(url: &str) {
     let u = wide(url);
     unsafe {
-        ShellExecuteW(main_hwnd(), PCWSTR::null(), PCWSTR(u.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
+        ShellExecuteW(Some(main_hwnd()), PCWSTR::null(), PCWSTR(u.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
     }
 }
 
@@ -342,7 +343,7 @@ pub fn open(path: &Path) {
         let dir = path.parent().map(|d| wide(d.as_os_str()));
         unsafe {
             ShellExecuteW(
-                HWND(owner as *mut _),
+                Some(HWND(owner as *mut _)),
                 PCWSTR::null(), // the file type's default action (open, play, run, edit…)
                 PCWSTR(p.as_ptr()),
                 PCWSTR::null(),
@@ -356,7 +357,7 @@ pub fn open(path: &Path) {
 pub fn run_as_admin(path: &Path) {
     let p = wide(path.as_os_str());
     unsafe {
-        ShellExecuteW(main_hwnd(), w!("runas"), PCWSTR(p.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
+        ShellExecuteW(Some(main_hwnd()), w!("runas"), PCWSTR(p.as_ptr()), PCWSTR::null(), PCWSTR::null(), SW_SHOWNORMAL);
     }
 }
 
@@ -368,14 +369,14 @@ pub fn open_with(path: &Path) {
         oaifInFlags: OPEN_AS_INFO_FLAGS(OAIF_EXEC.0 | OAIF_ALLOW_REGISTRATION.0 | OAIF_REGISTER_EXT.0),
     };
     unsafe {
-        let _ = SHOpenWithDialog(main_hwnd(), &info);
+        let _ = SHOpenWithDialog(Some(main_hwnd()), &info);
     }
 }
 
 pub fn properties(path: &Path) {
     let p = wide(path.as_os_str());
     unsafe {
-        let _ = SHObjectProperties(main_hwnd(), SHOP_FILEPATH, PCWSTR(p.as_ptr()), PCWSTR::null());
+        let _ = SHObjectProperties(Some(main_hwnd()), SHOP_FILEPATH, PCWSTR(p.as_ptr()), PCWSTR::null());
     }
 }
 
@@ -387,7 +388,7 @@ pub fn default_app(ext: &str) -> Option<String> {
     let e = wide(format!(".{ext}"));
     let mut buf = [0u16; 260];
     let mut len = buf.len() as u32;
-    let hr = unsafe { AssocQueryStringW(ASSOCF_INIT_IGNOREUNKNOWN, ASSOCSTR_FRIENDLYAPPNAME, PCWSTR(e.as_ptr()), PCWSTR::null(), windows::core::PWSTR(buf.as_mut_ptr()), &mut len) };
+    let hr = unsafe { AssocQueryStringW(ASSOCF_INIT_IGNOREUNKNOWN, ASSOCSTR_FRIENDLYAPPNAME, PCWSTR(e.as_ptr()), PCWSTR::null(), Some(windows::core::PWSTR(buf.as_mut_ptr())), &mut len) };
     let s = from_wide(&buf);
     (hr.is_ok() && !s.is_empty()).then_some(s)
 }
@@ -475,7 +476,7 @@ pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOn
 /// exactly what Explorer does, so pasting into Explorer or any app works.
 pub fn clipboard_set_files(paths: &[PathBuf], cut: bool) -> bool {
     unsafe {
-        if OpenClipboard(main_hwnd()).is_err() {
+        if OpenClipboard(Some(main_hwnd())).is_err() {
             return false;
         }
         let _ = EmptyClipboard();
@@ -493,7 +494,7 @@ pub fn clipboard_set_files(paths: &[PathBuf], cut: bool) -> bool {
             (*df).fWide = TRUE;
             std::ptr::copy_nonoverlapping(list.as_ptr() as *const u8, p.add(header), list.len() * 2);
             let _ = GlobalUnlock(hg);
-            SetClipboardData(CF_HDROP.0 as u32, HANDLE(hg.0)).ok()?;
+            SetClipboardData(CF_HDROP.0 as u32, Some(HANDLE(hg.0))).ok()?;
 
             let fmt = RegisterClipboardFormatW(w!("Preferred DropEffect"));
             let he = GlobalAlloc(GMEM_MOVEABLE, 4).ok()?;
@@ -501,7 +502,7 @@ pub fn clipboard_set_files(paths: &[PathBuf], cut: bool) -> bool {
             if !pe.is_null() {
                 *pe = if cut { 2 } else { 5 };
                 let _ = GlobalUnlock(he);
-                let _ = SetClipboardData(fmt, HANDLE(he.0));
+                let _ = SetClipboardData(fmt, Some(HANDLE(he.0)));
             }
             Some(())
         })()
@@ -513,7 +514,7 @@ pub fn clipboard_set_files(paths: &[PathBuf], cut: bool) -> bool {
 
 pub fn clipboard_set_text(text: &str) {
     unsafe {
-        if OpenClipboard(main_hwnd()).is_err() {
+        if OpenClipboard(Some(main_hwnd())).is_err() {
             return;
         }
         let _ = EmptyClipboard();
@@ -523,7 +524,7 @@ pub fn clipboard_set_text(text: &str) {
             if !p.is_null() {
                 std::ptr::copy_nonoverlapping(w.as_ptr(), p, w.len());
                 let _ = GlobalUnlock(hg);
-                let _ = SetClipboardData(13 /* CF_UNICODETEXT */, HANDLE(hg.0));
+                let _ = SetClipboardData(13 /* CF_UNICODETEXT */, Some(HANDLE(hg.0)));
             }
         }
         let _ = CloseClipboard();
@@ -536,7 +537,7 @@ pub fn clipboard_get_files() -> Option<(Vec<PathBuf>, bool)> {
         if IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_err() {
             return None;
         }
-        OpenClipboard(main_hwnd()).ok()?;
+        OpenClipboard(Some(main_hwnd())).ok()?;
         let r = (|| {
             let h = GetClipboardData(CF_HDROP.0 as u32).ok()?;
             let hdrop = HDROP(h.0);
@@ -575,22 +576,22 @@ thread_local! {
     static HELPER: RefCell<Option<HWND>> = const { RefCell::new(None) };
 }
 
-unsafe extern "system" fn helper_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT {
+unsafe extern "system" fn helper_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPARAM) -> LRESULT { unsafe {
     // Submenus like "Send to", "Open with" and "New" are filled lazily through these messages.
     if matches!(msg, WM_INITMENUPOPUP | WM_DRAWITEM | WM_MEASUREITEM | WM_MENUCHAR) {
         let res = ACTIVE_MENU.with(|m| {
             let m = m.borrow();
             let cm = m.as_ref()?;
-            if let Ok(cm3) = cm.cast::<IContextMenu3>() {
+            match cm.cast::<IContextMenu3>() { Ok(cm3) => {
                 let mut r = LRESULT(0);
                 if cm3.HandleMenuMsg2(msg, wp, lp, Some(&mut r)).is_ok() {
                     return Some(r);
                 }
-            } else if let Ok(cm2) = cm.cast::<IContextMenu2>() {
+            } _ => { match cm.cast::<IContextMenu2>() { Ok(cm2) => {
                 if cm2.HandleMenuMsg(msg, wp, lp).is_ok() {
                     return Some(LRESULT(0));
                 }
-            }
+            } _ => {}}}}
             None
         });
         if let Some(r) = res {
@@ -598,9 +599,9 @@ unsafe extern "system" fn helper_proc(hwnd: HWND, msg: u32, wp: WPARAM, lp: LPAR
         }
     }
     DefWindowProcW(hwnd, msg, wp, lp)
-}
+}}
 
-unsafe fn helper_window() -> Option<HWND> {
+unsafe fn helper_window() -> Option<HWND> { unsafe {
     if let Some(h) = HELPER.with(|h| *h.borrow()) {
         return Some(h);
     }
@@ -614,10 +615,10 @@ unsafe fn helper_window() -> Option<HWND> {
         ..Default::default()
     };
     RegisterClassExW(&wc);
-    let h = CreateWindowExW(WINDOW_EX_STYLE(0), cls, w!(""), WS_POPUP, 0, 0, 0, 0, main_hwnd(), None, hinst, None).ok()?;
+    let h = CreateWindowExW(WINDOW_EX_STYLE(0), cls, w!(""), WS_POPUP, 0, 0, 0, 0, Some(main_hwnd()), None, Some(hinst.into()), None).ok()?;
     HELPER.with(|x| *x.borrow_mut() = Some(h));
     Some(h)
-}
+}}
 
 pub enum MenuOutcome {
     Nothing,
@@ -642,7 +643,7 @@ impl Drop for Pidls {
     }
 }
 
-unsafe fn context_menu_for(items: &[PathBuf], dir: &Path, owner: HWND) -> windows::core::Result<ShellCm> {
+unsafe fn context_menu_for(items: &[PathBuf], dir: &Path, owner: HWND) -> windows::core::Result<ShellCm> { unsafe {
     let mut pidls = Pidls(Vec::new());
     let cm: IContextMenu = if items.is_empty() {
         let w = wide(dir.as_os_str());
@@ -674,14 +675,14 @@ unsafe fn context_menu_for(items: &[PathBuf], dir: &Path, owner: HWND) -> window
             children.push(last as *const _);
         }
         let Some(folder) = folder else {
-            return Err(windows::core::Error::from_win32());
+            return Err(windows::core::Error::from_thread());
         };
         folder.GetUIObjectOf(owner, &children, None)?
     };
     Ok(ShellCm { cm, _pidls: pidls })
-}
+}}
 
-unsafe fn invoke_id(cm: &IContextMenu, id: usize, dir: &Path) -> windows::core::Result<MenuOutcome> {
+unsafe fn invoke_id(cm: &IContextMenu, id: usize, dir: &Path) -> windows::core::Result<MenuOutcome> { unsafe {
     let mut verb = [0u8; 64];
     if cm.GetCommandString(id, GCS_VERBA, None, PSTR(verb.as_mut_ptr()), verb.len() as u32).is_ok() {
         let end = verb.iter().position(|&c| c == 0).unwrap_or(verb.len());
@@ -705,25 +706,25 @@ unsafe fn invoke_id(cm: &IContextMenu, id: usize, dir: &Path) -> windows::core::
     };
     cm.InvokeCommand(&info as *const _ as *const CMINVOKECOMMANDINFO)?;
     Ok(MenuOutcome::Invoked)
-}
+}}
 
 /// Show the full Windows context menu as a native popup ("Show more options").
 pub fn native_menu(items: &[PathBuf], dir: &Path) -> MenuOutcome {
     unsafe { native_menu_inner(items, dir) }.unwrap_or(MenuOutcome::Nothing)
 }
 
-unsafe fn native_menu_inner(items: &[PathBuf], dir: &Path) -> windows::core::Result<MenuOutcome> {
-    let owner = helper_window().ok_or_else(windows::core::Error::from_win32)?;
+unsafe fn native_menu_inner(items: &[PathBuf], dir: &Path) -> windows::core::Result<MenuOutcome> { unsafe {
+    let owner = helper_window().ok_or_else(windows::core::Error::from_thread)?;
     let scm = context_menu_for(items, dir, owner)?;
     let menu = CreatePopupMenu()?;
     let r = (|| -> windows::core::Result<MenuOutcome> {
-        scm.cm.QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL | CMF_EXPLORE)?;
+        scm.cm.QueryContextMenu(menu, 0, 1, 0x7FFF, CMF_NORMAL | CMF_EXPLORE).ok()?;
         ACTIVE_MENU.with(|m| *m.borrow_mut() = Some(scm.cm.clone()));
         let mut pt = POINT::default();
         let _ = GetCursorPos(&mut pt);
         let _ = SetForegroundWindow(owner);
         let cmd = TrackPopupMenuEx(menu, (TPM_RETURNCMD | TPM_RIGHTBUTTON).0, pt.x, pt.y, owner, None);
-        let _ = PostMessageW(owner, WM_NULL, WPARAM(0), LPARAM(0));
+        let _ = PostMessageW(Some(owner), WM_NULL, WPARAM(0), LPARAM(0));
         ACTIVE_MENU.with(|m| *m.borrow_mut() = None);
         if cmd.0 <= 0 {
             return Ok(MenuOutcome::Nothing);
@@ -732,7 +733,7 @@ unsafe fn native_menu_inner(items: &[PathBuf], dir: &Path) -> windows::core::Res
     })();
     let _ = DestroyMenu(menu);
     r
-}
+}}
 
 /// One item of the Windows menu, read out so we can draw it in our own menu.
 pub struct ShellEntry {
@@ -849,9 +850,9 @@ impl ShellMenu {
     }
 }
 
-unsafe fn read_menu(cm: &IContextMenu, cm3: Option<&IContextMenu3>, cm2: Option<&IContextMenu2>, menu: HMENU, depth: u32) -> Vec<ShellEntry> {
+unsafe fn read_menu(cm: &IContextMenu, cm3: Option<&IContextMenu3>, cm2: Option<&IContextMenu2>, menu: HMENU, depth: u32) -> Vec<ShellEntry> { unsafe {
     let mut out = Vec::new();
-    let n = GetMenuItemCount(menu);
+    let n = GetMenuItemCount(Some(menu));
     for i in 0..n.max(0) {
         let mut text = [0u16; 260];
         let mut mii = MENUITEMINFOW {
@@ -918,9 +919,9 @@ unsafe fn read_menu(cm: &IContextMenu, cm3: Option<&IContextMenu3>, cm2: Option<
         });
     }
     out
-}
+}}
 
-unsafe fn menu_bitmap(bmp: HBITMAP) -> Option<RawImg> {
+unsafe fn menu_bitmap(bmp: HBITMAP) -> Option<RawImg> { unsafe {
     bitmap_bgra(bmp).map(|(w, h, mut px)| {
         let has_alpha = px.chunks_exact(4).any(|p| p[3] != 0);
         for p in px.chunks_exact_mut(4) {
@@ -931,7 +932,7 @@ unsafe fn menu_bitmap(bmp: HBITMAP) -> Option<RawImg> {
         }
         RawImg { w, h, rgba: px, premultiplied: true }
     })
-}
+}}
 
 /// Where a .lnk shortcut points.
 pub fn shortcut_target(lnk: &Path) -> Option<PathBuf> {

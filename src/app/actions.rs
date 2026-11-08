@@ -361,7 +361,7 @@ impl App {
             }
             Act::CancelLoad => {
                 t.cancel.store(true, Ordering::Relaxed);
-                t.gen += 1;
+                t.generation += 1;
                 t.loading = false;
                 t.refreshing = false;
                 t.retry_at = None;
