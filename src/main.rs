@@ -124,9 +124,10 @@ fn main() -> eframe::Result<()> {
         // a dialog has the frame dialogs have
         .with_decorations(is_picker || !app::starts_with_custom_titlebar(screenshot.is_some()))
         .with_drag_and_drop(true);
-    // see-through, so Windows can put Mica behind the tab strip
+    // see-through, so Windows can put Mica behind the tab strip. Not for a screenshot, which only has what Daleris draws
+    // itself: the strip would be empty there, so it gets the colour it has without Mica instead.
     #[cfg(windows)]
-    if !is_picker && app::starts_with_mica() {
+    if !is_picker && screenshot.is_none() && app::starts_with_mica() {
         viewport = viewport.with_transparent(true);
         theme::set_mica_window(true);
     }
