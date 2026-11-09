@@ -893,7 +893,7 @@ pub fn menu_key(verb: &str, label: &str) -> String {
     format!("l:{}", clean_label(label).to_lowercase().trim_end_matches("...").trim_end_matches('…').trim())
 }
 
-/// "Open &with" → "Open with", "A && B" → "A & B", drop "\tCtrl+X" accelerators.
+/// "Open &with" becomes "Open with", "A && B" becomes "A & B", drop "\tCtrl+X" accelerators.
 pub fn clean_label(s: &str) -> String {
     let s = s.split('\t').next().unwrap_or("");
     let mut out = String::with_capacity(s.len());

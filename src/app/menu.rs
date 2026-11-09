@@ -312,7 +312,7 @@ impl App {
         let paste_into = (row.is_dir && single && shell::clipboard_has_files()).then(|| row.path.clone());
         v.push(MEntry {
             key: "app:quickrow".into(),
-            label: tr("Cut · Copy · Paste · Rename · Delete").into(),
+            label: tr("Cut, Copy, Paste, Rename, Delete").into(),
             glyph: Some(I_CUT),
             tex: None,
             shortcut: "",
@@ -879,7 +879,7 @@ impl App {
                 ui.add(egui::Separator::default().spacing(4.0));
                 ui.horizontal(|ui| {
                     ui.add_space(26.0);
-                    ui.label(egui::RichText::new(format!("{}   {}  ›", ic(I_MORE), tr("Show more options"))).font(icon_font(13.5)).color(FAINT()));
+                    ui.label(egui::RichText::new(format!("{}   {}  {}", ic(I_MORE), tr("Show more options"), ic(I_CHEV_R))).font(icon_font(13.5)).color(FAINT()));
                 });
             };
             let mut more_placed = zone != MenuMode::Show;

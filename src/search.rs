@@ -397,10 +397,10 @@ enum Term {
 
 /// Parsed query.
 ///
-/// `report final`: names containing both words · `*.rs` / `img_??.png`: wildcards ·
-/// `"exact name.txt"` · `-draft`: exclude · `ext:pdf,docx` · `kind:image|video|audio|doc|code|archive|app|folder` ·
-/// `size:>10mb` `size:<1k` `size:1mb..1gb` · `modified:today|yesterday|week|month|year|>2026-01-01|2025` ·
-/// `hidden:no` · `re:^img_\d+` or `/^img_\d+/`: regular expression (case-insensitive)
+/// `report final`: names containing both words, `*.rs` / `img_??.png`: wildcards,
+/// `"exact name.txt"`, `-draft`: exclude, `ext:pdf,docx`, `kind:image|video|audio|doc|code|archive|app|folder`,
+/// `size:>10mb` `size:<1k` `size:1mb..1gb`, `modified:today|yesterday|week|month|year|>2026-01-01|2025`,
+/// `hidden:no`, `re:^img_\d+` or `/^img_\d+/`: regular expression (case-insensitive)
 #[derive(Clone, Debug, Default)]
 pub struct Query {
     terms: Vec<Term>,

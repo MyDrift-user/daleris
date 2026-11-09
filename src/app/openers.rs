@@ -152,9 +152,9 @@ fn openers_tip(ui: &mut Ui, list: &[Opener], faces: &[Option<egui::TextureId>]) 
                 let ago = o.since.map(|s| super::ops::ago(Duration::from_secs(crate::marks::now().saturating_sub(s))));
                 let source = tr(o.from);
                 let line = match (&o.app, ago) {
-                    (Some(app), Some(ago)) => trf!("in {app} · opened {ago} · known from {source}", app = app, ago = ago, source = source),
-                    (Some(app), None) => trf!("in {app} · known from {source}", app = app, source = source),
-                    (None, Some(ago)) => trf!("opened {ago} · known from {source}", ago = ago, source = source),
+                    (Some(app), Some(ago)) => trf!("in {app}, opened {ago}, known from {source}", app = app, ago = ago, source = source),
+                    (Some(app), None) => trf!("in {app}, known from {source}", app = app, source = source),
+                    (None, Some(ago)) => trf!("opened {ago}, known from {source}", ago = ago, source = source),
                     (None, None) => trf!("known from {source}", source = source),
                 };
                 ui.label(egui::RichText::new(line).small().color(DIM()));

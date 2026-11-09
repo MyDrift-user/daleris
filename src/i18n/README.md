@@ -1,6 +1,6 @@
 # Daleris in other languages
 
-Daleris shows its text in English, German or Italian (Settings › Appearance › Language, or the `Language` policy).
+Daleris shows its text in English, German or Italian (Settings > Appearance > Language, or the `Language` policy).
 The English in the code is the key; the catalogs in `de/` and `it/` hold the translations, one file per part of the
 app.
 

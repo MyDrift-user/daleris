@@ -130,8 +130,8 @@ impl App {
                 painter.galley(r.left_center() + vec2(8.0, -label.size().y / 2.0), label, DIM());
                 if let Some(k) = c.sort {
                     if t.sort == k {
-                        let arrow = if t.asc { "▲" } else { "▼" };
-                        painter.text(r.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, arrow, FontId::proportional(8.0), DIM());
+                        let caret = if t.asc { I_CHEV_U } else { I_CHEV_D };
+                        painter.text(r.right_center() - vec2(10.0, 0.0), Align2::RIGHT_CENTER, ic(caret), icon_font(9.0), DIM());
                     }
                     if resp.clicked() && !near_edge {
                         let mut s = t.spec();
@@ -176,7 +176,7 @@ impl App {
                 self.settings.col_w.insert(id.to_string(), fit);
                 self.save_settings();
             }
-            let tip = if id == "name" { tr("Drag to resize · double-click to fit the longest name") } else { tr("Drag to resize · double-click to fit the longest entry") };
+            let tip = if id == "name" { tr("Drag to resize, or double-click to fit the longest name") } else { tr("Drag to resize, or double-click to fit the longest entry") };
             let _ = resp.on_hover_text(tip);
         }
     }
@@ -369,7 +369,8 @@ impl App {
             }
             if !e.detail.is_empty() {
                 ui.add_space(2.0);
-                ui.add(egui::Label::new(egui::RichText::new(format!("{}  ·  {}", p.display(), e.detail)).size(11.5).color(FAINT())).wrap());
+                ui.add(egui::Label::new(egui::RichText::new(format!("{}
+{}", p.display(), e.detail)).size(11.5).color(FAINT())).wrap());
             }
         });
     }
@@ -972,7 +973,7 @@ impl App {
                                 ui.add(egui::Label::new(egui::RichText::new(text).monospace().size(12.0).color(TEXT())).extend());
                             });
                         });
-                        let note = if *truncated { trn!(*lines, "{n} line · preview truncated", "{n} lines · preview truncated") } else { trn!(*lines, "{n} line", "{n} lines") };
+                        let note = if *truncated { trn!(*lines, "{n} line, preview truncated", "{n} lines, preview truncated") } else { trn!(*lines, "{n} line", "{n} lines") };
                         ui.label(egui::RichText::new(note).size(11.5).color(FAINT()));
                     }
                     PvContent::CloudOnly => {

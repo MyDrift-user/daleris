@@ -11,7 +11,7 @@ pub const T: &[(&str, &str)] = &[
     ("Pin to sidebar", "An Seitenleiste anheften"),
     ("Unpin from sidebar", "Von Seitenleiste lösen"),
     ("New section…", "Neuer Abschnitt…"),
-    ("Cut · Copy · Paste · Rename · Delete", "Ausschneiden · Kopieren · Einfügen · Umbenennen · Löschen"),
+    ("Cut, Copy, Paste, Rename, Delete", "Ausschneiden, Kopieren, Einfügen, Umbenennen, Löschen"),
     ("Run", "Ausführen"),
     ("Open", "Öffnen"),
     ("Enter", "Eingabetaste"),

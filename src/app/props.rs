@@ -1,6 +1,6 @@
 //! Our own Properties window: name, type, default app, location, size (folders are
 //! measured in the background), dates, attributes, cloud status and drive space.
-//! Settings › Files & folders can switch back to the Windows dialog.
+//! Settings > Files & folders can switch back to the Windows dialog.
 
 use super::*;
 
@@ -286,7 +286,7 @@ impl App {
                             let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 8.0), Sense::hover());
                             ui.painter().rect_filled(r, CornerRadius::same(4), LINE());
                             ui.painter().rect_filled(Rect::from_min_size(r.min, vec2(r.width() * used as f32 / d.total as f32, 8.0)), CornerRadius::same(4), ACCENT());
-                            ui.label(egui::RichText::new(trf!("{used} used · {free} free of {total} · {fs}", used = fmt_size(used), free = fmt_size(d.free), total = fmt_size(d.total), fs = d.fs)).color(DIM()).size(12.0));
+                            ui.label(egui::RichText::new(trf!("{used} used, {free} free of {total}, {fs}", used = fmt_size(used), free = fmt_size(d.free), total = fmt_size(d.total), fs = d.fs)).color(DIM()).size(12.0));
                         });
                     });
                 }

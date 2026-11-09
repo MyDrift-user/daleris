@@ -279,7 +279,7 @@ fn side_row(ui: &mut Ui, label: &str, s: &Side, newer: bool) {
         if let Some(m) = s.modified {
             parts.push(trf!("changed {date}", date = crate::util::fmt_filetime(m)));
         }
-        ui.label(parts.join(" · "));
+        ui.label(parts.join(", "));
         if newer {
             ui.label(egui::RichText::new(tr("newer")).small().color(ACCENT()));
         }

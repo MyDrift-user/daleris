@@ -741,7 +741,7 @@ pub fn starts_with_custom_titlebar(screenshot: bool) -> bool {
     }
 }
 
-/// The two looks Settings › Appearance can apply in one go, as (settings file key, Explorer's value, Daleris's own).
+/// The two looks Settings > Appearance can apply in one go, as (settings file key, Explorer's value, Daleris's own).
 /// Not settings: each of these is one in its own right, and the buttons only set them, see `apply_look`.
 const LOOKS: [(&str, &str, &str); 9] = [
     ("explorer_colours", "1", "0"),
@@ -1476,7 +1476,7 @@ pub struct App {
     /// the Windows menu behind the right-click menu that's open now
     shell_menu: Option<shell::ShellMenu>,
     shell_tex: HashMap<u32, TextureHandle>,
-    /// Windows/app menu items seen this session (key → label), for the customiser
+    /// Windows/app menu items seen this session (key, label), for the customiser
     seen_shell: std::collections::BTreeMap<String, String>,
     customizer: menu::Customizer,
     settings_page: settings_page::Page,
@@ -3020,7 +3020,7 @@ impl App {
         }
         self.look_for_openers();
         self.auto_update_on.store(self.settings.auto_update, Ordering::Relaxed);
-        let title = self.picker.as_ref().map_or_else(|| format!("{} · Daleris", self.tabs[self.active].loc.title()), Picker::window_title); // i18n-ignore: the place's name (translated) and the app's name, alike in every language
+        let title = self.picker.as_ref().map_or_else(|| format!("{} - Daleris", self.tabs[self.active].loc.title()), Picker::window_title); // i18n-ignore: the place's name (translated) and the app's name, alike in every language
         if title != self.window_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.window_title = title;
@@ -3518,7 +3518,7 @@ impl App {
                     go = true;
                 }
                 ui.label(
-                    egui::RichText::new("smb://server/share · sftp://user@host/path · ftp://host · davs://host/path · nfs://host/export")
+                    egui::RichText::new("smb://server/share, sftp://user@host/path, ftp://host, davs://host/path, nfs://host/export")
                         .small()
                         .color(FAINT()),
                 );

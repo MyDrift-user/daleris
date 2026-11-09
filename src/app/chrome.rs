@@ -21,7 +21,7 @@ impl App {
             }
             ui.horizontal(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
-                // title-bar parts (each can be switched off in Settings › Appearance)
+                // title-bar parts (each can be switched off in Settings > Appearance)
                 let mut left_w = 0.0;
                 // standing in for the settings button, the logo and name are Settings's tab: it has none in the strip
                 let brand_tab = self.settings.brand_opens_settings();
@@ -816,8 +816,8 @@ impl App {
 
     /// The Sort menu: what by, which way round, whether folders stay on top, and whether this folder has its own.
     fn sort_button(&mut self, ui: &mut Ui, t: &mut Tab) {
-        let arrow = if t.asc { "↑" } else { "↓" };
-        let label = format!("{}  {}  {arrow}", ic(I_SORT), tr(t.sort.label()));
+        let caret = if t.asc { I_CHEV_U } else { I_CHEV_D };
+        let label = format!("{}  {}  {}", ic(I_SORT), tr(t.sort.label()), ic(caret));
         ui.menu_button(egui::RichText::new(label).font(icon_font(13.5)), |ui| {
             ui.set_min_width(250.0);
             ui.set_max_width(280.0);
@@ -1090,11 +1090,11 @@ impl App {
                     let found = s.results.len();
                     let results = if found >= search::MAX_RESULTS { trf!("{n}+ results", n = fmt_count(found)) } else { trn!(found, "{n} result", "{n} results") };
                     ui.label(small(results));
-                    ui.label(small("·".into()));
+                    ui.add_space(14.0);
                     if idx.is_done() {
                         let took = idx.took.lock().unwrap().unwrap_or_default();
                         ui.label(small(trn!(idx.count(), "{n} item indexed in {time}", "{n} items indexed in {time}", time = fmt_duration(took))));
-                        ui.label(small("·".into()));
+                        ui.add_space(14.0);
                         ui.label(egui::RichText::new(trf!("query {time}", time = fmt_duration(s.query_time))).size(12.0).color(GREEN()));
                     } else {
                         ui.add(egui::Spinner::new().size(12.0).color(ACCENT()));
@@ -1119,7 +1119,7 @@ impl App {
                         ui.label(small(trn!(t.view.len(), "{n} item", "{n} items")));
                     }
                     if t.sel_info.0 > 0 {
-                        ui.label(small("·".into()));
+                        ui.add_space(14.0);
                         let selected = trn!(t.sel_info.0, "{n} item selected", "{n} items selected");
                         let line = if t.sel_info.1 > 0 { format!("{selected}  {}", fmt_size(t.sel_info.1)) } else { selected };
                         ui.label(small(line));
@@ -1128,14 +1128,14 @@ impl App {
                         ui.add(egui::Spinner::new().size(12.0).color(ACCENT()));
                     }
                     if t.in_cloud {
-                        ui.label(small("·".into()));
+                        ui.add_space(14.0);
                         ui.label(egui::RichText::new(format!("{}  {}", ic(I_CLOUD), tr("Cloud folder"))).font(icon_font(12.0)).color(CLOUD_BLUE()));
                     }
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let drive = t.dir().and_then(|d| self.drive_for(d));
                     if let Some(d) = drive.filter(|d| d.ready) {
-                        ui.label(small(trf!("{drive}  ·  {free} free of {total}", drive = d.title(), free = fmt_size(d.free), total = fmt_size(d.total))));
+                        ui.label(small(trf!("{drive}, {free} free of {total}", drive = d.title(), free = fmt_size(d.free), total = fmt_size(d.total))));
                     }
                 });
             });
@@ -1237,7 +1237,7 @@ impl App {
         if self.drive_offline(d) {
             ui.painter().circle_filled(pos2(x + 4.0, rect.top() + 43.0), 3.5, WARN());
             let sub = match &d.remote {
-                Some(r) => trf!("Not available  ·  {remote}", remote = r),
+                Some(r) => trf!("Not available ({remote})", remote = r),
                 None => tr("Not available").to_string(),
             };
             let g = truncated(ui, &sub, FontId::proportional(12.0), DIM(), rect.width() - 84.0);
@@ -1249,7 +1249,7 @@ impl App {
             let u = 1.0 - d.free as f32 / d.total as f32;
             ui.painter().rect_filled(bar, CornerRadius::same(3), LINE());
             ui.painter().rect_filled(Rect::from_min_size(bar.min, vec2(bar.width() * u, 6.0)), CornerRadius::same(3), if u > 0.9 { WARN() } else { ACCENT() });
-            let sub = trf!("{free} free of {total}  ·  {fs}", free = fmt_size(d.free), total = fmt_size(d.total), fs = d.fs);
+            let sub = trf!("{free} free of {total}, {fs}", free = fmt_size(d.free), total = fmt_size(d.total), fs = d.fs);
             ui.painter().text(pos2(x, rect.top() + 48.0), Align2::LEFT_TOP, sub, FontId::proportional(12.0), DIM());
         } else {
             let sub = if d.locked { tr("Locked by BitLocker. Open it to unlock").to_string() } else { d.remote.clone().unwrap_or_else(|| tr("Not ready").into()) };

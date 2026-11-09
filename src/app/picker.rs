@@ -136,7 +136,7 @@ impl Picker {
         if self.request.host.is_empty() {
             what
         } else {
-            format!("{what} · {}", self.request.host)
+            format!("{what} - {}", self.request.host)
         }
     }
 

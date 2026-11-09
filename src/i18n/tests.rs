@@ -308,6 +308,40 @@ fn no_text_is_left_unmarked() {
     assert!(problems.is_empty(), "{} texts aren't marked for translation:\n{}", problems.len(), problems.join("\n"));
 }
 
+/// Middle dots and arrow characters aren't used in Daleris, on screen or in the code: items are separated with commas or
+/// room, paths in Settings with ">", and arrows that are drawn come from the icon font.
+#[test]
+fn no_middle_dots_or_arrow_characters() {
+    const NOT_USED: [char; 13] = ['\u{B7}', '\u{2022}', '\u{2190}', '\u{2191}', '\u{2192}', '\u{2193}', '\u{2039}', '\u{203A}', '\u{AB}', '\u{BB}', '\u{25B2}', '\u{25BC}', '\u{21D2}'];
+    let base = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let mut all = Vec::new();
+    fn walk(dir: &Path, out: &mut Vec<PathBuf>) {
+        let Ok(rd) = std::fs::read_dir(dir) else { return };
+        for e in rd.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                walk(&p, out);
+            } else if p.extension().is_some_and(|x| ["rs", "md", "txt", "adml", "admx", "wxl", "iss"].contains(&x.to_str().unwrap_or(""))) {
+                out.push(p);
+            }
+        }
+    }
+    for dir in ["src", "crates", "PolicyDefinitions", "installer"] {
+        walk(&base.join(dir), &mut all);
+    }
+    all.push(base.join("README.md"));
+    let mut found = Vec::new();
+    for f in all {
+        let Ok(text) = std::fs::read_to_string(&f) else { continue };
+        for (i, line) in text.lines().enumerate() {
+            if line.chars().any(|c| NOT_USED.contains(&c)) {
+                found.push(format!("{}:{}: {}", f.display(), i + 1, line.trim()));
+            }
+        }
+    }
+    assert!(found.is_empty(), "middle dots or arrow characters:\n{}", found.join("\n"));
+}
+
 #[test]
 fn the_scanner_reads_rust_as_written() {
     let src = "let a = tr(\"Open\");\nlog::warn!(\"Not \\\"shown\\\"\");\nlet b = \"Shown to\\n a person\";\nlet c = 'x';\nfn f<'a>(s: &'a str) {}\n// \"In a comment\"\nlet d = trn!(n, \"{n} item\", \"{n} items\");\nlet e = r\"C:\\Raw\";\nlet g = trf!(\"{a} of {b}\", a = x, b = \"Not marked\");\n";

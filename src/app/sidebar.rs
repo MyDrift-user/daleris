@@ -308,7 +308,7 @@ impl App {
                     s.visible = false;
                 }
                 self.save_settings();
-                self.toast(tr("Section hidden. Show it again in Settings › Sidebar"), false);
+                self.toast(tr("Section hidden. Show it again in Settings > Sidebar"), false);
             }
             if custom && menu_item(ui, I_DELETE, tr("Delete section"), "") {
                 self.settings.sections.retain(|s| s.id != id);
@@ -450,7 +450,7 @@ impl App {
             }
             if !locked && menu_item(ui, I_HIDE, tr("Hide from sidebar"), "") {
                 self.toggle_side_item(&sid, &key);
-                self.toast(tr("Hidden. Show it again in Settings › Sidebar"), false);
+                self.toast(tr("Hidden. Show it again in Settings > Sidebar"), false);
             }
             if let Some(l) = net {
                 if menu_item(ui, I_CLOSE, tr("Disconnect"), "") {

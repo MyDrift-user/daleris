@@ -11,7 +11,7 @@ pub const T: &[(&str, &str)] = &[
     ("Pin to sidebar", "Aggiungi alla barra laterale"),
     ("Unpin from sidebar", "Rimuovi dalla barra laterale"),
     ("New section…", "Nuova sezione…"),
-    ("Cut · Copy · Paste · Rename · Delete", "Taglia · Copia · Incolla · Rinomina · Elimina"),
+    ("Cut, Copy, Paste, Rename, Delete", "Taglia, Copia, Incolla, Rinomina, Elimina"),
     ("Run", "Esegui"),
     ("Open", "Apri"),
     ("Enter", "Invio"),

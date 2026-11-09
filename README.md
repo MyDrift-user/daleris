@@ -34,7 +34,7 @@ Native, written in Rust, with no web view and no runtime to install.
 ## ✨ Features
 
 ### 🪟 Looks like Explorer, or like itself
-Out of the box on Windows, Daleris has Explorer's colours, lines, Mica, icons and compact rows. One button in **Settings → Appearance** gives it Daleris's own look instead, with its own icon set, a dark or light theme and an accent colour; each part stays a setting of its own.
+Out of the box on Windows, Daleris has Explorer's colours, lines, Mica, icons and compact rows. One button in **Settings > Appearance** gives it Daleris's own look instead, with its own icon set, a dark or light theme and an accent colour; each part stays a setting of its own.
 
 <p align="center"><img src="assets/screenshots/daleris-look.png" width="820" alt="Daleris's own look in dark, with photo thumbnails"></p>
 
@@ -74,7 +74,7 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 <p align="center"><img src="assets/screenshots/settings.png" width="820" alt="Settings, Appearance: language, look, theme and accent colour"></p>
 
 ### 🌍 Speaks your language
-English, German and Italian, following the language Windows is shown in, or chosen in **Settings → Appearance**. Numbers and dates are written the way each language writes them, and the installers follow Windows's language too.
+English, German and Italian, following the language Windows is shown in, or chosen in **Settings > Appearance**. Numbers and dates are written the way each language writes them, and the installers follow Windows's language too.
 
 <p align="center"><img src="assets/screenshots/german.png" width="820" alt="This PC in German"></p>
 
@@ -99,7 +99,7 @@ English, German and Italian, following the language Windows is shown in, or chos
 The real Windows icons, thumbnails and right-click menu, so your shell extensions keep working, and right-clicking the title bar gives Windows's own window menu.
 
 ### 🪟 Stands in for File Explorer (Windows, optional)
-Under **Settings → Windows Explorer** there are separate switches, all off by default, to open folders in Daleris, make Win + E open it, select the file on "Show in folder", open new folders as tabs in the running window, show Daleris for apps' Open and Save dialogs, and send an ordinary file dialog to the folder Daleris shows with Ctrl + G. Each switch says whether it's really active. [What each one does, and its limits.](#-windows-explorer-integration)
+Under **Settings > Windows Explorer** there are separate switches, all off by default, to open folders in Daleris, make Win + E open it, select the file on "Show in folder", open new folders as tabs in the running window, show Daleris for apps' Open and Save dialogs, and send an ordinary file dialog to the folder Daleris shows with Ctrl + G. Each switch says whether it's really active. [What each one does, and its limits.](#-windows-explorer-integration)
 
 ### 🏢 Ready for IT departments
 You can manage every setting as a fixed value or a default, including the language and what search never finds: on Windows through **Group Policy (ADMX/ADML in English, German and Italian)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`PolicyDefinitions/README.txt`](PolicyDefinitions/README.txt).
@@ -116,7 +116,7 @@ You can manage every setting as a fixed value or a default, including the langua
 | `Ctrl+1`…`Ctrl+9` | Jump to a tab (`9` is the last one) |
 | `Ctrl+F` or `F3` | Search |
 | `Ctrl+L` or `Alt+D` | Edit the address |
-| `Alt+←` / `Alt+→` / `Alt+↑` | Back / forward / up |
+| `Alt+Left` / `Alt+Right` / `Alt+Up` | Back / forward / up |
 | `F5` | Refresh |
 | `Ctrl+Shift+N` | New folder |
 | `Alt+P` | Show or hide the preview pane |
@@ -164,7 +164,7 @@ Bug reports for Linux and macOS are especially welcome.
 
 ## ⚙️ Settings file and logs
 
-Settings are a plain text file with one `name=value` per line, also shown under **Settings → About & updates**. Open windows read it again when they get focus.
+Settings are a plain text file with one `name=value` per line, also shown under **Settings > About & updates**. Open windows read it again when they get focus.
 
 | System | Settings and `icon packs` | Log |
 |---|---|---|
@@ -195,7 +195,7 @@ The DLL can't take an app down with it: every entry point catches panics, every 
 
 ## 🔄 Updates
 
-Daleris looks for a new release at startup and every 6 hours, and installs it by itself unless you turn that off under **Settings → About & updates**. How depends on how it's installed:
+Daleris looks for a new release at startup and every 6 hours, and installs it by itself unless you turn that off under **Settings > About & updates**. How depends on how it's installed:
 
 | Installed as | How updates land |
 |---|---|
@@ -227,7 +227,7 @@ sudo apt install libxkbcommon-dev libgl1-mesa-dev libwayland-dev libx11-dev
 Every push is built on all three systems by the CI workflow. Releases only start by hand:
 
 1. Raise `version` in `Cargo.toml` and push. A version can't change once it's released, because updates go by the number.
-2. Go to **Actions → Release → Run workflow**. Turning off **Publish** only builds and tests, leaving the files on the run.
+2. Go to **Actions > Release > Run workflow**. Turning off **Publish** only builds and tests, leaving the files on the run.
 
 Publishing waits for an approval on GitHub, as the signing key is a secret of the protected `release` environment. If that key is lost or leaks, a release signed with the offline backup key can still reach every copy, and replace it.
 
