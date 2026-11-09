@@ -109,7 +109,7 @@ fn main() -> eframe::Result<()> {
     }
     let _ = new_window;
     let is_picker = picker.is_some();
-    let window_title = picker.as_ref().map_or("Daleris".to_string(), app::Picker::window_title);
+    let window_title = picker.as_ref().map_or("Daleris".to_string(), app::Picker::window_title); // i18n-ignore: the app's name as window title
     if is_picker {
         app::end_pick_with_parent();
         wanted.dir = picker.as_ref().and_then(app::Picker::start_folder);
@@ -146,7 +146,7 @@ fn main() -> eframe::Result<()> {
         viewport = viewport.with_always_on_top().with_active(true);
     }
     let options = eframe::NativeOptions { viewport, ..Default::default() };
-    let result = eframe::run_native("Daleris", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, wanted, query, screenshot, picker)))));
+    let result = eframe::run_native("Daleris", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, wanted, query, screenshot, picker))))); // i18n-ignore: the app's name, used as its id
     match &result {
         Ok(()) => log::info!("exited"),
         Err(e) => log::error!("exited with an error: {e}"),

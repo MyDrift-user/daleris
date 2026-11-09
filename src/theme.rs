@@ -3,6 +3,8 @@ use std::sync::Arc;
 
 use eframe::egui::{self, Color32, FontData, FontDefinitions, FontFamily, FontId, TextStyle};
 
+use crate::i18n::tx;
+
 /// The colours of the current theme. Read through the `BG()`, `TEXT()`… functions.
 #[derive(Clone, Copy)]
 pub struct Palette {
@@ -45,15 +47,15 @@ pub struct Palette {
     pub explorer: bool,
 }
 
-/// Accent colour choices (name, colour on dark, colour on light).
+/// Accent colour choices (name, colour on dark, colour on light). The name is shown with `tr`.
 pub const ACCENTS: [(&str, Color32, Color32); 7] = [
-    ("Blue", Color32::from_rgb(0x4c, 0xa3, 0xff), Color32::from_rgb(0x00, 0x5f, 0xb8)),
-    ("Teal", Color32::from_rgb(0x2e, 0xc4, 0xb6), Color32::from_rgb(0x00, 0x7a, 0x70)),
-    ("Purple", Color32::from_rgb(0xa8, 0x8b, 0xff), Color32::from_rgb(0x6b, 0x3f, 0xd4)),
-    ("Pink", Color32::from_rgb(0xff, 0x6f, 0xb1), Color32::from_rgb(0xc2, 0x18, 0x6b)),
-    ("Orange", Color32::from_rgb(0xff, 0xa2, 0x4c), Color32::from_rgb(0xc2, 0x5a, 0x00)),
-    ("Green", Color32::from_rgb(0x5f, 0xd0, 0x7a), Color32::from_rgb(0x1e, 0x7e, 0x34)),
-    ("Red", Color32::from_rgb(0xff, 0x6b, 0x6b), Color32::from_rgb(0xc4, 0x2b, 0x1c)),
+    (tx("Blue"), Color32::from_rgb(0x4c, 0xa3, 0xff), Color32::from_rgb(0x00, 0x5f, 0xb8)),
+    (tx("Teal"), Color32::from_rgb(0x2e, 0xc4, 0xb6), Color32::from_rgb(0x00, 0x7a, 0x70)),
+    (tx("Purple"), Color32::from_rgb(0xa8, 0x8b, 0xff), Color32::from_rgb(0x6b, 0x3f, 0xd4)),
+    (tx("Pink"), Color32::from_rgb(0xff, 0x6f, 0xb1), Color32::from_rgb(0xc2, 0x18, 0x6b)),
+    (tx("Orange"), Color32::from_rgb(0xff, 0xa2, 0x4c), Color32::from_rgb(0xc2, 0x5a, 0x00)),
+    (tx("Green"), Color32::from_rgb(0x5f, 0xd0, 0x7a), Color32::from_rgb(0x1e, 0x7e, 0x34)),
+    (tx("Red"), Color32::from_rgb(0xff, 0x6b, 0x6b), Color32::from_rgb(0xc4, 0x2b, 0x1c)),
 ];
 
 fn mix(a: Color32, b: Color32, t: f32) -> Color32 {
@@ -270,7 +272,7 @@ fn cached_query(slot: &'static std::sync::Mutex<Option<(std::time::Instant, Opti
 pub fn system_dark() -> bool {
     static SLOT: std::sync::Mutex<Option<(std::time::Instant, Option<String>)>> = std::sync::Mutex::new(None);
     if cfg!(target_os = "macos") {
-        return cached_query(&SLOT, "defaults", &["read", "-g", "AppleInterfaceStyle"]).is_some_and(|v| v.contains("Dark"));
+        return cached_query(&SLOT, "defaults", &["read", "-g", "AppleInterfaceStyle"]).is_some_and(|v| v.contains("Dark")); // i18n-ignore: the system's own setting value
     }
     match cached_query(&SLOT, "gsettings", &["get", "org.gnome.desktop.interface", "color-scheme"]) {
         Some(v) if v.contains("dark") => true,
@@ -480,7 +482,7 @@ pub const I_FOLDER: &str = "\u{E8B7}";
 pub fn install(ctx: &egui::Context) {
     let mut fonts = FontDefinitions::default();
     // the system's own UI fonts: Segoe (Windows), SF/Helvetica (macOS), Noto/Cantarell/Ubuntu/DejaVu (Linux)
-    let fdir = std::path::PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into())).join("Fonts");
+    let fdir = std::path::PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into())).join("Fonts"); // i18n-ignore: Windows's fonts folder
     let load = |names: &[&str]| -> Option<Vec<u8>> {
         names.iter().find_map(|n| {
             let p = std::path::Path::new(n);
@@ -490,7 +492,7 @@ pub fn install(ctx: &egui::Context) {
     let ui_fonts: &[&str] = if cfg!(windows) {
         &["segoeui.ttf"]
     } else if cfg!(target_os = "macos") {
-        &["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/Helvetica.ttc", "/Library/Fonts/Arial Unicode.ttf"]
+        &["/System/Library/Fonts/SFNS.ttf", "/System/Library/Fonts/Helvetica.ttc", "/Library/Fonts/Arial Unicode.ttf"] // i18n-ignore: font file paths
     } else {
         &[
             "/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf",
@@ -512,7 +514,7 @@ pub fn install(ctx: &egui::Context) {
     let symbol_fonts: &[&str] = if cfg!(windows) {
         &["seguisym.ttf"]
     } else if cfg!(target_os = "macos") {
-        &["/System/Library/Fonts/Apple Symbols.ttf"]
+        &["/System/Library/Fonts/Apple Symbols.ttf"] // i18n-ignore: font file paths
     } else {
         &["/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/TTF/DejaVuSans.ttf", "/usr/share/fonts/truetype/noto/NotoSansSymbols2-Regular.ttf"]
     };

@@ -15,9 +15,9 @@ fn env_dir(var: &str) -> Option<PathBuf> {
 /// `%APPDATA%\Daleris`, `~/Library/Application Support/Daleris` or `~/.config/daleris`.
 pub fn config_dir() -> Option<PathBuf> {
     #[cfg(windows)]
-    return std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("Daleris"));
+    return std::env::var_os("APPDATA").map(|a| PathBuf::from(a).join("Daleris")); // i18n-ignore: folder name
     #[cfg(target_os = "macos")]
-    return env_dir("HOME").map(|h| h.join("Library/Application Support/Daleris"));
+    return env_dir("HOME").map(|h| h.join("Library/Application Support/Daleris")); // i18n-ignore: folder name
     #[cfg(not(any(windows, target_os = "macos")))]
     return env_dir("XDG_CONFIG_HOME").or_else(|| env_dir("HOME").map(|h| h.join(".config"))).map(|d| d.join("daleris"));
 }
@@ -49,7 +49,7 @@ pub fn adopt_old_settings() {
 /// `%LOCALAPPDATA%\Daleris\logs`, `~/Library/Logs/Daleris` or `~/.local/state/daleris`.
 pub fn log_dir() -> Option<PathBuf> {
     #[cfg(windows)]
-    return std::env::var_os("LOCALAPPDATA").map(|a| PathBuf::from(a).join("Daleris").join("logs"));
+    return std::env::var_os("LOCALAPPDATA").map(|a| PathBuf::from(a).join("Daleris").join("logs")); // i18n-ignore: folder name
     #[cfg(target_os = "macos")]
     return env_dir("HOME").map(|h| h.join("Library/Logs/Daleris"));
     #[cfg(not(any(windows, target_os = "macos")))]

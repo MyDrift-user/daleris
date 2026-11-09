@@ -17,6 +17,8 @@ use std::time::Duration;
 use ed25519_dalek::{Signature, VerifyingKey};
 use sha2::{Digest, Sha256};
 
+use crate::i18n::tr;
+
 pub const CURRENT: &str = env!("CARGO_PKG_VERSION");
 pub const PROJECT: &str = "https://github.com/MyDrift-user/daleris";
 pub const RELEASES: &str = "https://github.com/MyDrift-user/daleris/releases";
@@ -92,9 +94,9 @@ fn signature_ok(key: &[u8; 32], text: &[u8], sig: &[u8]) -> bool {
 
 fn verified_manifest(text: &[u8], sig: &[u8]) -> Result<Manifest, String> {
     if !trusted_keys().iter().any(|key| signature_ok(key, text, sig)) {
-        return Err("The update's signature doesn't match, so it was ignored".into());
+        return Err(tr("The update's signature doesn't match, so it was ignored").into());
     }
-    std::str::from_utf8(text).ok().and_then(parse_manifest).ok_or_else(|| "The update's file list couldn't be read".to_string())
+    std::str::from_utf8(text).ok().and_then(parse_manifest).ok_or_else(|| tr("The update's file list couldn't be read").to_string())
 }
 
 fn sha256_of(path: &Path) -> Option<String> {
@@ -246,8 +248,8 @@ fn download(url: &str, to: &Path, tested: bool) -> Result<(), String> {
     }
     match c.status() {
         Ok(s) if s.success() => Ok(()),
-        Ok(s) => Err(format!("The download failed ({s})")),
-        Err(e) => Err(format!("Couldn't run curl: {e}")),
+        Ok(s) => Err(trf!("The download failed ({status})", status = s)),
+        Err(e) => Err(trf!("Couldn't run curl: {error}", error = e)),
     }
 }
 
@@ -274,9 +276,9 @@ fn fetch_manifest(dir: &Path, service: bool) -> Result<Manifest, String> {
 
 /// Downloads the file this install needs and checks it against the signed list.
 fn fetch_asset(manifest: &Manifest, install: &Install, dir: &Path, service: bool) -> Result<PathBuf, String> {
-    let suffix = asset_suffix(install).ok_or("This copy can't update itself")?;
+    let suffix = asset_suffix(install).ok_or(tr("This copy can't update itself"))?;
     let name = format!("daleris-v{}-{suffix}", manifest.version);
-    let hash = manifest.files.iter().find(|(n, _)| *n == name).map(|(_, h)| h.as_str()).ok_or_else(|| format!("The release has no {name}"))?;
+    let hash = manifest.files.iter().find(|(n, _)| *n == name).map(|(_, h)| h.as_str()).ok_or_else(|| trf!("The release has no {name}", name = name))?;
     let path = dir.join(&name);
     if sha256_of(&path).as_deref() != Some(hash) {
         let test = base_url(service);
@@ -287,7 +289,7 @@ fn fetch_asset(manifest: &Manifest, install: &Install, dir: &Path, service: bool
         download(&url, &path, test.is_some())?;
         if sha256_of(&path).as_deref() != Some(hash) {
             let _ = std::fs::remove_file(&path);
-            return Err("The downloaded update didn't match its signed checksum, so it was deleted".into());
+            return Err(tr("The downloaded update didn't match its signed checksum, so it was deleted").into());
         }
     }
     Ok(path)
@@ -352,7 +354,7 @@ fn run_installer(installer: &Path, install: &Install) -> Result<Command, String>
             c.args(["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/ALLUSERS"]);
             false
         }
-        _ => return Err("This copy isn't installed by an installer".into()),
+        _ => return Err(tr("This copy isn't installed by an installer").into()),
     };
     add_installer_args(&mut c, installer, msi);
     Ok(c)
@@ -381,14 +383,14 @@ fn replace_file(target: &Path, new: &Path) -> Result<(), String> {
 fn replace_mac_app(app: &Path, dmg: &Path) -> Result<(), String> {
     let output = hidden("hdiutil").args(["attach", "-nobrowse", "-readonly", "-plist"]).arg(dmg).output().map_err(|e| e.to_string())?;
     let text = String::from_utf8_lossy(&output.stdout).to_string();
-    let volume = text.split("<string>").filter_map(|s| s.split("</string>").next()).find(|s| s.starts_with("/Volumes/")).ok_or("Couldn't open the update's disk image")?.to_string();
-    let source = Path::new(&volume).join("Daleris.app");
+    let volume = text.split("<string>").filter_map(|s| s.split("</string>").next()).find(|s| s.starts_with("/Volumes/")).ok_or(tr("Couldn't open the update's disk image"))?.to_string();
+    let source = Path::new(&volume).join("Daleris.app"); // i18n-ignore: the app bundle's file name
     let fresh = app.with_extension("new");
     let _ = std::fs::remove_dir_all(&fresh);
     let copied = hidden("ditto").arg(&source).arg(&fresh).status().is_ok_and(|s| s.success());
     let _ = hidden("hdiutil").args(["detach", "-quiet"]).arg(&volume).status();
     if !copied {
-        return Err("Couldn't copy the update into place".into());
+        return Err(tr("Couldn't copy the update into place").into());
     }
     let old = app.with_extension("old");
     let _ = std::fs::remove_dir_all(&old);
@@ -530,7 +532,7 @@ impl Worker {
             return self.set(Status::Idle);
         }
         self.set(Status::Checking);
-        let Some(dir) = updates_dir(false) else { return self.fail("There's no folder to download updates to".into()) };
+        let Some(dir) = updates_dir(false) else { return self.fail(tr("There's no folder to download updates to").into()) };
         match fetch_manifest(&dir, false) {
             Err(e) => self.fail(e),
             Ok(manifest) if !is_newer(&manifest.version, CURRENT) => {
@@ -559,7 +561,7 @@ impl Worker {
         }
         let Some(manifest) = self.manifest.take() else { return };
         let version = manifest.version.clone();
-        let Some(dir) = updates_dir(false) else { return self.fail("There's no folder to download updates to".into()) };
+        let Some(dir) = updates_dir(false) else { return self.fail(tr("There's no folder to download updates to").into()) };
         self.set(Status::Downloading(version.clone()));
         let path = match fetch_asset(&manifest, &self.install, &dir, false) {
             Ok(path) => path,
@@ -574,14 +576,14 @@ impl Worker {
             Install::Portable(target) | Install::AppImage(target) => replace_file(target, &path),
             Install::MacApp(app) => replace_mac_app(app, &path),
             Install::LinuxPackage(packager) => install_linux_package(*packager, &path),
-            Install::Machine { .. } | Install::Unmanaged => Err("This copy can't update itself".to_string()),
+            Install::Machine { .. } | Install::Unmanaged => Err(tr("This copy can't update itself").to_string()),
         };
         match result {
             Ok(()) => {
                 log::info!("update: {version} is in place");
                 self.set(Status::RestartToFinish(version));
             }
-            Err(e) => self.fail(format!("Couldn't install the update: {e}")),
+            Err(e) => self.fail(trf!("Couldn't install the update: {error}", error = e)),
         }
     }
 }
@@ -599,7 +601,7 @@ fn install_linux_package(packager: LinuxPackager, package: &Path) -> Result<(), 
     if status.success() {
         Ok(())
     } else {
-        Err(format!("the package manager reported {status}"))
+        Err(trf!("the package manager reported {status}", status = status))
     }
 }
 
@@ -608,7 +610,7 @@ fn install_linux_package(packager: LinuxPackager, package: &Path) -> Result<(), 
 /// The settings page's switch for a machine install, as the task can't read anyone's settings: 0 or 1 in this file.
 #[cfg(windows)]
 fn machine_switch_file() -> Option<PathBuf> {
-    Some(PathBuf::from(std::env::var_os("ProgramData")?).join("Daleris").join("auto-update.txt"))
+    Some(PathBuf::from(std::env::var_os("ProgramData")?).join("Daleris").join("auto-update.txt")) // i18n-ignore: folder name
 }
 
 #[cfg(not(windows))]
@@ -632,7 +634,7 @@ pub fn set_machine_switch(on: bool) -> Result<(), String> {
     if let Some(dir) = file.parent() {
         let _ = std::fs::create_dir_all(dir);
     }
-    std::fs::write(&file, if on { "1" } else { "0" }).map_err(|_| "Another account set this for the whole PC. That account or an administrator can change it".to_string())
+    std::fs::write(&file, if on { "1" } else { "0" }).map_err(|_| tr("Another account set this for the whole PC. That account or an administrator can change it").to_string())
 }
 
 /// Whether the task installs updates: an administrator's policy, then the switch, then an administrator's default.
@@ -648,7 +650,7 @@ fn machine_may_update(policy: &crate::policy::Policy, switch: Option<bool>) -> b
 
 #[cfg(windows)]
 fn another_copy_running() -> bool {
-    let output = hidden(&system_tool("tasklist")).args(["/FI", "IMAGENAME eq daleris.exe", "/NH", "/FO", "CSV"]).output();
+    let output = hidden(&system_tool("tasklist")).args(["/FI", "IMAGENAME eq daleris.exe", "/NH", "/FO", "CSV"]).output(); // i18n-ignore: tasklist's filter
     // this process is one of them
     output.is_ok_and(|o| String::from_utf8_lossy(&o.stdout).matches("daleris.exe").count() > 1)
 }
@@ -708,7 +710,7 @@ fn run_service() -> i32 {
 /// leaves the installing to the task, and asks for no rights it doesn't have.
 fn run_now() -> i32 {
     if crate::policy::current().no_updates {
-        println!("Updates are managed by the administrator");
+        println!("{}", tr("Updates are managed by the administrator"));
         return 0;
     }
     let install = detect();
@@ -729,7 +731,7 @@ pub fn handle_command_line() -> Option<i32> {
     let args: Vec<String> = std::env::args_os().skip(1).map(|a| a.to_string_lossy().into_owned()).collect();
     match args.first().map(String::as_str) {
         Some("--version") => {
-            println!("Daleris {CURRENT}");
+            println!("Daleris {CURRENT}"); // i18n-ignore: the app's name and version, which scripts compare
             log::info!("--version: {CURRENT}");
             Some(0)
         }
@@ -749,7 +751,7 @@ pub fn handle_command_line() -> Option<i32> {
             let read = |i: usize| args.get(i).and_then(|p| std::fs::read(p).ok()).unwrap_or_default();
             match verified_manifest(&read(1), &read(2)) {
                 Ok(m) => {
-                    println!("signature good: version {}, {} files", m.version, m.files.len());
+                    println!("{}", trn!(m.files.len(), "signature good: version {version}, {n} file", "signature good: version {version}, {n} files", version = m.version));
                     Some(0)
                 }
                 Err(e) => {

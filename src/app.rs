@@ -59,14 +59,24 @@ impl Loc {
     }
     fn title(&self) -> String {
         match self {
-            Loc::ThisPc => "This PC".into(),
-            Loc::Settings => "Settings".into(),
+            Loc::ThisPc => tr("This PC").into(),
+            Loc::Settings => tr("Settings").into(),
             Loc::Dir(p) => match p.file_name() {
-                Some(n) => n.to_string_lossy().to_string(),
+                Some(n) => known_place_name(p).unwrap_or_else(|| n.to_string_lossy().to_string()),
                 None => p.to_string_lossy().trim_end_matches('\\').to_string(),
             },
         }
     }
+}
+
+/// The known folders, as (the name Daleris gives one, where it is), for naming them as Explorer does.
+static KNOWN_PLACES: std::sync::OnceLock<Vec<(String, PathBuf)>> = std::sync::OnceLock::new();
+
+/// A known folder's name in the language shown, "Dokumente" for Documents, when `p` is one. Home keeps its own name,
+/// the person's, as in Explorer.
+fn known_place_name(p: &Path) -> Option<String> {
+    let known = KNOWN_PLACES.get_or_init(|| fsx::known_folders().into_iter().map(|k| (k.name, k.path)).collect());
+    known.iter().find(|(name, path)| name != "Home" && fsx::same_path(path, p)).map(|(name, _)| tr_dyn(name)) // i18n-ignore: place name compared as a key
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -543,8 +553,10 @@ impl SectionCfg {
     }
 }
 
+/// The built-in sections and their titles. The settings file keeps these in English; where a title is shown, one
+/// the person hasn't renamed shows in the language shown (`tr_dyn`).
 fn default_sections() -> Vec<SectionCfg> {
-    [("quick", "Quick access"), ("cloud", "Cloud drives"), ("pc", "This PC"), ("network", "Network")]
+    [("quick", tx("Quick access")), ("cloud", tx("Cloud drives")), ("pc", tx("This PC")), ("network", tx("Network"))]
         .iter()
         .map(|(id, t)| SectionCfg { id: id.to_string(), title: t.to_string(), visible: true, collapsed: false, pins: Vec::new() })
         .collect()
@@ -653,21 +665,21 @@ pub struct Settings {
 
 /// Everything the ribbon bar can show: id, icon, name in Settings.
 const RIBBON_ITEMS: [(&str, &str, &str); 15] = [
-    ("new", I_ADD, "New"),
-    ("sep1", I_GRIP, "Divider"),
-    ("cut", I_CUT, "Cut"),
-    ("copy", I_COPY, "Copy"),
-    ("paste", I_PASTE, "Paste"),
-    ("rename", I_RENAME, "Rename"),
-    ("delete", I_DELETE, "Delete"),
-    ("sep2", I_GRIP, "Divider"),
-    ("sort", I_SORT, "Sort"),
-    ("filter", I_FILTER, "Filter"),
-    ("view", I_LIST, "View"),
-    ("more", I_MORE, "Three dots (Windows menu for this folder)"),
-    ("terminal", I_TERMINAL, "Open in Terminal"),
-    ("hidden", I_EYE, "Show hidden items"),
-    ("preview", I_PANE, "Preview pane"),
+    ("new", I_ADD, tx("New")),
+    ("sep1", I_GRIP, tx("Divider")),
+    ("cut", I_CUT, tx("Cut")),
+    ("copy", I_COPY, tx("Copy")),
+    ("paste", I_PASTE, tx("Paste")),
+    ("rename", I_RENAME, tx("Rename")),
+    ("delete", I_DELETE, tx("Delete")),
+    ("sep2", I_GRIP, tx("Divider")),
+    ("sort", I_SORT, tx("Sort")),
+    ("filter", I_FILTER, tx("Filter")),
+    ("view", I_LIST, tx("View")),
+    ("more", I_MORE, tx("Three dots (Windows menu for this folder)")),
+    ("terminal", I_TERMINAL, tx("Open in Terminal")),
+    ("hidden", I_EYE, tx("Show hidden items")),
+    ("preview", I_PANE, tx("Preview pane")),
 ];
 const RIBBON_LEFT: [&str; 11] = ["new", "sep1", "cut", "copy", "paste", "rename", "delete", "sep2", "sort", "filter", "view"];
 const RIBBON_RIGHT: [&str; 4] = ["more", "terminal", "hidden", "preview"];
@@ -684,7 +696,7 @@ fn test_real_settings() -> bool {
 }
 
 /// Top of the settings file. Holds no equals sign, as lines without one are skipped when reading.
-const SETTINGS_HEADER: &str = "# Daleris settings. Open windows read this file again when they get focus.\n";
+const SETTINGS_HEADER: &str = "# Daleris settings. Open windows read this file again when they get focus.\n"; // i18n-ignore: settings file comment, read by people who edit the file
 
 /// How a This PC tab is written in the settings file.
 const THIS_PC_TAB: &str = "::thispc";
@@ -1544,16 +1556,17 @@ impl App {
         if std::env::var("DALERIS_VIEW").as_deref() == Ok("icons") {
             settings.view = View::Icons;
         }
-        let home = places.iter().find(|p| p.name == "Home").map(|p| p.path.clone()).unwrap_or_else(|| PathBuf::from("C:\\"));
+        let home = places.iter().find(|p| p.name == "Home").map(|p| p.path.clone()).unwrap_or_else(|| PathBuf::from("C:\\")); // i18n-ignore: place name compared as a key
         let auto_update_on = Arc::new(AtomicBool::new(settings.auto_update));
         // test runs must never look for updates
         let updater = (screenshot.is_none() && picker.is_none()).then(|| crate::update::Updater::start(cc.egui_ctx.clone(), auto_update_on.clone()));
         // test hook: Downloads moved elsewhere, which also keeps other people's files out of test pictures
         if let Some(d) = std::env::var_os("DALERIS_TEST_DOWNLOADS") {
-            if let Some(p) = places.iter_mut().find(|p| p.name == "Downloads") {
+            if let Some(p) = places.iter_mut().find(|p| p.name == "Downloads") { // i18n-ignore: place name compared as a key
                 p.path = PathBuf::from(d);
             }
         }
+        let _ = KNOWN_PLACES.set(places.iter().map(|p| (p.name.clone(), p.path.clone())).collect());
         // test hook: what a high-DPI screen looks like
         if let Some(z) = std::env::var("DALERIS_TEST_ZOOM").ok().and_then(|z| z.parse().ok()) {
             cc.egui_ctx.set_zoom_factor(z);
@@ -1815,7 +1828,7 @@ impl App {
     /// The sort a folder opens with.
     fn spec_for(&self, folder: &Path) -> SortSpec {
         let s = &self.settings;
-        let downloads = self.places.iter().find(|p| p.name == "Downloads").map(|p| p.path.as_path());
+        let downloads = self.places.iter().find(|p| p.name == "Downloads").map(|p| p.path.as_path()); // i18n-ignore: place name compared as a key
         listing::sort_for(Some(folder), &s.folder_sorts, downloads, s.downloads_newest, SortSpec { key: s.sort_key, asc: s.sort_asc, dirs_first: s.dirs_first })
     }
 
@@ -1890,7 +1903,7 @@ impl App {
             self.start_load(&mut t, false);
             self.tabs[self.active] = t;
         }
-        self.toast("Something went wrong in this window, and the tab was reset. The details are in the log.", true);
+        self.toast(tr("Something went wrong in this window, and the tab was reset. The details are in the log."), true);
     }
 
     fn navigate(&mut self, t: &mut Tab, loc: Loc) {
@@ -2033,9 +2046,9 @@ impl App {
                 Msg::FileText(r) => match r {
                     Ok(text) => {
                         shell::clipboard_set_text(&text);
-                        self.toast("File contents copied", false);
+                        self.toast(tr("File contents copied"), false);
                     }
-                    Err(e) => self.toast(format!("Couldn't read the file: {e}"), true),
+                    Err(e) => self.toast(trf!("Couldn't read the file: {error}", error = e), true),
                 },
                 Msg::Batch { tab, generation, batch } => {
                     if let Some(t) = self.tabs.iter_mut().find(|t| t.id == tab && t.generation == generation) {
@@ -2171,7 +2184,7 @@ impl App {
                 Msg::Connected(r) => match r {
                     Ok(p) => {
                         self.refresh_drives();
-                        self.toast(format!("Connected: {}", p.display()), false);
+                        self.toast(trf!("Connected: {place}", place = p.display()), false);
                         self.acts.push(Act::Navigate(Loc::Dir(p)));
                     }
                     Err(e) => self.toast(e, true),
@@ -2297,15 +2310,15 @@ impl App {
 
     fn type_name(&self, ext: &str, is_dir: bool) -> String {
         if is_dir {
-            return "File folder".into();
+            return tr("File folder").into();
         }
         if let Some(t) = self.type_names.get(&format!("e:{ext}")) {
             return t.clone();
         }
         if ext.is_empty() {
-            "File".into()
+            tr("File").into()
         } else {
-            format!("{} File", ext.to_uppercase())
+            trf!("{ext} File", ext = ext.to_uppercase())
         }
     }
 
@@ -2584,7 +2597,7 @@ impl App {
     }
 
     fn home_loc(&self) -> Loc {
-        self.places.iter().find(|p| p.name == "Home").map_or(Loc::ThisPc, |p| Loc::Dir(p.path.clone()))
+        self.places.iter().find(|p| p.name == "Home").map_or(Loc::ThisPc, |p| Loc::Dir(p.path.clone())) // i18n-ignore: place name compared as a key
     }
 
     fn ask(&mut self, key: &str, req: ImgReq) {
@@ -2665,7 +2678,7 @@ impl App {
         #[cfg(windows)]
         if self.settings.pack() == "system" && !prefers_bundled_icons() {
             let px = icon_px(ui, rect);
-            let key = format!("kf:This PC|{px}");
+            let key = format!("kf:This PC|{px}"); // i18n-ignore: icon cache key
             let id = windows::Win32::UI::Shell::FOLDERID_ComputerFolder;
             if let Some(tex) = self.tex(&key, || ImgReq::KnownFolder { key: key.clone(), id, px }) {
                 ui.painter().image(tex, self.on_pixels(ui, rect, &key), Rect::from_min_max(pos2(0.0, 0.0), pos2(1.0, 1.0)), Color32::WHITE);
@@ -2825,9 +2838,9 @@ fn cloud_badge(p: &egui::Painter, c: egui::Pos2, st: Cloud) {
 fn cloud_text(st: Cloud) -> &'static str {
     match st {
         Cloud::None => "",
-        Cloud::OnlineOnly => "Available when online",
-        Cloud::Local => "Available on this device",
-        Cloud::AlwaysLocal => "Always available on this device",
+        Cloud::OnlineOnly => tr("Available when online"),
+        Cloud::Local => tr("Available on this device"),
+        Cloud::AlwaysLocal => tr("Always available on this device"),
     }
 }
 
@@ -3004,7 +3017,7 @@ impl App {
         }
         self.look_for_openers();
         self.auto_update_on.store(self.settings.auto_update, Ordering::Relaxed);
-        let title = self.picker.as_ref().map_or_else(|| format!("{} · Daleris", self.tabs[self.active].loc.title()), Picker::window_title);
+        let title = self.picker.as_ref().map_or_else(|| format!("{} · Daleris", self.tabs[self.active].loc.title()), Picker::window_title); // i18n-ignore: the place's name (translated) and the app's name, alike in every language
         if title != self.window_title {
             ctx.send_viewport_cmd(egui::ViewportCommand::Title(title.clone()));
             self.window_title = title;
@@ -3474,9 +3487,9 @@ impl App {
 /// The network button's wording: Windows maps drive letters, Linux/macOS connect to servers.
 fn network_label() -> &'static str {
     if cfg!(windows) {
-        "Map network drive…"
+        tr("Map network drive…")
     } else {
-        "Connect to server…"
+        tr("Connect to server…")
     }
 }
 
@@ -3490,13 +3503,13 @@ impl App {
     fn connect_dialog(&mut self, ctx: &egui::Context) {
         let Some((mut url, mut user, mut pass)) = self.connect.take() else { return };
         let (mut go, mut cancel) = (false, false);
-        egui::Window::new("Connect to server")
+        egui::Window::new(tr("Connect to server"))
             .collapsible(false)
             .resizable(false)
             .anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0))
             .show(ctx, |ui| {
                 ui.set_width(420.0);
-                ui.label(egui::RichText::new("Server address").color(DIM()));
+                ui.label(egui::RichText::new(tr("Server address")).color(DIM()));
                 let r = ui.add(egui::TextEdit::singleline(&mut url).desired_width(f32::INFINITY).hint_text("smb://server/share"));
                 if r.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
                     go = true;
@@ -3508,21 +3521,21 @@ impl App {
                 );
                 ui.add_space(8.0);
                 egui::Grid::new("connect_creds").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-                    ui.label(egui::RichText::new("User name").color(DIM()));
-                    ui.add(egui::TextEdit::singleline(&mut user).desired_width(260.0).hint_text("optional"));
+                    ui.label(egui::RichText::new(tr("User name")).color(DIM()));
+                    ui.add(egui::TextEdit::singleline(&mut user).desired_width(260.0).hint_text(tr("optional")));
                     ui.end_row();
-                    ui.label(egui::RichText::new("Password").color(DIM()));
-                    ui.add(egui::TextEdit::singleline(&mut pass).password(true).desired_width(260.0).hint_text("optional"));
+                    ui.label(egui::RichText::new(tr("Password")).color(DIM()));
+                    ui.add(egui::TextEdit::singleline(&mut pass).password(true).desired_width(260.0).hint_text(tr("optional")));
                     ui.end_row();
                 });
                 ui.add_space(10.0);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new("Mounted shares (and FUSE mounts like sshfs or rclone) show under Network.").small().color(FAINT()));
+                    ui.label(egui::RichText::new(tr("Mounted shares (and FUSE mounts like sshfs or rclone) show under Network.")).small().color(FAINT()));
                 });
                 ui.add_space(6.0);
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    cancel = ui.button("Cancel").clicked();
-                    go |= ui.add(egui::Button::new(egui::RichText::new("Connect").color(Color32::WHITE)).fill(ACCENT())).clicked();
+                    cancel = ui.button(tr("Cancel")).clicked();
+                    go |= ui.add(egui::Button::new(egui::RichText::new(tr("Connect")).color(Color32::WHITE)).fill(ACCENT())).clicked();
                 });
             });
         if ctx.input(|i| i.key_pressed(Key::Escape)) {

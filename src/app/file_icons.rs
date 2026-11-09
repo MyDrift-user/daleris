@@ -58,53 +58,53 @@ pub(super) enum Picture {
     Art(&'static str),
 }
 
-const ZIPPER: Picture = Picture::Art("<g fill='#fff'><rect x='14' y='10' width='3' height='2'/><rect x='17' y='12' width='3' height='2'/><rect x='14' y='14' width='3' height='2'/><rect x='17' y='16' width='3' height='2'/><rect x='14' y='18' width='3' height='2'/><rect x='14.500' y='20.500' width='5' height='6' rx='1.200'/></g><rect x='16' y='23' width='2' height='2' fill='{S}'/>");
-const NOTE: Picture = Picture::Art("<path fill='#fff' d='M21 11.500V22a2.800 2.800 0 1 1-1.800-2.600v-5l-6 1.500v8a2.800 2.800 0 1 1-1.800-2.600v-8z'/>");
-const PLAY: Picture = Picture::Art("<circle cx='16' cy='19' r='7' fill='#fff'/><path fill='{C}' d='M14 15.500l5.500 3.500-5.500 3.500z'/>");
-const BOX: Picture = Picture::Art("<path fill='#fff' d='M16 12l7 3.500V23l-7 3.500L9 23v-7.500z'/><path fill='none' stroke='{S}' stroke-width='1.300' stroke-linejoin='round' d='M9 15.500l7 3.500 7-3.500M16 19v7.500'/>");
+const ZIPPER: Picture = Picture::Art("<g fill='#fff'><rect x='14' y='10' width='3' height='2'/><rect x='17' y='12' width='3' height='2'/><rect x='14' y='14' width='3' height='2'/><rect x='17' y='16' width='3' height='2'/><rect x='14' y='18' width='3' height='2'/><rect x='14.500' y='20.500' width='5' height='6' rx='1.200'/></g><rect x='16' y='23' width='2' height='2' fill='{S}'/>"); // i18n-ignore: SVG drawing
+const NOTE: Picture = Picture::Art("<path fill='#fff' d='M21 11.500V22a2.800 2.800 0 1 1-1.800-2.600v-5l-6 1.500v8a2.800 2.800 0 1 1-1.800-2.600v-8z'/>"); // i18n-ignore: SVG drawing
+const PLAY: Picture = Picture::Art("<circle cx='16' cy='19' r='7' fill='#fff'/><path fill='{C}' d='M14 15.500l5.500 3.500-5.500 3.500z'/>"); // i18n-ignore: SVG drawing
+const BOX: Picture = Picture::Art("<path fill='#fff' d='M16 12l7 3.500V23l-7 3.500L9 23v-7.500z'/><path fill='none' stroke='{S}' stroke-width='1.300' stroke-linejoin='round' d='M9 15.500l7 3.500 7-3.500M16 19v7.500'/>"); // i18n-ignore: SVG drawing
 const CUBE: Picture = Picture::Line("M16 12l7 3.500V23l-7 3.500L9 23v-7.500zM9 15.500l7 3.500 7-3.500M16 19v7.500");
-const DISC: Picture = Picture::Art("<circle cx='16' cy='19' r='7.200' fill='#fff'/><circle cx='16' cy='19' r='2' fill='{C}'/>");
+const DISC: Picture = Picture::Art("<circle cx='16' cy='19' r='7.200' fill='#fff'/><circle cx='16' cy='19' r='2' fill='{C}'/>"); // i18n-ignore: SVG drawing
 const LINES: Picture = Picture::Line("M10.500 14.500h11M10.500 19h11M10.500 23.500h7");
 const CODE: Picture = Picture::Line("M13 13.500L9.500 17l3.500 3.500M19 13.500l3.500 3.500-3.500 3.500");
 const BRACES: Picture = Picture::Line("M14 12.500c-2 0-2.500 1-2.500 2.500v1.500c0 1.200-1 2.500-2 2.500 1 0 2 1.300 2 2.500V23c0 1.500.5 2.500 2.500 2.500M18 12.500c2 0 2.500 1 2.500 2.500v1.500c0 1.200 1 2.500 2 2.500-1 0-2 1.300-2 2.500V23c0 1.500-.5 2.500-2.500 2.500");
 const ANGLES: Picture = Picture::Line("M13 14.500L9 19l4 4.500M19 14.500l4 4.500-4 4.500M17.500 13l-3 12");
-const GEAR: Picture = Picture::Art("<circle cx='16' cy='19' r='5.800' fill='none' stroke='#fff' stroke-width='2.800' stroke-dasharray='2.300 2.250'/><circle cx='16' cy='19' r='4.300' fill='#fff'/><circle cx='16' cy='19' r='1.700' fill='{C}'/>");
+const GEAR: Picture = Picture::Art("<circle cx='16' cy='19' r='5.800' fill='none' stroke='#fff' stroke-width='2.800' stroke-dasharray='2.300 2.250'/><circle cx='16' cy='19' r='4.300' fill='#fff'/><circle cx='16' cy='19' r='1.700' fill='{C}'/>"); // i18n-ignore: SVG drawing
 const KEY: Picture = Picture::Line("M15 17.500a3.400 3.400 0 1 1-4.800-4.800 3.400 3.400 0 0 1 4.800 4.800zM15 17.500l7.500 7.500M19.500 22l2.500-2.500");
-const LOCK: Picture = Picture::Art("<rect x='10' y='18' width='12' height='8.500' rx='1.800' fill='#fff'/><path fill='none' stroke='#fff' stroke-width='2.200' d='M12.500 18v-2.500a3.500 3.500 0 0 1 7 0V18'/><circle cx='16' cy='22' r='1.500' fill='{C}'/>");
-const SEAL: Picture = Picture::Art("<circle cx='16' cy='16.500' r='4.700' fill='#fff'/><circle cx='16' cy='16.500' r='1.800' fill='{C}'/><path fill='#fff' d='M12.800 20l-1.500 6.500 4.700-2.500 4.700 2.500-1.500-6.500z'/>");
+const LOCK: Picture = Picture::Art("<rect x='10' y='18' width='12' height='8.500' rx='1.800' fill='#fff'/><path fill='none' stroke='#fff' stroke-width='2.200' d='M12.500 18v-2.500a3.500 3.500 0 0 1 7 0V18'/><circle cx='16' cy='22' r='1.500' fill='{C}'/>"); // i18n-ignore: SVG drawing
+const SEAL: Picture = Picture::Art("<circle cx='16' cy='16.500' r='4.700' fill='#fff'/><circle cx='16' cy='16.500' r='1.800' fill='{C}'/><path fill='#fff' d='M12.800 20l-1.500 6.500 4.700-2.500 4.700 2.500-1.500-6.500z'/>"); // i18n-ignore: SVG drawing
 const LETTERS: Picture = Picture::Line("M9 25.500l4-11.500 4 11.500M10.500 21.500h5M23 19.500v6M23 22.500a2.700 2.700 0 1 1-5.400 0 2.700 2.700 0 0 1 5.400 0z");
-const PHOTO: Picture = Picture::Art("<rect x='9' y='12.500' width='14' height='13' rx='1.500' fill='#fff'/><circle cx='13' cy='16.500' r='1.600' fill='{C}'/><path fill='{C}' d='M10.500 24l4-5 2.500 3 2-2 2.500 4z'/>");
+const PHOTO: Picture = Picture::Art("<rect x='9' y='12.500' width='14' height='13' rx='1.500' fill='#fff'/><circle cx='13' cy='16.500' r='1.600' fill='{C}'/><path fill='{C}' d='M10.500 24l4-5 2.500 3 2-2 2.500 4z'/>"); // i18n-ignore: SVG drawing
 const VECTOR: Picture = Picture::Line("M10 24c1-7 5-11 12-12M9 22.500h3v3H9zM20.500 10.500h3v3h-3z");
-const DATABASE: Picture = Picture::Art("<ellipse cx='16' cy='14.500' rx='6.500' ry='2.500' fill='#fff'/><path fill='#fff' d='M9.500 16.200c1 1.300 3.500 2.100 6.500 2.100s5.500-.8 6.500-2.100V19c0 1.400-2.900 2.500-6.500 2.500S9.500 20.400 9.500 19zM9.500 21c1 1.300 3.500 2.100 6.500 2.100s5.500-.8 6.500-2.100v2.500c0 1.400-2.900 2.500-6.500 2.500s-6.500-1.100-6.500-2.500z'/>");
+const DATABASE: Picture = Picture::Art("<ellipse cx='16' cy='14.500' rx='6.500' ry='2.500' fill='#fff'/><path fill='#fff' d='M9.500 16.200c1 1.300 3.500 2.100 6.500 2.100s5.500-.8 6.500-2.100V19c0 1.400-2.900 2.500-6.500 2.500S9.500 20.400 9.500 19zM9.500 21c1 1.300 3.500 2.100 6.500 2.100s5.500-.8 6.500-2.100v2.500c0 1.400-2.900 2.500-6.500 2.500s-6.500-1.100-6.500-2.500z'/>"); // i18n-ignore: SVG drawing
 const TERMINAL: Picture = Picture::Line("M10 14.500l4.500 4.500-4.500 4.500M16.500 24.500H22");
 const LINK: Picture = Picture::Line("M13.800 21.200l4.400-4.400M15 15l1.700-1.700a3.400 3.400 0 0 1 4.800 4.800L19.800 19.800M17 23l-1.700 1.700a3.400 3.400 0 0 1-4.800-4.800L12.200 18.200");
 const BOOK: Picture = Picture::Line("M16 15c-1.800-1.500-4-2-7-2v11c3 0 5.200.5 7 2 1.800-1.500 4-2 7-2V13c-3 0-5.200.5-7 2zM16 15v11");
 const MARKDOWN: Picture = Picture::Line("M9 24.500v-11l3.500 5 3.500-5v11M21 13.500v10M18.500 20.500l2.500 3.500 2.500-3.500");
 const PDF: Picture = Picture::Line("M10 25c2-1 5-7 5.500-10.500.2-1.700-1.500-2-1.700 0-.3 3.500 4 8 8.700 7.500 1.500-.2 1.200-1.800-.5-1.500-4 .5-8.500 2-12 4.500z");
-const BRANCH: Picture = Picture::Art("<g fill='none' stroke='#fff' stroke-width='2.200'><path d='M12 15.500v7M21 15.500c0 3.500-3 4-9 4'/></g><circle cx='12' cy='13.500' r='2.300' fill='#fff'/><circle cx='12' cy='24.500' r='2.300' fill='#fff'/><circle cx='21' cy='13.500' r='2.300' fill='#fff'/>");
-const HAMMER: Picture = Picture::Art("<path fill='#fff' d='M14.500 12.500h5l3.500 3.500-2 2-2-1.500-1.500 1.500-3-3 .5-.5z'/><path fill='none' stroke='#fff' stroke-width='2.600' stroke-linecap='round' d='M15.500 17.500l-5.500 7'/>");
+const BRANCH: Picture = Picture::Art("<g fill='none' stroke='#fff' stroke-width='2.200'><path d='M12 15.500v7M21 15.500c0 3.500-3 4-9 4'/></g><circle cx='12' cy='13.500' r='2.300' fill='#fff'/><circle cx='12' cy='24.500' r='2.300' fill='#fff'/><circle cx='21' cy='13.500' r='2.300' fill='#fff'/>"); // i18n-ignore: SVG drawing
+const HAMMER: Picture = Picture::Art("<path fill='#fff' d='M14.500 12.500h5l3.500 3.500-2 2-2-1.500-1.500 1.500-3-3 .5-.5z'/><path fill='none' stroke='#fff' stroke-width='2.600' stroke-linecap='round' d='M15.500 17.500l-5.500 7'/>"); // i18n-ignore: SVG drawing
 const BINARY: Picture = Picture::Line("M12.500 14c2 0 3 2.200 3 5s-1 5-3 5-3-2.200-3-5 1-5 3-5zM19 16l2.500-2v10");
-const CHIP: Picture = Picture::Art("<rect x='11' y='14' width='10' height='10' rx='1.500' fill='#fff'/><rect x='14' y='17' width='4' height='4' fill='{C}'/><path fill='none' stroke='#fff' stroke-width='1.500' d='M13.500 11.500V14M18.500 11.500V14M13.500 24v2.500M18.500 24v2.500M8.500 16.500H11M8.500 21.500H11M21 16.500h2.500M21 21.500h2.500'/>");
-const BUG: Picture = Picture::Art("<ellipse cx='16' cy='20' rx='4.500' ry='5.500' fill='#fff'/><path fill='none' stroke='#fff' stroke-width='1.800' stroke-linecap='round' d='M13.500 13.500l-1.500-1.500M18.500 13.500l1.500-1.500M11.500 18H9M20.500 18H23M11.500 22H9.500M20.500 22h2'/><path fill='none' stroke='{C}' stroke-width='1.200' d='M16 15.500v10'/>");
-const TEMP: Picture = Picture::Art("<rect x='10' y='13.500' width='12' height='12' rx='2' fill='none' stroke='#fff' stroke-width='2' stroke-dasharray='2.500 2'/>");
+const CHIP: Picture = Picture::Art("<rect x='11' y='14' width='10' height='10' rx='1.500' fill='#fff'/><rect x='14' y='17' width='4' height='4' fill='{C}'/><path fill='none' stroke='#fff' stroke-width='1.500' d='M13.500 11.500V14M18.500 11.500V14M13.500 24v2.500M18.500 24v2.500M8.500 16.500H11M8.500 21.500H11M21 16.500h2.500M21 21.500h2.500'/>"); // i18n-ignore: SVG drawing
+const BUG: Picture = Picture::Art("<ellipse cx='16' cy='20' rx='4.500' ry='5.500' fill='#fff'/><path fill='none' stroke='#fff' stroke-width='1.800' stroke-linecap='round' d='M13.500 13.500l-1.500-1.500M18.500 13.500l1.500-1.500M11.500 18H9M20.500 18H23M11.500 22H9.500M20.500 22h2'/><path fill='none' stroke='{C}' stroke-width='1.200' d='M16 15.500v10'/>"); // i18n-ignore: SVG drawing
+const TEMP: Picture = Picture::Art("<rect x='10' y='13.500' width='12' height='12' rx='2' fill='none' stroke='#fff' stroke-width='2' stroke-dasharray='2.500 2'/>"); // i18n-ignore: SVG drawing
 const DOWNLOAD: Picture = Picture::Line("M16 12.500V22M11.500 18l4.500 4.500 4.500-4.500M10 26h12");
-const PIN: Picture = Picture::Art("<path fill='#fff' d='M16 26.500c-4-5-6.200-7.700-6.200-10.200a6.200 6.200 0 1 1 12.400 0c0 2.500-2.200 5.200-6.200 10.200z'/><circle cx='16' cy='16.300' r='2.200' fill='{C}'/>");
-const PAD: Picture = Picture::Art("<rect x='8.500' y='15' width='15' height='9.500' rx='4.500' fill='#fff'/><path fill='none' stroke='{C}' stroke-width='1.400' stroke-linecap='round' d='M11 19.700h3.500M12.700 18v3.500'/><circle cx='19' cy='18.500' r='1' fill='{C}'/><circle cx='21' cy='21' r='1' fill='{C}'/>");
-const ROBOT: Picture = Picture::Art("<rect x='10' y='15.500' width='12' height='10.500' rx='2.500' fill='#fff'/><circle cx='13.500' cy='20' r='1.500' fill='{C}'/><circle cx='18.500' cy='20' r='1.500' fill='{C}'/><path fill='none' stroke='#fff' stroke-width='1.800' stroke-linecap='round' d='M16 15.500V12.500'/>");
+const PIN: Picture = Picture::Art("<path fill='#fff' d='M16 26.500c-4-5-6.200-7.700-6.200-10.200a6.200 6.200 0 1 1 12.400 0c0 2.500-2.200 5.200-6.200 10.200z'/><circle cx='16' cy='16.300' r='2.200' fill='{C}'/>"); // i18n-ignore: SVG drawing
+const PAD: Picture = Picture::Art("<rect x='8.500' y='15' width='15' height='9.500' rx='4.500' fill='#fff'/><path fill='none' stroke='{C}' stroke-width='1.400' stroke-linecap='round' d='M11 19.700h3.500M12.700 18v3.500'/><circle cx='19' cy='18.500' r='1' fill='{C}'/><circle cx='21' cy='21' r='1' fill='{C}'/>"); // i18n-ignore: SVG drawing
+const ROBOT: Picture = Picture::Art("<rect x='10' y='15.500' width='12' height='10.500' rx='2.500' fill='#fff'/><circle cx='13.500' cy='20' r='1.500' fill='{C}'/><circle cx='18.500' cy='20' r='1.500' fill='{C}'/><path fill='none' stroke='#fff' stroke-width='1.800' stroke-linecap='round' d='M16 15.500V12.500'/>"); // i18n-ignore: SVG drawing
 const MAIL: Picture = Picture::Line("M9.500 15h13v9h-13zM9.500 15.500L16 20l6.500-4.500");
-const CALENDAR: Picture = Picture::Art("<rect x='10' y='13.500' width='12' height='12.500' rx='1.800' fill='#fff'/><rect x='10' y='13.500' width='12' height='3.500' fill='{S}'/><g fill='{C}'><rect x='12' y='19' width='2.200' height='2.200'/><rect x='15' y='19' width='2.200' height='2.200'/><rect x='18' y='19' width='2.200' height='2.200'/><rect x='12' y='22.300' width='2.200' height='2.200'/></g>");
-const PERSON: Picture = Picture::Art("<circle cx='16' cy='15.500' r='3.300' fill='#fff'/><path fill='#fff' d='M9.500 26c.5-4 3-6 6.500-6s6 2 6.500 6z'/>");
-const CAPTIONS: Picture = Picture::Art("<rect x='9' y='14' width='14' height='11' rx='2' fill='#fff'/><path fill='none' stroke='{C}' stroke-width='1.600' stroke-linecap='round' d='M11.500 18h4M17.500 18h3M11.500 21.500h2M15.500 21.500h5'/>");
-const PALETTE: Picture = Picture::Art("<path fill='#fff' d='M16 12.500c-4.500 0-7.500 2.900-7.500 6.500s3 6.500 7.500 6.500c1.700 0 2-1.200 1.200-2.200-.8-1 0-2.300 1.300-2.300h2.300c1.700 0 2.700-1 2.700-2.500 0-3.200-3.300-6-7.500-6z'/><circle cx='12' cy='18' r='1.300' fill='{C}'/><circle cx='15' cy='15.300' r='1.300' fill='{C}'/><circle cx='19' cy='16' r='1.300' fill='{C}'/>");
+const CALENDAR: Picture = Picture::Art("<rect x='10' y='13.500' width='12' height='12.500' rx='1.800' fill='#fff'/><rect x='10' y='13.500' width='12' height='3.500' fill='{S}'/><g fill='{C}'><rect x='12' y='19' width='2.200' height='2.200'/><rect x='15' y='19' width='2.200' height='2.200'/><rect x='18' y='19' width='2.200' height='2.200'/><rect x='12' y='22.300' width='2.200' height='2.200'/></g>"); // i18n-ignore: SVG drawing
+const PERSON: Picture = Picture::Art("<circle cx='16' cy='15.500' r='3.300' fill='#fff'/><path fill='#fff' d='M9.500 26c.5-4 3-6 6.500-6s6 2 6.500 6z'/>"); // i18n-ignore: SVG drawing
+const CAPTIONS: Picture = Picture::Art("<rect x='9' y='14' width='14' height='11' rx='2' fill='#fff'/><path fill='none' stroke='{C}' stroke-width='1.600' stroke-linecap='round' d='M11.500 18h4M17.500 18h3M11.500 21.500h2M15.500 21.500h5'/>"); // i18n-ignore: SVG drawing
+const PALETTE: Picture = Picture::Art("<path fill='#fff' d='M16 12.500c-4.500 0-7.500 2.900-7.500 6.500s3 6.500 7.500 6.500c1.700 0 2-1.200 1.200-2.200-.8-1 0-2.300 1.300-2.300h2.300c1.700 0 2.700-1 2.700-2.500 0-3.200-3.300-6-7.500-6z'/><circle cx='12' cy='18' r='1.300' fill='{C}'/><circle cx='15' cy='15.300' r='1.300' fill='{C}'/><circle cx='19' cy='16' r='1.300' fill='{C}'/>"); // i18n-ignore: SVG drawing
 const GRID: Picture = Picture::Line("M9.500 14h13v11h-13zM9.500 19.500h13M16 14v11");
 const RULER: Picture = Picture::Line("M10 25.500V13l12.500 12.500zM13 22.500h2.500V20");
-const DOCKER: Picture = Picture::Art("<g fill='#fff'><rect x='9.500' y='18' width='3' height='3'/><rect x='13' y='18' width='3' height='3'/><rect x='16.500' y='18' width='3' height='3'/><rect x='13' y='14.500' width='3' height='3'/><rect x='16.500' y='14.500' width='3' height='3'/><path d='M8.500 21.500h15c-.7 2.800-3 4.500-7 4.500-5 0-7.500-1.800-8-4.500z'/></g>");
-const FLASK: Picture = Picture::Art("<path fill='#fff' d='M14 12.500h4v5.500l4.500 7c.5.800 0 1.500-.8 1.500H10.300c-.8 0-1.300-.7-.8-1.500l4.500-7z'/><path fill='{C}' d='M12.800 22.500h6.400l1 1.700h-8.400z'/>");
+const DOCKER: Picture = Picture::Art("<g fill='#fff'><rect x='9.500' y='18' width='3' height='3'/><rect x='13' y='18' width='3' height='3'/><rect x='16.500' y='18' width='3' height='3'/><rect x='13' y='14.500' width='3' height='3'/><rect x='16.500' y='14.500' width='3' height='3'/><path d='M8.500 21.500h15c-.7 2.800-3 4.500-7 4.500-5 0-7.500-1.800-8-4.500z'/></g>"); // i18n-ignore: SVG drawing
+const FLASK: Picture = Picture::Art("<path fill='#fff' d='M14 12.500h4v5.500l4.500 7c.5.800 0 1.500-.8 1.500H10.300c-.8 0-1.300-.7-.8-1.500l4.500-7z'/><path fill='{C}' d='M12.800 22.500h6.400l1 1.700h-8.400z'/>"); // i18n-ignore: SVG drawing
 
 // Places on folders.
-const HOUSE: Picture = Picture::Art("<path fill='#fff' d='M16 12.500l7.500 6.500h-2v6.500h-3.800v-4.500h-3.400v4.500h-3.800V19h-2z'/>");
-const SCREEN: Picture = Picture::Art("<rect x='9' y='13' width='14' height='9.500' rx='1.500' fill='#fff'/><path fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' d='M13 25.500h6M16 22.500v3'/>");
-const STAR: Picture = Picture::Art("<path fill='#fff' d='M16 12.500l2.100 4.400 4.900.6-3.600 3.400.9 4.800-4.300-2.400-4.300 2.400.9-4.800L9 17.500l4.900-.6z'/>");
+const HOUSE: Picture = Picture::Art("<path fill='#fff' d='M16 12.500l7.500 6.500h-2v6.500h-3.800v-4.500h-3.400v4.500h-3.800V19h-2z'/>"); // i18n-ignore: SVG drawing
+const SCREEN: Picture = Picture::Art("<rect x='9' y='13' width='14' height='9.500' rx='1.500' fill='#fff'/><path fill='none' stroke='#fff' stroke-width='2' stroke-linecap='round' d='M13 25.500h6M16 22.500v3'/>"); // i18n-ignore: SVG drawing
+const STAR: Picture = Picture::Art("<path fill='#fff' d='M16 12.500l2.100 4.400 4.900.6-3.600 3.400.9 4.800-4.300-2.400-4.300 2.400.9-4.800L9 17.500l4.900-.6z'/>"); // i18n-ignore: SVG drawing
 
 /// The outline of a file's icon.
 #[derive(Clone, Copy, Debug)]
@@ -146,7 +146,7 @@ impl Family {
 
     /// The picture in white, moved to the middle and scaled up from its usual place.
     fn scaled(&self, scale: f32) -> String {
-        format!("<g transform='translate(16 16) scale({scale}) translate(-16 -19)'>{}</g>", self.picture_svg())
+        format!("<g transform='translate(16 16) scale({scale}) translate(-16 -19)'>{}</g>", self.picture_svg()) // i18n-ignore: SVG drawing
     }
 
     /// The picture alone in the colour: what's white becomes the colour, and its details become white.
@@ -156,19 +156,19 @@ impl Family {
             Picture::Line(path) => format!("<path fill='none' stroke='{}' stroke-width='2.400' stroke-linecap='round' stroke-linejoin='round' d='{path}'/>", self.color),
             Picture::Art(shapes) => shapes.replace("#fff", self.color).replace("{C}", "#fff").replace("{S}", "#fff"),
         };
-        format!("<g transform='translate(16 16) scale(1.95) translate(-16 -19)'>{shapes}</g>")
+        format!("<g transform='translate(16 16) scale(1.95) translate(-16 -19)'>{shapes}</g>") // i18n-ignore: SVG drawing
     }
 
     fn file_svg(&self) -> String {
         let (c, s) = (self.color, self.shade);
         let inner = match self.frame {
-            Frame::Page => format!("<path fill='{c}' d='M8 1.500h11.500L27 9v19.500a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-25a2 2 0 0 1 2-2z'/><path fill='{s}' d='M19.500 1.500L27 9h-5.500a2 2 0 0 1-2-2z'/>{}", self.picture_svg()),
+            Frame::Page => format!("<path fill='{c}' d='M8 1.500h11.500L27 9v19.500a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-25a2 2 0 0 1 2-2z'/><path fill='{s}' d='M19.500 1.500L27 9h-5.500a2 2 0 0 1-2-2z'/>{}", self.picture_svg()), // i18n-ignore: SVG drawing
             Frame::Bare => self.bare(),
-            Frame::Tile => format!("<rect x='2.500' y='2.500' width='27' height='27' rx='6' fill='{c}'/>{}", self.scaled(1.5)),
-            Frame::Crate => format!("<rect x='4.500' y='10' width='23' height='19' rx='2.500' fill='{c}'/><rect x='2.500' y='4' width='27' height='8' rx='2' fill='{s}'/><g fill='#fff'><rect x='14' y='4' width='4' height='2'/><rect x='14' y='8' width='4' height='2'/><rect x='14' y='12' width='4' height='2.500'/><rect x='14' y='17' width='4' height='2.500'/><rect x='12.500' y='21' width='7' height='6' rx='1.500'/></g><rect x='14.700' y='23' width='2.600' height='2.200' fill='{s}'/>"),
-            Frame::Film => format!("<rect x='2' y='5' width='28' height='22' rx='3' fill='{c}'/><g fill='{s}'><rect x='4' y='7' width='3' height='3' rx='.7'/><rect x='4' y='14.500' width='3' height='3' rx='.7'/><rect x='4' y='22' width='3' height='3' rx='.7'/><rect x='25' y='7' width='3' height='3' rx='.7'/><rect x='25' y='14.500' width='3' height='3' rx='.7'/><rect x='25' y='22' width='3' height='3' rx='.7'/></g><path fill='#fff' d='M12.500 10.500L22 16l-9.500 5.500z'/>"),
-            Frame::Photo => format!("<rect x='2' y='5' width='28' height='22' rx='3' fill='{c}'/><circle cx='10' cy='12' r='2.700' fill='#fff'/><path fill='#fff' d='M4.500 24.500l7-8 5 5.500 3.500-3.500 7.500 6z'/>"),
-            Frame::App => format!("<rect x='2' y='5' width='28' height='22' rx='3.500' fill='{c}'/><path fill='{s}' d='M2 8.500A3.500 3.500 0 0 1 5.500 5h21A3.500 3.500 0 0 1 30 8.500V11H2z'/><g fill='#fff'><circle cx='6' cy='8' r='1.200'/><circle cx='10' cy='8' r='1.200'/><rect x='6' y='15' width='14' height='2.200' rx='1'/><rect x='6' y='20' width='9' height='2.200' rx='1'/></g>"),
+            Frame::Tile => format!("<rect x='2.500' y='2.500' width='27' height='27' rx='6' fill='{c}'/>{}", self.scaled(1.5)), // i18n-ignore: SVG drawing
+            Frame::Crate => format!("<rect x='4.500' y='10' width='23' height='19' rx='2.500' fill='{c}'/><rect x='2.500' y='4' width='27' height='8' rx='2' fill='{s}'/><g fill='#fff'><rect x='14' y='4' width='4' height='2'/><rect x='14' y='8' width='4' height='2'/><rect x='14' y='12' width='4' height='2.500'/><rect x='14' y='17' width='4' height='2.500'/><rect x='12.500' y='21' width='7' height='6' rx='1.500'/></g><rect x='14.700' y='23' width='2.600' height='2.200' fill='{s}'/>"), // i18n-ignore: SVG drawing
+            Frame::Film => format!("<rect x='2' y='5' width='28' height='22' rx='3' fill='{c}'/><g fill='{s}'><rect x='4' y='7' width='3' height='3' rx='.7'/><rect x='4' y='14.500' width='3' height='3' rx='.7'/><rect x='4' y='22' width='3' height='3' rx='.7'/><rect x='25' y='7' width='3' height='3' rx='.7'/><rect x='25' y='14.500' width='3' height='3' rx='.7'/><rect x='25' y='22' width='3' height='3' rx='.7'/></g><path fill='#fff' d='M12.500 10.500L22 16l-9.500 5.500z'/>"), // i18n-ignore: SVG drawing
+            Frame::Photo => format!("<rect x='2' y='5' width='28' height='22' rx='3' fill='{c}'/><circle cx='10' cy='12' r='2.700' fill='#fff'/><path fill='#fff' d='M4.500 24.500l7-8 5 5.500 3.500-3.500 7.500 6z'/>"), // i18n-ignore: SVG drawing
+            Frame::App => format!("<rect x='2' y='5' width='28' height='22' rx='3.500' fill='{c}'/><path fill='{s}' d='M2 8.500A3.500 3.500 0 0 1 5.500 5h21A3.500 3.500 0 0 1 30 8.500V11H2z'/><g fill='#fff'><circle cx='6' cy='8' r='1.200'/><circle cx='10' cy='8' r='1.200'/><rect x='6' y='15' width='14' height='2.200' rx='1'/><rect x='6' y='20' width='9' height='2.200' rx='1'/></g>"), // i18n-ignore: SVG drawing
         };
         format!("<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>{inner}</svg>")
     }
@@ -361,13 +361,13 @@ const YELLOW: (&str, &str) = ("#f2c24e", "#d39f2c");
 
 fn by_place(place: &str) -> Option<Family> {
     Some(match place {
-        "Home" => with(HOUSE, BLUE),
-        "Desktop" => with(SCREEN, SKY),
-        "Downloads" => with(DOWNLOAD, TEAL),
-        "Documents" => with(LINES, NAVY),
-        "Pictures" => with(PHOTO, GREEN),
-        "Music" => with(NOTE, PINK),
-        "Videos" => with(PLAY, VIOLET),
+        "Home" => with(HOUSE, BLUE), // i18n-ignore: place name compared as a key
+        "Desktop" => with(SCREEN, SKY), // i18n-ignore: place name compared as a key
+        "Downloads" => with(DOWNLOAD, TEAL), // i18n-ignore: place name compared as a key
+        "Documents" => with(LINES, NAVY), // i18n-ignore: place name compared as a key
+        "Pictures" => with(PHOTO, GREEN), // i18n-ignore: place name compared as a key
+        "Music" => with(NOTE, PINK), // i18n-ignore: place name compared as a key
+        "Videos" => with(PLAY, VIOLET), // i18n-ignore: place name compared as a key
         _ => return None,
     })
 }
@@ -400,9 +400,11 @@ fn colour_of(ext: &str) -> (&'static str, &'static str) {
 // ---------------------------------------------------------------- drives and clouds
 
 fn drive_body() -> &'static str {
-    "<defs><linearGradient id='b' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#e8ebf0'/><stop offset='1' stop-color='#aab1bd'/></linearGradient></defs>\
-<path fill='url(#b)' d='M6.500 8h19a2.500 2.500 0 0 1 2.400 1.800L30 17v6a2.500 2.500 0 0 1-2.500 2.500h-23A2.500 2.500 0 0 1 2 23v-6l2.100-7.200A2.500 2.500 0 0 1 6.500 8z'/>\
-<rect x='2' y='17' width='28' height='8.500' rx='2.500' fill='#59606e'/><rect x='5' y='20' width='13' height='2.400' rx='1.200' fill='#7f8795'/><circle cx='26' cy='21.200' r='1.700' fill='#4fe07f'/>"
+    concat!(
+        "<defs><linearGradient id='b' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='#e8ebf0'/><stop offset='1' stop-color='#aab1bd'/></linearGradient></defs>", // i18n-ignore: SVG drawing
+        "<path fill='url(#b)' d='M6.500 8h19a2.500 2.500 0 0 1 2.400 1.800L30 17v6a2.500 2.500 0 0 1-2.500 2.500h-23A2.500 2.500 0 0 1 2 23v-6l2.100-7.200A2.500 2.500 0 0 1 6.500 8z'/>", // i18n-ignore: SVG drawing
+        "<rect x='2' y='17' width='28' height='8.500' rx='2.500' fill='#59606e'/><rect x='5' y='20' width='13' height='2.400' rx='1.200' fill='#7f8795'/><circle cx='26' cy='21.200' r='1.700' fill='#4fe07f'/>", // i18n-ignore: SVG drawing
+    )
 }
 
 fn square_svg(inner: &str) -> String {
@@ -415,12 +417,12 @@ fn fixed(id: &str, inner: String) -> Art {
 
 fn by_drive(kind: DriveKind, is_system: bool) -> Art {
     match kind {
-        DriveKind::Removable => fixed("usb", "<rect x='11' y='2' width='10' height='8' rx='1' fill='#c3c9d3'/><rect x='13' y='4' width='2' height='2' fill='#59606e'/><rect x='17' y='4' width='2' height='2' fill='#59606e'/><rect x='8' y='9' width='16' height='21' rx='3' fill='#e0762f'/><rect x='11' y='14' width='10' height='9' rx='1.500' fill='#fff' opacity='.9'/><circle cx='16' cy='26.500' r='1.300' fill='#ffe2c9'/>".into()),
-        DriveKind::Network => fixed("network", "<rect x='5' y='3' width='22' height='7' rx='2' fill='#59606e'/><rect x='5' y='12' width='22' height='7' rx='2' fill='#6e7584'/><circle cx='23' cy='6.500' r='1.300' fill='#4fe07f'/><circle cx='23' cy='15.500' r='1.300' fill='#4fe07f'/><path fill='none' stroke='#26a69a' stroke-width='2.200' stroke-linecap='round' d='M16 19v5M6 27h20M16 24v3'/><circle cx='16' cy='27' r='2.500' fill='#26a69a'/>".into()),
-        DriveKind::Optical => fixed("optical", "<defs><linearGradient id='c' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#8fd3ff'/><stop offset='.35' stop-color='#d7b7ff'/><stop offset='.65' stop-color='#ffd0a1'/><stop offset='1' stop-color='#9be8c5'/></linearGradient></defs><circle cx='16' cy='16' r='14' fill='url(#c)'/><circle cx='16' cy='16' r='5' fill='#fff'/><circle cx='16' cy='16' r='2' fill='#59606e'/>".into()),
-        DriveKind::Ram => fixed("ram", "<rect x='3' y='9' width='26' height='14' rx='2' fill='#2e9d58'/><g fill='#1f7640'><rect x='6' y='12' width='5' height='7'/><rect x='13.500' y='12' width='5' height='7'/><rect x='21' y='12' width='5' height='7'/></g><g fill='#d9a520'><rect x='5' y='23' width='2' height='3'/><rect x='9' y='23' width='2' height='3'/><rect x='13' y='23' width='2' height='3'/><rect x='17' y='23' width='2' height='3'/><rect x='21' y='23' width='2' height='3'/><rect x='25' y='23' width='2' height='3'/></g>".into()),
+        DriveKind::Removable => fixed("usb", "<rect x='11' y='2' width='10' height='8' rx='1' fill='#c3c9d3'/><rect x='13' y='4' width='2' height='2' fill='#59606e'/><rect x='17' y='4' width='2' height='2' fill='#59606e'/><rect x='8' y='9' width='16' height='21' rx='3' fill='#e0762f'/><rect x='11' y='14' width='10' height='9' rx='1.500' fill='#fff' opacity='.9'/><circle cx='16' cy='26.500' r='1.300' fill='#ffe2c9'/>".into()), // i18n-ignore: SVG drawing
+        DriveKind::Network => fixed("network", "<rect x='5' y='3' width='22' height='7' rx='2' fill='#59606e'/><rect x='5' y='12' width='22' height='7' rx='2' fill='#6e7584'/><circle cx='23' cy='6.500' r='1.300' fill='#4fe07f'/><circle cx='23' cy='15.500' r='1.300' fill='#4fe07f'/><path fill='none' stroke='#26a69a' stroke-width='2.200' stroke-linecap='round' d='M16 19v5M6 27h20M16 24v3'/><circle cx='16' cy='27' r='2.500' fill='#26a69a'/>".into()), // i18n-ignore: SVG drawing
+        DriveKind::Optical => fixed("optical", "<defs><linearGradient id='c' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='#8fd3ff'/><stop offset='.35' stop-color='#d7b7ff'/><stop offset='.65' stop-color='#ffd0a1'/><stop offset='1' stop-color='#9be8c5'/></linearGradient></defs><circle cx='16' cy='16' r='14' fill='url(#c)'/><circle cx='16' cy='16' r='5' fill='#fff'/><circle cx='16' cy='16' r='2' fill='#59606e'/>".into()), // i18n-ignore: SVG drawing
+        DriveKind::Ram => fixed("ram", "<rect x='3' y='9' width='26' height='14' rx='2' fill='#2e9d58'/><g fill='#1f7640'><rect x='6' y='12' width='5' height='7'/><rect x='13.500' y='12' width='5' height='7'/><rect x='21' y='12' width='5' height='7'/></g><g fill='#d9a520'><rect x='5' y='23' width='2' height='3'/><rect x='9' y='23' width='2' height='3'/><rect x='13' y='23' width='2' height='3'/><rect x='17' y='23' width='2' height='3'/><rect x='21' y='23' width='2' height='3'/><rect x='25' y='23' width='2' height='3'/></g>".into()), // i18n-ignore: SVG drawing
         // The drive the system runs from gets a blue badge with panes, so it stands out from the others.
-        DriveKind::Fixed | DriveKind::Unknown if is_system => fixed("system", format!("{}<rect x='11' y='2' width='11' height='11' rx='2.200' fill='#2f86d6' stroke='#fff' stroke-width='1'/><g fill='#fff'><rect x='13' y='4' width='3.200' height='3.200'/><rect x='16.900' y='4' width='3.200' height='3.200'/><rect x='13' y='7.900' width='3.200' height='3.200'/><rect x='16.900' y='7.900' width='3.200' height='3.200'/></g>", drive_body())),
+        DriveKind::Fixed | DriveKind::Unknown if is_system => fixed("system", format!("{}<rect x='11' y='2' width='11' height='11' rx='2.200' fill='#2f86d6' stroke='#fff' stroke-width='1'/><g fill='#fff'><rect x='13' y='4' width='3.200' height='3.200'/><rect x='16.900' y='4' width='3.200' height='3.200'/><rect x='13' y='7.900' width='3.200' height='3.200'/><rect x='16.900' y='7.900' width='3.200' height='3.200'/></g>", drive_body())), // i18n-ignore: SVG drawing
         DriveKind::Fixed | DriveKind::Unknown => fixed("drive", drive_body().to_string()),
     }
 }
@@ -436,7 +438,7 @@ fn by_cloud(provider: &str) -> Art {
     } else {
         ("cloud", "#6cc0ff", "#2f7fd6")
     };
-    fixed(id, format!("<defs><linearGradient id='c' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='{top}'/><stop offset='1' stop-color='{bottom}'/></linearGradient></defs><path fill='url(#c)' d='M24.500 26H9a7 7 0 0 1-1.200-13.900A9 9 0 0 1 25 13.100 6.500 6.500 0 0 1 24.500 26z'/>"))
+    fixed(id, format!("<defs><linearGradient id='c' x1='0' y1='0' x2='0' y2='1'><stop offset='0' stop-color='{top}'/><stop offset='1' stop-color='{bottom}'/></linearGradient></defs><path fill='url(#c)' d='M24.500 26H9a7 7 0 0 1-1.200-13.900A9 9 0 0 1 25 13.100 6.500 6.500 0 0 1 24.500 26z'/>")) // i18n-ignore: SVG drawing
 }
 
 // ---------------------------------------------------------------- choosing and drawing

@@ -89,7 +89,7 @@ pub fn init() {
     std::panic::set_hook(Box::new(|info| {
         let thread = std::thread::current();
         let name = thread.name().unwrap_or("unnamed");
-        write_line(&format!("{} [{}] CRASH panic on thread '{name}': {info}\n{}\n", stamp(), std::process::id(), std::backtrace::Backtrace::force_capture()));
+        write_line(&format!("{} [{}] CRASH panic on thread '{name}': {info}\n{}\n", stamp(), std::process::id(), std::backtrace::Backtrace::force_capture())); // i18n-ignore: crash text for the log file
     }));
     log_start();
     test_crash();
@@ -145,9 +145,9 @@ mod crash {
 
     extern "C" fn on_signal(sig: c_int) {
         let fd = FD.load(Ordering::Relaxed);
-        put(fd, b"\nCRASH fatal signal ");
+        put(fd, b"\nCRASH fatal signal "); // i18n-ignore: crash text for the log file
         put(fd, SIGNALS.iter().find(|(s, _)| *s == sig).map_or(b"unknown", |(_, n)| *n));
-        put(fd, b", native backtrace:\n");
+        put(fd, b", native backtrace:\n"); // i18n-ignore: crash text for the log file
         let mut frames = [std::ptr::null_mut(); 64];
         unsafe {
             let n = backtrace(frames.as_mut_ptr(), frames.len() as c_int);

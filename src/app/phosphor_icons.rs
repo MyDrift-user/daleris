@@ -33,13 +33,13 @@ fn by_drive(kind: DriveKind) -> Icon {
 
 fn by_place(place: &str) -> Option<Icon> {
     Some(match place {
-        "Home" => (g::HOUSE, BLUE),
-        "Desktop" => (g::DESKTOP, BLUE),
-        "Downloads" => (g::DOWNLOAD_SIMPLE, TEAL),
-        "Documents" => (g::FILE_TEXT, BLUE),
-        "Pictures" => (g::IMAGE, LIME),
-        "Music" => (g::MUSIC_NOTES, ORANGE),
-        "Videos" => (g::FILM_STRIP, PURPLE),
+        "Home" => (g::HOUSE, BLUE), // i18n-ignore: place name compared as a key
+        "Desktop" => (g::DESKTOP, BLUE), // i18n-ignore: place name compared as a key
+        "Downloads" => (g::DOWNLOAD_SIMPLE, TEAL), // i18n-ignore: place name compared as a key
+        "Documents" => (g::FILE_TEXT, BLUE), // i18n-ignore: place name compared as a key
+        "Pictures" => (g::IMAGE, LIME), // i18n-ignore: place name compared as a key
+        "Music" => (g::MUSIC_NOTES, ORANGE), // i18n-ignore: place name compared as a key
+        "Videos" => (g::FILM_STRIP, PURPLE), // i18n-ignore: place name compared as a key
         _ => return None,
     })
 }

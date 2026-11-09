@@ -270,7 +270,7 @@ impl Run<'_> {
         for src in &job.sources {
             let Some(name) = src.file_name() else { continue };
             if fsx::same_path(src, &dest) || fsx::is_under(&dest, src) {
-                job.update(|p| p.failed.push(format!("{}: a folder can't go into itself", name.to_string_lossy())));
+                job.update(|p| p.failed.push(trf!("{name}: a folder can't go into itself", name = name.to_string_lossy())));
                 continue;
             }
             let here = src.parent().is_some_and(|p| fsx::same_path(p, &dest));
