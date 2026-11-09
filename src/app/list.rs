@@ -285,7 +285,11 @@ impl App {
                     }
                 },
             ),
-            FailKind::Disconnected => (trf!("Drive {letter}: isn't connected", letter = letter.unwrap_or('?')), trf!("It points to {place}, which isn't connected right now. Connecting it may ask for a password.", place = place)),
+            // the drive may be gone from the list already, and a \\server\share path has no letter at all
+            FailKind::Disconnected => match letter.or_else(|| drive_letter_of(&p)) {
+                Some(letter) => (trf!("Drive {letter}: isn't connected", letter = letter), trf!("It points to {place}, which isn't connected right now. Connecting it may ask for a password.", place = place)),
+                None => (trf!("{place} isn't connected", place = place), tr("The connection to it was closed. Connecting again may ask for a password.").to_string()),
+            },
             FailKind::NotFound => (tr("This folder isn't there any more").to_string(), tr("It may have been moved, renamed or deleted.").to_string()),
             FailKind::NotReady => (tr("This drive isn't ready").to_string(), tr("There may be no disk in it, or it may be locked.").to_string()),
             FailKind::Locked => (
@@ -1090,5 +1094,25 @@ pub(super) fn drop_mark(p: &egui::Painter, r: Rect, radius: u8, look: DropLook) 
     } else {
         p.rect_filled(r, CornerRadius::same(radius), WARN().gamma_multiply(0.12));
         p.rect_stroke(r, CornerRadius::same(radius), Stroke::new(1.5_f32, WARN()), StrokeKind::Inside);
+    }
+}
+
+/// The drive letter a path starts with, as in Z:\Projects. None for \server\share paths and on Linux and macOS.
+fn drive_letter_of(p: &Path) -> Option<char> {
+    let s = p.to_string_lossy();
+    let mut chars = s.chars();
+    let (letter, colon) = (chars.next()?, chars.next()?);
+    (cfg!(windows) && letter.is_ascii_alphabetic() && colon == ':').then(|| letter.to_ascii_uppercase())
+}
+
+#[cfg(all(test, windows))]
+mod letter_tests {
+    use super::*;
+
+    #[test]
+    fn a_disconnected_drive_is_named_by_its_own_letter() {
+        assert_eq!(drive_letter_of(Path::new(r"z:\Projects")), Some('Z'));
+        assert_eq!(drive_letter_of(Path::new(r"\fileserver\projects")), None);
+        assert_eq!(drive_letter_of(Path::new("")), None);
     }
 }

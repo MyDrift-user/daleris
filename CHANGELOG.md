@@ -4,7 +4,10 @@ What changed for people using Daleris, compared with the version before. A relea
 
 ## 0.0.6 (not released yet)
 
+- Network drives are left alone unless asked: subfolders aren't searched and folder sizes aren't counted there by default, each with a switch and a policy, and the status bar offers a search of the subfolders once
+- Searches and folder sizes read gently: low disk priority, one folder at a time on hard disks, USB drives and servers, and at most 20 folders a second on servers
 - The filter panel only offers extensions of items the list can show
+- A disconnected drive is named by its own letter, and a disconnected share by its name, instead of "Drive ?:"
 - No middle dots or arrow characters anywhere in the window
 
 ## 0.0.5
