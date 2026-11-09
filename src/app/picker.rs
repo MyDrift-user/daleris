@@ -128,9 +128,9 @@ impl Picker {
             self.request.title.clone()
         } else {
             match self.request.kind {
-                Kind::Open => "Open".to_string(),
-                Kind::Save => "Save as".to_string(),
-                Kind::Folder => "Select folder".to_string(),
+                Kind::Open => tr("Open").to_string(),
+                Kind::Save => tr("Save as").to_string(),
+                Kind::Folder => tr("Select folder").to_string(),
             }
         };
         if self.request.host.is_empty() {
@@ -215,7 +215,7 @@ impl Picker {
                 }
                 if self.request.must_exist {
                     if let Some(missing) = paths.iter().find(|p| kind_within(p, LOOK) == PathKind::Missing) {
-                        self.error = Some(format!("{} isn't there.", missing.display()));
+                        self.error = Some(trf!("{path} isn't there.", path = missing.display()));
                         return None;
                     }
                 }
@@ -224,11 +224,11 @@ impl Picker {
             }
             Kind::Save => {
                 if typed.is_empty() {
-                    self.error = Some("Type a name to save as.".into());
+                    self.error = Some(tr("Type a name to save as.").into());
                     return selected.iter().find(|p| kind_within(p, LOOK) == PathKind::Dir).cloned();
                 }
                 if typed.contains(['<', '>', '|', '?', '*']) {
-                    self.error = Some("A file name can't hold < > | ? or *.".into());
+                    self.error = Some(tr("A file name can't hold < > | ? or *.").into());
                     return None;
                 }
                 let path = self.with_extension(dir.join(&typed));
@@ -238,7 +238,8 @@ impl Picker {
                     return Some(path);
                 }
                 if self.request.must_exist && path.parent().is_some_and(|p| kind_within(p, LOOK) == PathKind::Missing) {
-                    self.error = Some(format!("{} isn't there.", path.parent().unwrap_or(Path::new("")).display()));
+                    let folder = path.parent().unwrap_or(Path::new("")).display().to_string();
+                    self.error = Some(trf!("{path} isn't there.", path = folder));
                     return None;
                 }
                 if self.request.overwrite_prompt && there == PathKind::File {
@@ -399,7 +400,7 @@ impl Picker {
         // a small window has better things to show first
         let tall_enough = ui.ctx().content_rect().height() >= 560.0;
         let open = *self.controls_open.get_or_insert(count <= FOLD_CONTROLS_OVER && tall_enough);
-        let whose = if self.request.host.is_empty() { "Options".to_string() } else { format!("Options from {}", self.request.host) };
+        let whose = if self.request.host.is_empty() { tr("Options").to_string() } else { trf!("Options from {app}", app = self.request.host) };
         let frame = egui::Frame::new().fill(BG()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(8).inner_margin(egui::Margin::symmetric(12, 8));
         frame.show(ui, |ui| {
             ui.set_width(ui.available_width());
@@ -702,9 +703,9 @@ impl Picker {
         if !self.request.name_label.is_empty() {
             plain(&self.request.name_label).trim_end_matches(':').to_string()
         } else if self.request.kind == Kind::Folder {
-            "Folder".to_string()
+            tr("Folder").to_string()
         } else {
-            "File name".to_string()
+            tr("File name").to_string()
         }
     }
 
@@ -713,9 +714,9 @@ impl Picker {
             return plain(&self.request.ok_label);
         }
         match self.request.kind {
-            Kind::Open => "Open".to_string(),
-            Kind::Save => "Save".to_string(),
-            Kind::Folder => "Select folder".to_string(),
+            Kind::Open => tr("Open").to_string(),
+            Kind::Save => tr("Save").to_string(),
+            Kind::Folder => tr("Select folder").to_string(),
         }
     }
 }
@@ -876,13 +877,13 @@ impl App {
                         // the name alone, as a whole path can be wider than the window, and take the buttons with it
                         let name = path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
                         let room = ui.available_width() - 210.0;
-                        let gal = truncated(ui, &format!("{name} already exists. Replace it?"), FontId::proportional(13.5), TEXT(), room);
+                        let gal = truncated(ui, &trf!("{name} already exists. Replace it?", name = name), FontId::proportional(13.5), TEXT(), room);
                         let (r, _) = ui.allocate_exact_size(vec2(room, 30.0), Sense::hover());
                         ui.painter().galley(pos2(r.left(), r.center().y - gal.size().y / 2.0), gal, TEXT());
-                        if action_button(ui, "Replace", true).clicked() {
+                        if action_button(ui, tr("Replace"), true).clicked() {
                             p.answer(PickReply::Picked { filter_index: p.filter, paths: vec![path.clone().into_os_string()] });
                         }
-                        if action_button(ui, "Keep it", false).clicked() {
+                        if action_button(ui, tr("Keep it"), false).clicked() {
                             p.confirm_overwrite = None;
                         }
                     });
@@ -890,7 +891,7 @@ impl App {
                 ui.add_space(10.0);
             }
             if p.busy.is_some_and(|b| b.elapsed() >= STEP_BACK_AFTER) {
-                ui.label(egui::RichText::new(format!("Waiting for {}", p.request.host)).color(DIM()));
+                ui.label(egui::RichText::new(trf!("Waiting for {app}", app = p.request.host)).color(DIM()));
                 ui.add_space(4.0);
             }
             let waiting = p.busy.is_some();
@@ -899,7 +900,7 @@ impl App {
             // the name and the type, on one grid
             let filters = p.request.filters.clone();
             let name_label = p.name_label();
-            let type_label = if p.request.kind == Kind::Save { "Save as type" } else { "File type" };
+            let type_label = if p.request.kind == Kind::Save { tr("Save as type") } else { tr("File type") };
             let measure = |ui: &Ui, s: &str| ui.fonts_mut(|f| f.layout_no_wrap(s.to_string(), FontId::proportional(13.5), TEXT()).size().x);
             let widest = if filters.is_empty() { measure(ui, &name_label) } else { measure(ui, &name_label).max(measure(ui, type_label)) };
             let label_w = (widest + 14.0).min(ui.available_width() * 0.3);
@@ -958,11 +959,11 @@ impl App {
             if idle_enter && dir.is_some() && !waiting {
                 go_to = p.accept(dir.as_deref().unwrap_or(Path::new(".")), &selected);
             }
-            let cancel = ui.put(cancel_r, secondary_button("Cancel"));
+            let cancel = ui.put(cancel_r, secondary_button(tr("Cancel")));
             p.in_tab_order(ui, &cancel);
-            let quiet = egui::Button::new(egui::RichText::new("Use Windows dialog").size(12.5).color(DIM())).frame(false).min_size(vec2(0.0, 32.0));
-            let windows_r = Rect::from_min_size(row.left_top() - vec2(4.0, 0.0), vec2(measure(ui, "Use Windows dialog") - 2.0, 32.0));
-            let windows = ui.put(windows_r, quiet).on_hover_text("Close this and show the normal Windows dialog instead");
+            let quiet = egui::Button::new(egui::RichText::new(tr("Use Windows dialog")).size(12.5).color(DIM())).frame(false).min_size(vec2(0.0, 32.0));
+            let windows_r = Rect::from_min_size(row.left_top() - vec2(4.0, 0.0), vec2(measure(ui, tr("Use Windows dialog")) - 2.0, 32.0));
+            let windows = ui.put(windows_r, quiet).on_hover_text(tr("Close this and show the normal Windows dialog instead"));
             p.in_tab_order(ui, &windows);
             if windows.clicked() {
                 p.answer(PickReply::UseWindows);

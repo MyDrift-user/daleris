@@ -124,7 +124,12 @@ impl App {
                     let cut = matches!(a, Act::Cut);
                     if shell::clipboard_set_files(&paths, cut) {
                         let n = paths.len();
-                        self.toast(format!("{} {} item{}. Paste here or in any app", if cut { "Cut" } else { "Copied" }, n, if n == 1 { "" } else { "s" }), false);
+                        let text = if cut {
+                            trn!(n, "Cut {n} item. Paste here or in any app", "Cut {n} items. Paste here or in any app")
+                        } else {
+                            trn!(n, "Copied {n} item. Paste here or in any app", "Copied {n} items. Paste here or in any app")
+                        };
+                        self.toast(text, false);
                     }
                 }
             }
@@ -139,7 +144,7 @@ impl App {
                 let paths = self.selected_paths(&t);
                 let text = paths.iter().map(|p| format!("\"{}\"", p.display())).collect::<Vec<_>>().join("\r\n");
                 shell::clipboard_set_text(&text);
-                self.toast("Path copied", false);
+                self.toast(tr("Path copied"), false);
             }
             Act::StartRename => {
                 let paths = self.selected_paths(&t);
@@ -210,7 +215,7 @@ impl App {
             Act::PinTo(sec, p) => {
                 let title = self.settings.sections.iter().find(|s| s.id == sec).map(|s| s.title.clone()).unwrap_or_default();
                 self.pin_to(&sec, p);
-                self.toast(format!("Pinned to {title}"), false);
+                self.toast(trf!("Pinned to {section}", section = tr_dyn(&title)), false);
             }
             Act::NewSectionWith(p) => {
                 self.new_section(Some(p));
@@ -257,11 +262,11 @@ impl App {
             Act::KeepLocal(keep) => {
                 let fails = self.selected_paths(&t).iter().filter(|p| fsx::set_pin(p, keep).is_err()).count();
                 if fails > 0 {
-                    self.toast(format!("{fails} item(s) couldn't be changed"), true);
+                    self.toast(trn!(fails, "{n} item couldn't be changed", "{n} items couldn't be changed"), true);
                 } else if keep {
-                    self.toast("Downloading. These will always be kept on this device", false);
+                    self.toast(tr("Downloading. These will always be kept on this device"), false);
                 } else {
-                    self.toast("Freeing up space. The files stay available online", false);
+                    self.toast(tr("Freeing up space. The files stay available online"), false);
                 }
                 self.start_load(&mut t, true);
             }
@@ -286,7 +291,7 @@ impl App {
                 {
                     let tx = self.tx.clone();
                     let ctx = self.ctx.clone();
-                    self.toast(format!("Connecting to {url}…"), false);
+                    self.toast(trf!("Connecting to {url}…", url = url), false);
                     shell::connect_server(url, user, pass, move |r| {
                         let _ = tx.send(Msg::Connected(r));
                         ctx.request_repaint();
@@ -356,7 +361,7 @@ impl App {
                         t.select_after_load = name;
                     }
                 }
-                None => self.toast("This shortcut doesn't point to a file or folder", true),
+                None => self.toast(tr("This shortcut doesn't point to a file or folder"), true),
             },
             Act::NewWindow(p) => {
                 if let Ok(exe) = std::env::current_exe() {
@@ -451,7 +456,7 @@ impl App {
     /// A folder can't go into itself: copying it there would keep copying the copy until paths get too long.
     fn paste_files(&mut self, files: Vec<PathBuf>, cut: bool, dest: PathBuf) {
         if files.iter().any(|f| fsx::same_path(f, &dest) || fsx::is_under(&dest, f)) {
-            self.toast("A folder can't be pasted into itself", true);
+            self.toast(tr("A folder can't be pasted into itself"), true);
             return;
         }
         self.run_op(if cut { Op::Move } else { Op::Copy }, files, Some(dest));
@@ -480,7 +485,7 @@ impl App {
             return;
         }
         if new.contains(['\\', '/', ':', '*', '?', '"', '<', '>', '|']) {
-            self.toast("A file name can't contain any of these characters: \\ / : * ? \" < > |", true);
+            self.toast(tr("A file name can't contain any of these characters: \\ / : * ? \" < > |"), true);
             return;
         }
         let dest = r.path.with_file_name(&new);
@@ -493,15 +498,15 @@ impl App {
                 self.start_load(t, true);
             }
             Some(Ok(())) => {}
-            Some(Err(e)) => self.toast(format!("Rename failed: {e}"), true),
-            None => self.toast("The server isn't answering yet. The new name will show if it gets there.", true),
+            Some(Err(e)) => self.toast(trf!("Rename failed: {error}", error = e), true),
+            None => self.toast(tr("The server isn't answering yet. The new name will show if it gets there."), true),
         }
     }
 
     /// A new folder (`what` None) or file, named so it doesn't clash, then renamed by the person.
     fn create_new(&mut self, t: &mut Tab, dir: &Path, what: Option<Template>) {
         let folder = what.is_none();
-        let full = what.as_ref().map(|w| w.name.clone()).unwrap_or_else(|| "New folder".into());
+        let full = what.as_ref().map(|w| w.name.clone()).unwrap_or_else(|| tr("New folder").into());
         let (base, ext) = match full.rfind('.') {
             Some(i) if !folder && i > 0 => (full[..i].to_string(), full[i..].to_string()),
             _ => (full.clone(), String::new()),
@@ -542,17 +547,17 @@ impl App {
                 }
             }
             Some(Err(e)) => {
-                self.toast(format!("Couldn't create it: {e}"), true);
+                self.toast(trf!("Couldn't create it: {error}", error = e), true);
                 return;
             }
             None => {
-                self.toast("The server isn't answering yet. It will show up here if it gets there.", true);
+                self.toast(tr("The server isn't answering yet. It will show up here if it gets there."), true);
                 return;
             }
         }
         // Windows's wizard asks what it points to and names it
         if shortcut {
-            let (prog, args) = crate::newitems::command_line("rundll32.exe appwiz.cpl,NewLinkHere %1", &p);
+            let (prog, args) = crate::newitems::command_line("rundll32.exe appwiz.cpl,NewLinkHere %1", &p); // i18n-ignore: a command line
             shell::run_program(&prog, &args, dir);
             return;
         }
@@ -660,7 +665,8 @@ pub(super) fn save_png(path: &Path, img: &egui::ColorImage) -> std::io::Result<(
 
 /// Daleris's own text document, there whatever the system offers.
 fn text_document() -> Template {
-    Template { label: "Text document".into(), name: "New Text Document.txt".into(), how: How::Empty }
+    // the name a new one gets is in the language shown, as Windows names its own
+    Template { label: tr("Text document").into(), name: tr("New Text Document.txt").into(), how: How::Empty }
 }
 
 impl App {
@@ -682,7 +688,7 @@ impl App {
                     // the last tab leaving takes the window with it
                     self.apply(Act::CloseTab(i));
                 } else {
-                    self.toast("That window didn't take the tab. It may be running as administrator.", true);
+                    self.toast(tr("That window didn't take the tab. It may be running as administrator."), true);
                 }
             }
             TabLanding::Desktop(x, y) => {

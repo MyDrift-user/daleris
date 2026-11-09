@@ -13,26 +13,26 @@ use crate::shell::{ShellEntry, ShellMenu};
 const DEFAULT_HIDDEN: &[&str] = &[
     "v:open", "v:opennewwindow", "v:opennewprocess", "v:opennewtab", "v:explore", "v:cut", "v:copy", "v:paste", "v:delete", "v:rename",
     "v:properties", "v:pintohome", "v:unpinfromhome", "v:copyaspath", "v:refresh", "v:find", "l:open", "l:cut", "l:copy", "l:paste",
-    "l:delete", "l:rename", "l:properties", "l:copy as path", "l:pin to quick access", "l:unpin from quick access", "l:open in new window",
-    "l:open in new tab", "l:refresh", "l:view", "l:sort by", "l:group by", "l:always keep on this device", "l:free up space",
-    "l:open in terminal", "l:select all",
+    "l:delete", "l:rename", "l:properties", "l:copy as path", "l:pin to quick access", "l:unpin from quick access", "l:open in new window", // i18n-ignore: keys of Windows's menu items
+    "l:open in new tab", "l:refresh", "l:view", "l:sort by", "l:group by", "l:always keep on this device", "l:free up space", // i18n-ignore: keys of Windows's menu items
+    "l:open in terminal", "l:select all", // i18n-ignore: keys of Windows's menu items
     // German Windows
-    "l:öffnen", "l:in neuem fenster öffnen", "l:in neuer registerkarte öffnen", "l:ausschneiden", "l:kopieren", "l:einfügen", "l:löschen",
-    "l:umbenennen", "l:eigenschaften", "l:als pfad kopieren", "l:an schnellzugriff anheften", "l:vom schnellzugriff lösen", "l:aktualisieren",
-    "l:ansicht", "l:sortieren nach", "l:gruppieren nach", "l:immer auf diesem gerät beibehalten", "l:speicherplatz freigeben",
-    "l:im terminal öffnen", "l:alles auswählen",
+    "l:öffnen", "l:in neuem fenster öffnen", "l:in neuer registerkarte öffnen", "l:ausschneiden", "l:kopieren", "l:einfügen", "l:löschen", // i18n-ignore: keys of Windows's menu items
+    "l:umbenennen", "l:eigenschaften", "l:als pfad kopieren", "l:an schnellzugriff anheften", "l:vom schnellzugriff lösen", "l:aktualisieren", // i18n-ignore: keys of Windows's menu items
+    "l:ansicht", "l:sortieren nach", "l:gruppieren nach", "l:immer auf diesem gerät beibehalten", "l:speicherplatz freigeben", // i18n-ignore: keys of Windows's menu items
+    "l:im terminal öffnen", "l:alles auswählen", // i18n-ignore: keys of Windows's menu items
     // Windows' "Run as administrator" duplicates ours
-    "v:runas", "l:run as administrator", "l:als administrator ausführen",
+    "v:runas", "l:run as administrator", "l:als administrator ausführen", // i18n-ignore: keys of Windows's menu items
 ];
 
 /// Rarely used items: tucked into "Show more options".
 const DEFAULT_MORE: &[&str] = &[
-    "app:more", "l:give access to", "l:include in library", "l:restore previous versions", "l:troubleshoot compatibility", "l:customize this folder",
-    "l:pin to start", "l:paste shortcut", "l:create shortcut", "l:share", "l:cast to device", "l:scan with microsoft defender",
+    "app:more", "l:give access to", "l:include in library", "l:restore previous versions", "l:troubleshoot compatibility", "l:customize this folder", // i18n-ignore: keys of Windows's menu items
+    "l:pin to start", "l:paste shortcut", "l:create shortcut", "l:share", "l:cast to device", "l:scan with microsoft defender", // i18n-ignore: keys of Windows's menu items
     // German Windows
-    "l:zugriff gewähren auf", "l:in bibliothek aufnehmen", "l:vorgängerversionen wiederherstellen", "l:kompatibilitätsprobleme beheben",
-    "l:an \"start\" anheften", "l:verknüpfung einfügen", "l:verknüpfung erstellen", "l:freigeben", "l:freigabe", "l:an gerät streamen",
-    "l:wiedergabe auf gerät", "l:mit microsoft defender überprüfen",
+    "l:zugriff gewähren auf", "l:in bibliothek aufnehmen", "l:vorgängerversionen wiederherstellen", "l:kompatibilitätsprobleme beheben", // i18n-ignore: keys of Windows's menu items
+    "l:an \"start\" anheften", "l:verknüpfung einfügen", "l:verknüpfung erstellen", "l:freigeben", "l:freigabe", "l:an gerät streamen", // i18n-ignore: keys of Windows's menu items
+    "l:wiedergabe auf gerät", "l:mit microsoft defender überprüfen", // i18n-ignore: keys of Windows's menu items
 ];
 
 /// Group numbers decide where separators go. 90+ is the bottom block.
@@ -93,7 +93,7 @@ impl MEntry {
 }
 
 /// Sample targets the editor previews the menu for (index 5 = what was right-clicked last).
-pub(super) const SAMPLES: [&str; 6] = ["Folder", "Text file", "Picture", "Program", "Folder background", "What you right-clicked last"];
+pub(super) const SAMPLES: [&str; 6] = [tx("Folder"), tx("Text file"), tx("Picture"), tx("Program"), tx("Folder background"), tx("What you right-clicked last")];
 
 /// The open right-click menu.
 pub(super) struct Popup {
@@ -117,9 +117,9 @@ pub(super) struct Popup {
 fn with_more_submenu(list: Vec<(MEntry, MenuMode)>) -> Vec<MEntry> {
     let mut more: Vec<MEntry> = list.iter().filter(|(_, m)| *m == MenuMode::More).map(|(e, _)| e.clone()).collect();
     let mut main: Vec<MEntry> = list.into_iter().filter(|(_, m)| *m == MenuMode::Show).map(|(e, _)| e).collect();
-    more.push(MEntry::act("app:customize", I_SETTINGS, "Customize this menu…", "", 999, Act::CustomizeMenu));
+    more.push(MEntry::act("app:customize", I_SETTINGS, tr("Customize this menu…"), "", 999, Act::CustomizeMenu));
     let at = main.iter().position(|e| e.group >= G_TAIL).unwrap_or(main.len());
-    main.insert(at, MEntry::sub("app:moresub", I_MORE, "Show more options", G_TAIL, more));
+    main.insert(at, MEntry::sub("app:moresub", I_MORE, tr("Show more options"), G_TAIL, more));
     main
 }
 
@@ -271,22 +271,22 @@ impl App {
 
     fn pin_entry(&self, path: &Path, pinned: bool) -> MEntry {
         if policy::current().sidebar_locked() {
-            let mut off = MEntry::act("app:pin", I_PIN, "Pin to sidebar", "", G_ORG, Act::Refresh);
+            let mut off = MEntry::act("app:pin", I_PIN, tr("Pin to sidebar"), "", G_ORG, Act::Refresh);
             off.enabled = false;
             return off;
         }
         if pinned {
-            return MEntry::act("app:pin", I_PIN, "Unpin from sidebar", "", G_ORG, Act::Unpin(path.to_path_buf()));
+            return MEntry::act("app:pin", I_PIN, tr("Unpin from sidebar"), "", G_ORG, Act::Unpin(path.to_path_buf()));
         }
         let mut kids: Vec<MEntry> = self
             .settings
             .sections
             .iter()
             .filter(|s| s.accepts_pins())
-            .map(|s| MEntry::act(&format!("pin:{}", s.id), I_PIN, s.title.clone(), "", 0, Act::PinTo(s.id.clone(), path.to_path_buf())))
+            .map(|s| MEntry::act(&format!("pin:{}", s.id), I_PIN, tr_dyn(&s.title), "", 0, Act::PinTo(s.id.clone(), path.to_path_buf())))
             .collect();
-        kids.push(MEntry::act("pin:new", I_ADD, "New section…", "", 1, Act::NewSectionWith(path.to_path_buf())));
-        MEntry::sub("app:pin", I_PIN, "Pin to sidebar", G_ORG, kids)
+        kids.push(MEntry::act("pin:new", I_ADD, tr("New section…"), "", 1, Act::NewSectionWith(path.to_path_buf())));
+        MEntry::sub("app:pin", I_PIN, tr("Pin to sidebar"), G_ORG, kids)
     }
 
     fn custom_entries(&self, row: Option<&Row>) -> Vec<MEntry> {
@@ -312,7 +312,7 @@ impl App {
         let paste_into = (row.is_dir && single && shell::clipboard_has_files()).then(|| row.path.clone());
         v.push(MEntry {
             key: "app:quickrow".into(),
-            label: "Cut · Copy · Paste · Rename · Delete".into(),
+            label: tr("Cut · Copy · Paste · Rename · Delete").into(),
             glyph: Some(I_CUT),
             tex: None,
             shortcut: "",
@@ -322,58 +322,58 @@ impl App {
             kind: MKind::Quick(QuickRow { cut: !is_root, paste_into, rename: single && !is_root, delete: !is_root }),
             alt_key: None,
         });
-        let open_label = if kind == Kind::App && row.ext != "lnk" { "Run" } else { "Open" };
+        let open_label = if kind == Kind::App && row.ext != "lnk" { tr("Run") } else { tr("Open") };
         let open = if row.is_dir { Act::Navigate(Loc::Dir(row.path.clone())) } else { Act::OpenMany(m.paths.clone()) };
-        v.push(MEntry::act("app:open", I_FWD, open_label, "Enter", G_OPEN, open).bold());
+        v.push(MEntry::act("app:open", I_FWD, open_label, tr("Enter"), G_OPEN, open).bold());
         if row.is_dir {
-            v.push(MEntry::act("app:newtab", I_ADD, "Open in new tab", "Ctrl+Enter", G_OPEN, Act::NavigateNewTab(Loc::Dir(row.path.clone()))));
-            v.push(MEntry::act("app:newwindow", I_PANE, "Open in new window", "", G_OPEN, Act::NewWindow(row.path.clone())));
+            v.push(MEntry::act("app:newtab", I_ADD, tr("Open in new tab"), tr("Ctrl+Enter"), G_OPEN, Act::NavigateNewTab(Loc::Dir(row.path.clone()))));
+            v.push(MEntry::act("app:newwindow", I_PANE, tr("Open in new window"), "", G_OPEN, Act::NewWindow(row.path.clone())));
             if single {
-                v.push(MEntry::act("app:terminal", I_TERMINAL, "Open in Terminal", "", G_OPEN, Act::TerminalAt(row.path.clone())));
+                v.push(MEntry::act("app:terminal", I_TERMINAL, tr("Open in Terminal"), "", G_OPEN, Act::TerminalAt(row.path.clone())));
             }
         }
         if !row.is_dir && single {
             if matches!(row.ext.as_str(), "exe" | "msi" | "bat" | "cmd" | "lnk") {
-                v.push(MEntry::act("app:runadmin", I_INFO, "Run as administrator", "", G_OPEN, Act::RunAdmin(row.path.clone())));
+                v.push(MEntry::act("app:runadmin", I_INFO, tr("Run as administrator"), "", G_OPEN, Act::RunAdmin(row.path.clone())));
             }
             if row.ext == "lnk" {
-                v.push(MEntry::act("app:linktarget", I_NEWFOLDER, "Open target location", "", G_OPEN, Act::OpenTarget(row.path.clone())));
+                v.push(MEntry::act("app:linktarget", I_NEWFOLDER, tr("Open target location"), "", G_OPEN, Act::OpenTarget(row.path.clone())));
             }
             if is_text_ext(&row.ext) && row.size <= 4 * 1024 * 1024 && m.cloud != Cloud::OnlineOnly {
-                v.push(MEntry::act("app:copycontents", I_COPY, "Copy file contents", "", G_OPEN, Act::CopyContents(row.path.clone())));
+                v.push(MEntry::act("app:copycontents", I_COPY, tr("Copy file contents"), "", G_OPEN, Act::CopyContents(row.path.clone())));
             }
         }
         if m.searching {
-            v.push(MEntry::act("app:location", I_NEWFOLDER, "Open file location", "", G_OPEN, Act::OpenLocation(row.path.clone())));
+            v.push(MEntry::act("app:location", I_NEWFOLDER, tr("Open file location"), "", G_OPEN, Act::OpenLocation(row.path.clone())));
         }
         if let Some(l) = m.net_letter {
-            v.push(MEntry::act("app:disconnect", I_CLOSE, "Disconnect network drive", "", G_OPEN, Act::Disconnect(l)));
+            v.push(MEntry::act("app:disconnect", I_CLOSE, tr("Disconnect network drive"), "", G_OPEN, Act::Disconnect(l)));
         }
         match shell {
             Some((sm, tex)) => v.extend(self.shell_entries(&sm.entries, tex, true)),
-            None if !row.is_dir && single => v.push(MEntry::act("app:openwith", I_MORE, "Open with…", "", G_OPEN, Act::OpenWith(row.path.clone()))),
+            None if !row.is_dir && single => v.push(MEntry::act("app:openwith", I_MORE, tr("Open with…"), "", G_OPEN, Act::OpenWith(row.path.clone()))),
             None => {}
         }
         if m.in_cloud {
             if m.cloud != Cloud::AlwaysLocal {
-                v.push(MEntry::act("app:cloudkeep", I_CLOUD, "Always keep on this device", "", G_ORG, Act::KeepLocal(true)));
+                v.push(MEntry::act("app:cloudkeep", I_CLOUD, tr("Always keep on this device"), "", G_ORG, Act::KeepLocal(true)));
             }
             if m.cloud != Cloud::OnlineOnly {
-                v.push(MEntry::act("app:cloudfree", I_CLOUD, "Free up space", "", G_ORG, Act::KeepLocal(false)));
+                v.push(MEntry::act("app:cloudfree", I_CLOUD, tr("Free up space"), "", G_ORG, Act::KeepLocal(false)));
             }
         }
         if row.is_dir && single {
             v.push(self.pin_entry(&row.path, m.pinned));
         }
-        v.push(MEntry::act("app:copypath", I_COPY, if single { "Copy as path" } else { "Copy as paths" }, "", G_ORG, Act::CopyPath));
+        v.push(MEntry::act("app:copypath", I_COPY, if single { tr("Copy as path") } else { tr("Copy as paths") }, "", G_ORG, Act::CopyPath));
         v.extend(self.custom_entries(Some(row)));
         if !is_root {
-            v.push(MEntry::act("app:deleteperm", I_DELETE, "Delete permanently", "Shift+Del", G_ORG, Act::Delete(true)));
+            v.push(MEntry::act("app:deleteperm", I_DELETE, tr("Delete permanently"), tr("Shift+Del"), G_ORG, Act::Delete(true)));
         }
         if cfg!(windows) {
-            v.push(MEntry::act("app:more", I_MORE, "Classic Windows menu", "Shift+F10", G_TAIL, Act::NativeMenu(true)));
+            v.push(MEntry::act("app:more", I_MORE, tr("Classic Windows menu"), tr("Shift+F10"), G_TAIL, Act::NativeMenu(true)));
         }
-        v.push(MEntry::act("app:properties", I_INFO, "Properties", "Alt+Enter", G_TAIL + 1, Act::Properties(row.path.clone())));
+        v.push(MEntry::act("app:properties", I_INFO, tr("Properties"), tr("Alt+Enter"), G_TAIL + 1, Act::Properties(row.path.clone())));
         v
     }
 
@@ -381,38 +381,39 @@ impl App {
         let mut v: Vec<MEntry> = Vec::new();
         let check = |on: bool| if on { I_CHECK } else { " " };
         let mut view = vec![
-            MEntry::act("view:details", check(m.view == View::Details), "Details", "", 0, Act::SetView(View::Details)).managed("view"),
-            MEntry::act("view:icons", check(m.view == View::Icons), "Large icons", "", 0, Act::SetView(View::Icons)).managed("view"),
-            MEntry::act("view:preview", check(self.settings.show_preview), "Preview pane", "Alt+P", 1, Act::TogglePreview).managed("preview"),
+            MEntry::act("view:details", check(m.view == View::Details), tr("Details"), "", 0, Act::SetView(View::Details)).managed("view"),
+            MEntry::act("view:icons", check(m.view == View::Icons), tr("Large icons"), "", 0, Act::SetView(View::Icons)).managed("view"),
+            MEntry::act("view:preview", check(self.settings.show_preview), tr("Preview pane"), tr("Alt+P"), 1, Act::TogglePreview).managed("preview"),
         ];
         // on Linux and macOS a leading dot is what makes a name hidden, so Ctrl+Shift+. belongs to hidden items there
         if cfg!(windows) {
-            view.push(MEntry::act("view:hidden", check(self.settings.show_hidden), "Hidden items", "", 1, Act::ToggleHidden).managed("hidden"));
-            view.push(MEntry::act("view:dots", check(!self.settings.hide_dotfiles), "Dotfiles", "Ctrl+Shift+.", 1, Act::ToggleDotfiles).managed("hide_dots"));
+            view.push(MEntry::act("view:hidden", check(self.settings.show_hidden), tr("Hidden items"), "", 1, Act::ToggleHidden).managed("hidden"));
+            view.push(MEntry::act("view:dots", check(!self.settings.hide_dotfiles), tr("Dotfiles"), tr("Ctrl+Shift+."), 1, Act::ToggleDotfiles).managed("hide_dots"));
         } else {
-            view.push(MEntry::act("view:hidden", check(self.settings.show_hidden), "Hidden items", "Ctrl+Shift+.", 1, Act::ToggleHidden).managed("hidden"));
+            view.push(MEntry::act("view:hidden", check(self.settings.show_hidden), tr("Hidden items"), tr("Ctrl+Shift+."), 1, Act::ToggleHidden).managed("hidden"));
         }
-        v.push(MEntry::sub("app:view", I_LIST, "View", G_OPEN, view));
-        let mut sort: Vec<MEntry> = SortKey::ALL.into_iter().map(|k| MEntry::act(&format!("sort:{}", k.label()), check(m.sort == k), k.label(), "", 0, Act::Sort(k, None))).collect();
-        sort.push(MEntry::act("sort:asc", check(m.asc), "Ascending", "", 1, Act::Sort(m.sort, Some(true))));
-        sort.push(MEntry::act("sort:desc", check(!m.asc), "Descending", "", 1, Act::Sort(m.sort, Some(false))));
-        sort.push(MEntry::act("sort:dirs", check(m.dirs_first), "Folders first", "", 2, Act::FoldersFirst(!m.dirs_first)));
+        v.push(MEntry::sub("app:view", I_LIST, tr("View"), G_OPEN, view));
+        // the key stays English: the person's menu rules are saved under it
+        let mut sort: Vec<MEntry> = SortKey::ALL.into_iter().map(|k| MEntry::act(&format!("sort:{}", k.label()), check(m.sort == k), tr(k.label()), "", 0, Act::Sort(k, None))).collect();
+        sort.push(MEntry::act("sort:asc", check(m.asc), tr("Ascending"), "", 1, Act::Sort(m.sort, Some(true))));
+        sort.push(MEntry::act("sort:desc", check(!m.asc), tr("Descending"), "", 1, Act::Sort(m.sort, Some(false))));
+        sort.push(MEntry::act("sort:dirs", check(m.dirs_first), tr("Folders first"), "", 2, Act::FoldersFirst(!m.dirs_first)));
         if m.own_sort {
-            sort.push(MEntry::act("sort:reset", I_REFRESH, "Reset this folder to default", "", 2, Act::ResetSort));
+            sort.push(MEntry::act("sort:reset", I_REFRESH, tr("Reset this folder to default"), "", 2, Act::ResetSort));
         }
-        v.push(MEntry::sub("app:sort", I_SORT, "Sort by", G_OPEN, sort));
-        v.push(MEntry::act("app:refresh", I_REFRESH, "Refresh", "F5", G_OPEN, Act::Refresh));
-        let mut paste = MEntry::act("app:paste", I_PASTE, "Paste", "Ctrl+V", G_EDIT, Act::Paste);
+        v.push(MEntry::sub("app:sort", I_SORT, tr("Sort by"), G_OPEN, sort));
+        v.push(MEntry::act("app:refresh", I_REFRESH, tr("Refresh"), "F5", G_OPEN, Act::Refresh));
+        let mut paste = MEntry::act("app:paste", I_PASTE, tr("Paste"), tr("Ctrl+V"), G_EDIT, Act::Paste);
         paste.enabled = shell::clipboard_has_files();
         v.push(paste);
-        v.push(MEntry::act("app:new", I_NEWFOLDER, "New folder", "Ctrl+Shift+N", G_EDIT, Act::NewFolder));
+        v.push(MEntry::act("app:new", I_NEWFOLDER, tr("New folder"), tr("Ctrl+Shift+N"), G_EDIT, Act::NewFolder));
         if shell.is_none() {
-            v.push(MEntry::act("app:newtext", I_RENAME, "New text document", "", G_EDIT, Act::NewTextFile));
+            v.push(MEntry::act("app:newtext", I_RENAME, tr("New text document"), "", G_EDIT, Act::NewTextFile));
         }
         if let Some(d) = &m.dir {
-            v.push(MEntry::act("app:terminal", I_TERMINAL, "Open in Terminal", "", G_EDIT, Act::TerminalAt(d.clone())));
+            v.push(MEntry::act("app:terminal", I_TERMINAL, tr("Open in Terminal"), "", G_EDIT, Act::TerminalAt(d.clone())));
         }
-        v.push(MEntry::act("app:selectall", I_COPY, "Select all", "Ctrl+A", G_EDIT, Act::SelectAll));
+        v.push(MEntry::act("app:selectall", I_COPY, tr("Select all"), tr("Ctrl+A"), G_EDIT, Act::SelectAll));
         if let Some((sm, tex)) = shell {
             v.extend(self.shell_entries(&sm.entries, tex, true));
         }
@@ -420,9 +421,9 @@ impl App {
             v.push(self.pin_entry(d, m.pinned));
             v.extend(self.custom_entries(None));
             if cfg!(windows) {
-                v.push(MEntry::act("app:more", I_MORE, "Classic Windows menu", "Shift+F10", G_TAIL, Act::NativeMenu(false)));
+                v.push(MEntry::act("app:more", I_MORE, tr("Classic Windows menu"), tr("Shift+F10"), G_TAIL, Act::NativeMenu(false)));
             }
-            v.push(MEntry::act("app:properties", I_INFO, "Properties", "", G_TAIL + 1, Act::Properties(d.clone())));
+            v.push(MEntry::act("app:properties", I_INFO, tr("Properties"), "", G_TAIL + 1, Act::Properties(d.clone())));
         }
         v
     }
@@ -631,21 +632,21 @@ impl App {
                 ui.horizontal(|ui| {
                     ui.spacing_mut().item_spacing.x = 2.0;
                     let mut clicked: Option<Act> = None;
-                    if icon_button(ui, I_CUT, "Cut (Ctrl+X)", q.cut).clicked() {
+                    if icon_button(ui, I_CUT, tr("Cut (Ctrl+X)"), q.cut).clicked() {
                         clicked = Some(Act::Cut);
                     }
-                    if icon_button(ui, I_COPY, "Copy (Ctrl+C)", true).clicked() {
+                    if icon_button(ui, I_COPY, tr("Copy (Ctrl+C)"), true).clicked() {
                         clicked = Some(Act::Copy);
                     }
                     if let Some(dest) = &q.paste_into {
-                        if icon_button(ui, I_PASTE, "Paste into this folder", true).clicked() {
+                        if icon_button(ui, I_PASTE, tr("Paste into this folder"), true).clicked() {
                             clicked = Some(Act::PasteInto(dest.clone()));
                         }
                     }
-                    if icon_button(ui, I_RENAME, "Rename (F2)", q.rename).clicked() {
+                    if icon_button(ui, I_RENAME, tr("Rename (F2)"), q.rename).clicked() {
                         clicked = Some(Act::StartRename);
                     }
-                    if icon_button(ui, I_DELETE, "Delete (Del)", q.delete).clicked() {
+                    if icon_button(ui, I_DELETE, tr("Delete (Del)"), q.delete).clicked() {
                         clicked = Some(Act::Delete(false));
                     }
                     if let Some(a) = clicked {
@@ -689,7 +690,7 @@ impl App {
     // ------------------------------------------------------------------ WYSIWYG editor
 
     fn sample_path(&self, i: usize) -> Option<PathBuf> {
-        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone());
+        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone()); // i18n-ignore: place names stay English inside the program
         let win = PathBuf::from(std::env::var("SystemRoot").unwrap_or_else(|_| "C:\\Windows".into()));
         let first = |c: Vec<PathBuf>| c.into_iter().find(|p| p.exists());
         match i {
@@ -740,34 +741,39 @@ impl App {
     }
 
     pub(super) fn menu_editor(&mut self, ui: &mut Ui) {
-        ui.label(egui::RichText::new("Right-click menu").heading());
+        ui.label(egui::RichText::new(tr("Right-click menu")).heading());
         ui.label(
-            egui::RichText::new(
+            egui::RichText::new(tr(
                 "This is your menu exactly as it will look. Drag items to reorder them, or drag them into \"Show more options\" or \"Hidden\". \
                  Items from Windows and installed apps (7-Zip, Git, VS Code, Photos…) are included.",
-            )
+            ))
             .color(DIM()),
         );
         ui.add_space(8.0);
         ui.horizontal_wrapped(|ui| {
-            ui.label(egui::RichText::new("Preview the menu for").color(DIM()));
+            ui.label(egui::RichText::new(tr("Preview the menu for")).color(DIM()));
             for (i, s) in SAMPLES.iter().enumerate() {
                 if i == 5 && self.customizer.target.is_none() {
                     continue;
                 }
-                if ui.selectable_label(self.customizer.sample == i, *s).clicked() {
+                if ui.selectable_label(self.customizer.sample == i, tr(s)).clicked() {
                     self.customizer.sample = i;
                 }
             }
         });
         if let (5, Some((items, dir, bg))) = (self.customizer.sample, &self.customizer.target) {
-            let what = if *bg { format!("the background of {}", dir.display()) } else { items.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ") };
-            ui.label(egui::RichText::new(format!("Showing the menu for {what}")).small().color(FAINT()));
+            let what = if *bg {
+                trf!("Showing the menu for the background of {folder}", folder = dir.display())
+            } else {
+                let list = items.iter().map(|p| p.display().to_string()).collect::<Vec<_>>().join(", ");
+                trf!("Showing the menu for {items}", items = list)
+            };
+            ui.label(egui::RichText::new(what).small().color(FAINT()));
         }
         ui.add_space(8.0);
         let sample = self.customizer.sample;
         let Some((items, dir, background)) = self.sample_target(sample) else {
-            ui.label(egui::RichText::new("No sample file of this kind was found on this PC.").color(FAINT()));
+            ui.label(egui::RichText::new(tr("No sample file of this kind was found on this PC.")).color(FAINT()));
             return;
         };
         if self.customizer.built_for != Some(sample) {
@@ -797,18 +803,18 @@ impl App {
         let draw = |app: &mut App, ui: &mut Ui, handled: &mut bool| {
             ui.vertical(|ui| {
                 ui.set_width(menu_w);
-                app.editor_zone(ui, &list, MenuMode::Show, "Menu", "", handled);
+                app.editor_zone(ui, &list, MenuMode::Show, tr("Menu"), "", handled);
             });
             if wide {
                 ui.add_space(16.0);
             }
             ui.vertical(|ui| {
                 ui.set_width(if wide { ui.available_width().max(240.0) } else { menu_w });
-                app.editor_zone(ui, &list, MenuMode::More, "Show more options submenu", "Rarely used items, one level down.", handled);
+                app.editor_zone(ui, &list, MenuMode::More, tr("Show more options submenu"), tr("Rarely used items, one level down."), handled);
                 ui.add_space(12.0);
-                app.editor_zone(ui, &list, MenuMode::Hide, "Hidden", "Never shown. Includes Windows' own copies of commands this menu already has.", handled);
+                app.editor_zone(ui, &list, MenuMode::Hide, tr("Hidden"), tr("Never shown. Includes Windows' own copies of commands this menu already has."), handled);
                 ui.add_space(8.0);
-                if ui.button("Reset this menu to defaults").clicked() {
+                if ui.button(tr("Reset this menu to defaults")).clicked() {
                     let keys: HashSet<String> = list.iter().flat_map(|(e, _)| std::iter::once(e.key.clone()).chain(e.alt_key.clone())).collect();
                     app.settings.menu_rules.retain(|k, _| !keys.contains(k));
                     app.settings.menu_order.retain(|k| !keys.contains(k));
@@ -837,10 +843,10 @@ impl App {
         }
         ui.add_space(18.0);
         if pol.no_custom_commands {
-            ui.label(egui::RichText::new("Your own commands").strong());
+            ui.label(egui::RichText::new(tr("Your own commands")).strong());
             settings_page::managed_note(ui);
         } else if pol.has_fixed(policy::COMMANDS) {
-            ui.label(egui::RichText::new("Your own commands").strong());
+            ui.label(egui::RichText::new(tr("Your own commands")).strong());
             settings_page::managed_note(ui);
             for cmd in self.settings.commands() {
                 ui.horizontal(|ui| {
@@ -871,7 +877,7 @@ impl App {
                 ui.add(egui::Separator::default().spacing(4.0));
                 ui.horizontal(|ui| {
                     ui.add_space(26.0);
-                    ui.label(egui::RichText::new(format!("{}   Show more options  ›", ic(I_MORE))).font(icon_font(13.5)).color(FAINT()));
+                    ui.label(egui::RichText::new(format!("{}   {}  ›", ic(I_MORE), tr("Show more options"))).font(icon_font(13.5)).color(FAINT()));
                 });
             };
             let mut more_placed = zone != MenuMode::Show;
@@ -899,7 +905,7 @@ impl App {
             }
             if (items.is_empty() && !(zone == MenuMode::Hide && !self.hidden_children(list).is_empty())) || dragging {
                 let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), if items.is_empty() { 40.0 } else { 26.0 }), Sense::hover());
-                ui.painter().text(r.center(), Align2::CENTER_CENTER, if dragging { "Drop here" } else { "Drag items here" }, FontId::proportional(12.5), FAINT());
+                ui.painter().text(r.center(), Align2::CENTER_CENTER, if dragging { tr("Drop here") } else { tr("Drag items here") }, FontId::proportional(12.5), FAINT());
             }
         });
         if let Some(d) = dropped {
@@ -951,7 +957,7 @@ impl App {
         }
         let mut label = e.label.clone();
         if let Some(p) = parent {
-            label = format!("{label}   (in {p})");
+            label = trf!("{item}   (in {submenu})", item = label, submenu = p);
         }
         if is_sub {
             let open = self.customizer.expanded.contains(&e.key);
@@ -1037,17 +1043,17 @@ impl App {
     }
 
     fn custom_commands_editor(&mut self, ui: &mut Ui) {
-        ui.label(egui::RichText::new("Your own commands").strong());
-        ui.label(egui::RichText::new("Run any program on the right-clicked items. Use {path}, {paths}, {name} and {dir} in the command.").color(DIM()));
+        ui.label(egui::RichText::new(tr("Your own commands")).strong());
+        ui.label(egui::RichText::new(tr("Run any program on the right-clicked items. Use {path}, {paths}, {name} and {dir} in the command.")).color(DIM()));
         ui.add_space(4.0);
         let mut remove = None;
         for (i, cmd) in self.settings.custom.iter().enumerate() {
             ui.horizontal(|ui| {
-                if ui.small_button(egui::RichText::new(ic(I_DELETE)).font(icon_font(12.0))).on_hover_text("Remove").clicked() {
+                if ui.small_button(egui::RichText::new(ic(I_DELETE)).font(icon_font(12.0))).on_hover_text(tr("Remove")).clicked() {
                     remove = Some(i);
                 }
                 ui.label(egui::RichText::new(&cmd.label).strong());
-                ui.label(egui::RichText::new(format!("for {}", applies_text(&cmd.applies))).color(DIM()).small());
+                ui.label(egui::RichText::new(trf!("for {what}", what = applies_text(&cmd.applies))).color(DIM()).small());
                 ui.label(egui::RichText::new(&cmd.command).monospace().color(DIM()));
             });
         }
@@ -1061,15 +1067,15 @@ impl App {
         }
         let mut add = false;
         egui::Grid::new("newcmd").num_columns(2).spacing(vec2(10.0, 6.0)).show(ui, |ui| {
-            ui.label("Name");
-            ui.add(egui::TextEdit::singleline(&mut c.new_label).hint_text("Open in VS Code").desired_width(320.0));
+            ui.label(tr("Name"));
+            ui.add(egui::TextEdit::singleline(&mut c.new_label).hint_text(tr("Open in VS Code")).desired_width(320.0));
             ui.end_row();
-            ui.label("Command");
+            ui.label(tr("Command"));
             ui.add(egui::TextEdit::singleline(&mut c.new_command).hint_text("code {paths}").desired_width(320.0));
             ui.end_row();
-            ui.label("Show for");
+            ui.label(tr("Show for"));
             ui.horizontal_wrapped(|ui| {
-                for (v, l) in [("all", "Everything"), ("files", "Files"), ("folders", "Folders"), ("background", "Folder background"), ("ext", "File types:")] {
+                for (v, l) in [("all", tr("Everything")), ("files", tr("Files")), ("folders", tr("Folders")), ("background", tr("Folder background")), ("ext", tr("File types:"))] {
                     ui.radio_value(&mut c.new_applies, v.to_string(), l);
                 }
             });
@@ -1081,7 +1087,7 @@ impl App {
             }
             ui.label("");
             let ready = !c.new_label.trim().is_empty() && !c.new_command.trim().is_empty();
-            add = ui.add_enabled(ready, egui::Button::new(egui::RichText::new(format!("{}  Add command", ic(I_ADD))).font(icon_font(13.0)))).clicked();
+            add = ui.add_enabled(ready, egui::Button::new(egui::RichText::new(format!("{}  {}", ic(I_ADD), tr("Add command"))).font(icon_font(13.0)))).clicked();
             ui.end_row();
         });
         if add {
@@ -1110,14 +1116,14 @@ impl App {
         if all.is_empty() {
             return;
         }
-        egui::CollapsingHeader::new(egui::RichText::new(format!("All Windows & app items seen so far ({})", all.len())).strong()).default_open(false).show(ui, |ui| {
+        egui::CollapsingHeader::new(egui::RichText::new(trf!("All Windows & app items seen so far ({n})", n = crate::util::fmt_count(all.len()))).strong()).default_open(false).show(ui, |ui| {
             egui::Grid::new("shellrules").num_columns(2).striped(true).spacing(vec2(16.0, 4.0)).show(ui, |ui| {
                 for (key, label) in all {
                     let probe = MEntry { key: key.clone(), alt_key: None, label: label.clone(), glyph: None, tex: None, shortcut: "", bold: false, enabled: true, group: 0, kind: MKind::Shell(0) };
                     let mut mode = self.entry_mode(&probe);
                     ui.label(&label);
                     ui.horizontal(|ui| {
-                        for (mm, word) in [(MenuMode::Show, "In menu"), (MenuMode::More, "In \"Show more options\""), (MenuMode::Hide, "Hidden")] {
+                        for (mm, word) in [(MenuMode::Show, tr("In menu")), (MenuMode::More, tr("In \"Show more options\"")), (MenuMode::Hide, tr("Hidden"))] {
                             if ui.radio_value(&mut mode, mm, word).changed() {
                                 self.set_mode(&probe, mm);
                             }
@@ -1181,10 +1187,10 @@ fn pop_row(ui: &mut Ui, e: &MEntry, chevron: bool, open: bool) -> Response {
 
 fn applies_text(a: &str) -> String {
     match a {
-        "all" => "everything".into(),
-        "files" => "files".into(),
-        "folders" => "folders".into(),
-        "background" => "folder background".into(),
+        "all" => tr("everything").into(),
+        "files" => tr("files").into(),
+        "folders" => tr("folders").into(),
+        "background" => tr("folder background").into(),
         other => other.strip_prefix("ext:").map(|e| format!(".{}", e.replace(',', ", ."))).unwrap_or_else(|| other.to_string()),
     }
 }
@@ -1216,7 +1222,7 @@ pub(super) fn run_custom(c: &CustomCmd, paths: &[PathBuf], dir: &Path) -> Result
     #[cfg(not(windows))]
     {
         // Linux / macOS: the shell runs it (handles quoting, scripts and PATH lookups)
-        return std::process::Command::new("sh").arg("-c").arg(line).current_dir(dir).spawn().map(|_| ()).map_err(|e| format!("Couldn't run '{}': {e}", c.label));
+        return std::process::Command::new("sh").arg("-c").arg(line).current_dir(dir).spawn().map(|_| ()).map_err(|e| trf!("Couldn't run '{name}': {error}", name = c.label, error = e));
     }
     #[cfg(windows)]
     run_custom_windows(c, line, dir)
@@ -1244,6 +1250,6 @@ fn run_custom_windows(c: &CustomCmd, line: &str, dir: &Path) -> Result<(), Strin
             .creation_flags(0x0800_0000)
             .spawn()
             .map(|_| ())
-            .map_err(|e| format!("Couldn't run '{}': {e}", c.label)),
+            .map_err(|e| trf!("Couldn't run '{name}': {error}", name = c.label, error = e)),
     }
 }
