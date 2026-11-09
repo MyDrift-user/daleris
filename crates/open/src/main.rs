@@ -23,6 +23,29 @@ mod jump;
 #[cfg(windows)]
 mod shellwin;
 
+/// Text in the language Daleris shows, as it last wrote it to the registry ("en", "de" or "it"); before it has, the
+/// language Windows is shown in. Read every time, as this can run for days while the setting changes. The launcher
+/// can't use the app's catalogs, so each text carries its own translations.
+#[cfg(windows)]
+fn three(en: &'static str, de: &'static str, it: &'static str) -> &'static str {
+    use daleris_integration::reg::{self, Hive};
+    let code = Hive::real().read_text(reg::OWN_KEY, reg::LANGUAGE).unwrap_or_default();
+    let code = match code.as_str() {
+        "en" | "de" | "it" => code,
+        // the primary language of Windows's display language
+        _ => match unsafe { windows::Win32::Globalization::GetUserDefaultUILanguage() } & 0x3ff {
+            0x07 => "de".to_string(),
+            0x10 => "it".to_string(),
+            _ => "en".to_string(),
+        },
+    };
+    match code.as_str() {
+        "de" => de,
+        "it" => it,
+        _ => en,
+    }
+}
+
 #[cfg(not(windows))]
 fn main() {}
 

@@ -13,6 +13,7 @@ use windows::Win32::System::Threading::*;
 use windows::Win32::UI::WindowsAndMessaging::*;
 
 use super::{Feature, Live};
+use crate::i18n::tr;
 
 /// Copies the launcher and the DLLs from next to this program to the person's own folder. Windows then loads them from
 /// there, so that a PC-wide install's folder can't block an upgrade by having a DLL loaded in someone's app, and an
@@ -21,21 +22,21 @@ use super::{Feature, Live};
 pub fn install_support() -> Result<Support, String> {
     let exe = std::env::current_exe().map_err(|e| e.to_string())?;
     let from = exe.parent().unwrap_or(Path::new("."));
-    let dir = reg::support_dir().ok_or("There's no folder for this person's programs")?;
-    std::fs::create_dir_all(&dir).map_err(|e| format!("Couldn't create {}: {e}", dir.display()))?;
+    let dir = reg::support_dir().ok_or(tr("There's no folder for this person's programs"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| trf!("Couldn't create {folder}: {error}", folder = dir.display(), error = e))?;
     let version = crate::update::CURRENT;
     let first = |names: &[&str]| names.iter().map(|n| from.join(n)).find(|p| p.is_file());
-    let missing = "This copy of Daleris doesn't have the files for this next to it. Install it with the MSI or setup.exe.";
+    let missing = tr("This copy of Daleris doesn't have the files for this next to it. Install it with the MSI or setup.exe.");
     let open_from = first(&["daleris-open.exe"]).ok_or(missing)?;
     let dll64_from = first(&["daleris-dialogs-x64.dll", "daleris_dialogs.dll"]).ok_or(missing)?;
     let dll32_from = first(&["daleris-dialogs-x86.dll"]);
     let copy = |src: &Path, stem: &str, ext: &str| -> Result<PathBuf, String> {
         use sha2::{Digest, Sha256};
-        let bytes = std::fs::read(src).map_err(|e| format!("Couldn't read {}: {e}", src.display()))?;
+        let bytes = std::fs::read(src).map_err(|e| trf!("Couldn't read {file}: {error}", file = src.display(), error = e))?;
         let hash: String = Sha256::digest(&bytes).iter().take(4).map(|b| format!("{b:02x}")).collect();
         let to = dir.join(format!("{stem}-{version}-{hash}.{ext}"));
         if !to.is_file() {
-            std::fs::write(&to, &bytes).map_err(|e| format!("Couldn't copy to {}: {e}", to.display()))?;
+            std::fs::write(&to, &bytes).map_err(|e| trf!("Couldn't copy to {file}: {error}", file = to.display(), error = e))?;
         }
         Ok(to)
     };
@@ -71,7 +72,7 @@ pub fn sync(wanted: &[(Feature, bool)], exclusions: &str) -> Result<(), String> 
         return Ok(());
     }
     if is_elevated() {
-        return Err("Daleris is running as administrator, so it won't change what the signed-in person's Explorer does. Run it normally.".into());
+        return Err(tr("Daleris is running as administrator, so it won't change what the signed-in person's Explorer does. Run it normally.").into());
     }
     // a removal still waiting for the next sign-in would take these files away again
     reg::clear_cleanup_note(&hive);
@@ -83,7 +84,7 @@ pub fn sync(wanted: &[(Feature, bool)], exclusions: &str) -> Result<(), String> 
         if on {
             if feature == Feature::Dialogs && is_arm64() {
                 hive.remove(feature);
-                return Err("Open and Save dialogs aren't available on ARM PCs yet: ARM apps couldn't load this DLL, so they'd lose their dialogs.".into());
+                return Err(tr("Open and Save dialogs aren't available on ARM PCs yet: ARM apps couldn't load this DLL, so they'd lose their dialogs.").into());
             }
             hive.apply(feature, &support)?;
         } else {
@@ -99,7 +100,7 @@ pub fn sync(wanted: &[(Feature, bool)], exclusions: &str) -> Result<(), String> 
 
 /// Stops or starts something that stays running. One from an older launcher is replaced, so that an update takes effect.
 fn keep_agent(hive: &Hive, agent: hookctl::Agent, wanted: bool, launcher: &Path) {
-    let value = format!("Started{}", agent.arg);
+    let value = format!("Started{}", agent.arg); // i18n-ignore: registry value name
     let path = launcher.display().to_string();
     if !wanted || hive.read_text(reg::OWN_KEY, &value).as_deref() != Some(path.as_str()) {
         agent.stop();
@@ -149,33 +150,33 @@ pub fn status(feature: Feature) -> Live {
     let in_place = hive.is_in_place(feature);
     let flag_off_by_policy = policy_fixed(feature) == Some(false);
     if flag_off_by_policy {
-        return if in_place { Live::Problem("Your organization turned this off, and it's being removed.".into()) } else { Live::Off };
+        return if in_place { Live::Problem(tr("Your organization turned this off, and it's being removed.").into()) } else { Live::Off };
     }
     if !in_place {
         return Live::Off;
     }
     match feature {
-        Feature::Folders => Live::Active("Active. Folders from the desktop, Start and most apps open here. Apps that start explorer.exe themselves still open File Explorer.".into()),
-        Feature::WinE => Live::Active("Registered. Press Win + E to see whether your Windows build goes by it.".into()),
+        Feature::Folders => Live::Active(tr("Active. Folders from the desktop, Start and most apps open here. Apps that start explorer.exe themselves still open File Explorer.").into()),
+        Feature::WinE => Live::Active(tr("Registered. Press Win + E to see whether your Windows build goes by it.").into()),
         Feature::WinEHook => {
             if hookctl::HOOK.is_running() {
-                Live::Active("Active. The hook is running, in a small process of its own.".into())
+                Live::Active(tr("Active. The hook is running, in a small process of its own.").into())
             } else {
-                Live::Problem("Set to start at sign-in, but it isn't running now.".into())
+                Live::Problem(tr("Set to start at sign-in, but it isn't running now.").into())
             }
         }
         Feature::Select => {
             if hive.is_in_place(Feature::Folders) {
-                Live::Active("Active. \"Show in folder\" selects the file when the app uses the Windows call for it.".into())
+                Live::Active(tr("Active. \"Show in folder\" selects the file when the app uses the Windows call for it.").into())
             } else {
-                Live::Problem("Needs \"Open folders in Daleris\" too, or Windows doesn't come to Daleris for this at all.".into())
+                Live::Problem(tr("Needs \"Open folders in Daleris\" too, or Windows doesn't come to Daleris for this at all.").into())
             }
         }
         Feature::SingleWindow => {
             if pipe::is_up() {
-                Live::Active("Active. This window takes new folders as tabs.".into())
+                Live::Active(tr("Active. This window takes new folders as tabs.").into())
             } else {
-                Live::Problem("On, but no window is taking requests right now. The next Daleris to start will.".into())
+                Live::Problem(tr("On, but no window is taking requests right now. The next Daleris to start will.").into())
             }
         }
         Feature::Dialogs => {
@@ -183,23 +184,25 @@ pub fn status(feature: Feature) -> Live {
             let key32 = format!(r"Software\Classes\WOW6432Node\CLSID\{}\InprocServer32", reg::DIALOG_CLSIDS[0]);
             let exists = |k: &str| hive.read_text(k, "").is_some_and(|p| Path::new(&p).is_file());
             match (exists(&key), exists(&key32)) {
-                (true, true) => Live::Active("Active for 64-bit and 32-bit apps that use the modern Windows dialogs.".into()),
-                (true, false) => Live::Active("Active for 64-bit apps. 32-bit apps keep the Windows dialog.".into()),
-                _ => Live::Problem("The DLL is missing, so apps keep the Windows dialog.".into()),
+                (true, true) => Live::Active(tr("Active for 64-bit and 32-bit apps that use the modern Windows dialogs.").into()),
+                (true, false) => Live::Active(tr("Active for 64-bit apps. 32-bit apps keep the Windows dialog.").into()),
+                _ => Live::Problem(tr("The DLL is missing, so apps keep the Windows dialog.").into()),
             }
         }
         Feature::DialogJump => {
             if !hookctl::JUMP.is_running() {
-                Live::Problem("Set to start at sign-in, but it isn't running now.".into())
-            } else if let Some(problem) = hive.read_text(reg::OWN_KEY, reg::JUMP_PROBLEM).filter(|p| !p.is_empty()) {
-                Live::Problem(problem)
+                Live::Problem(tr("Set to start at sign-in, but it isn't running now.").into())
+            } else if hive.read_text(reg::OWN_KEY, reg::JUMP_PROBLEM).is_some_and(|p| !p.is_empty()) {
+                // the watcher writes a code, "hotkey_taken", the only problem it has; an older one wrote the
+                // sentence itself, which is about the same thing
+                Live::Problem(tr("Another program has taken Ctrl + G, so it can't send file dialogs to the Daleris folder right now.").into())
             } else {
-                Live::Active("Active. Press Ctrl + G in a Windows file dialog while Daleris shows the folder you want.".into())
+                Live::Active(tr("Active. Press Ctrl + G in a Windows file dialog while Daleris shows the folder you want.").into())
             }
         }
         Feature::DialogLog => match reg::logs_dir() {
-            Some(dir) => Live::Active(format!("Writing to {}", dir.join(reg::DIALOG_LOG).display())),
-            None => Live::Problem("There's no folder to write it to.".into()),
+            Some(dir) => Live::Active(trf!("Writing to {file}", file = dir.join(reg::DIALOG_LOG).display())),
+            None => Live::Problem(tr("There's no folder to write it to.").into()),
         },
     }
 }
@@ -213,7 +216,7 @@ pub fn serve_requests(ctx: eframe::egui::Context, running: Arc<AtomicBool>) -> O
     }
     let server = Server::start()?;
     let (tx, rx) = channel();
-    let _ = std::thread::Builder::new().name("single window".into()).spawn(move || {
+    let _ = std::thread::Builder::new().name("single window".into()).spawn(move || { // i18n-ignore: thread name
         let stop = running.clone();
         server.run(
             move || !stop.load(Ordering::SeqCst),
@@ -290,7 +293,7 @@ pub fn serve_window_requests(ctx: eframe::egui::Context) -> Option<Receiver<Requ
     }
     let server = Server::start_for_window()?;
     let (tx, rx) = channel();
-    let _ = std::thread::Builder::new().name("tab handover".into()).spawn(move || {
+    let _ = std::thread::Builder::new().name("tab handover".into()).spawn(move || { // i18n-ignore: thread name
         server.run(
             || false,
             |request| {

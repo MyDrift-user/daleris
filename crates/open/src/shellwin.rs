@@ -36,7 +36,7 @@ const WAIT_AFTER_OPENING: Duration = Duration::from_secs(4);
 pub fn open_watching_for_selection(folder: &Path, open: impl Fn(Option<PathBuf>) -> bool) -> bool {
     let (tx, rx) = channel();
     let path = folder.to_path_buf();
-    let _ = std::thread::Builder::new().name("shell window".into()).spawn(move || {
+    let _ = std::thread::Builder::new().name("shell window".into()).spawn(move || { // i18n-ignore: thread name
         let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| watch(&path, tx)));
     });
     let opened = match rx.recv_timeout(WAIT_BEFORE_OPENING) {
@@ -105,7 +105,7 @@ fn hidden_window() -> Option<HWND> {
     let module = unsafe { GetModuleHandleW(None) }.ok()?;
     let class = WNDCLASSW { lpfnWndProc: Some(window_proc), hInstance: module.into(), lpszClassName: w!("DalerisShellWindow"), ..Default::default() };
     unsafe { RegisterClassW(&class) };
-    let hwnd = unsafe { CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("DalerisShellWindow"), w!("Daleris"), WINDOW_STYLE(0), 0, 0, 0, 0, None, None, Some(module.into()), None) }.ok()?;
+    let hwnd = unsafe { CreateWindowExW(WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE, w!("DalerisShellWindow"), w!("Daleris"), WINDOW_STYLE(0), 0, 0, 0, 0, None, None, Some(module.into()), None) }.ok()?; // i18n-ignore: class and title of a window nobody sees
     let cloak: BOOL = true.into();
     let _ = unsafe { DwmSetWindowAttribute(hwnd, DWMWA_CLOAK, &cloak as *const BOOL as *const _, 4) };
     Some(hwnd)
@@ -274,7 +274,7 @@ impl IWebBrowser_Impl for ShellWin_Impl {
         Ok(VARIANT_TRUE)
     }
     fn Type(&self) -> windows::core::Result<BSTR> {
-        Ok(BSTR::from("Daleris"))
+        Ok(BSTR::from("Daleris")) // i18n-ignore: a name Windows asks for, never shown
     }
     fn Left(&self) -> windows::core::Result<i32> {
         Ok(0)
@@ -325,7 +325,7 @@ impl IWebBrowserApp_Impl for ShellWin_Impl {
         Err(E_NOTIMPL.into())
     }
     fn Name(&self) -> windows::core::Result<BSTR> {
-        Ok(BSTR::from("Daleris"))
+        Ok(BSTR::from("Daleris")) // i18n-ignore: a name Windows asks for, never shown
     }
     fn HWND(&self) -> windows::core::Result<SHANDLE_PTR> {
         Ok(SHANDLE_PTR(self.hwnd.0 as isize))

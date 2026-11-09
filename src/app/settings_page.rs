@@ -16,18 +16,18 @@ pub enum Page {
 }
 
 const PAGES: [(Page, &str, &str); 7] = [
-    (Page::Appearance, I_PALETTE, "Appearance"),
-    (Page::Sidebar, I_NAVPANE, "Sidebar"),
-    (Page::Ribbon, I_GRID, "Ribbon bar"),
-    (Page::ContextMenu, I_MORE, "Right-click menu"),
-    (Page::Files, I_FOLDER, "Files & folders"),
-    (Page::Explorer, I_NAVPANE, "Windows Explorer"),
-    (Page::About, I_INFO, "About & updates"),
+    (Page::Appearance, I_PALETTE, tx("Appearance")),
+    (Page::Sidebar, I_NAVPANE, tx("Sidebar")),
+    (Page::Ribbon, I_GRID, tx("Ribbon bar")),
+    (Page::ContextMenu, I_MORE, tx("Right-click menu")),
+    (Page::Files, I_FOLDER, tx("Files & folders")),
+    (Page::Explorer, I_NAVPANE, tx("Windows Explorer")),
+    (Page::About, I_INFO, tx("About & updates")),
 ];
 
 /// `icon packs` in the settings folder: each sub-folder is an icon pack of PNGs.
 pub fn icon_pack_dir() -> PathBuf {
-    config_dir().unwrap_or_default().join("icon packs")
+    config_dir().unwrap_or_default().join("icon packs") // i18n-ignore: folder name in the settings folder
 }
 
 
@@ -95,14 +95,14 @@ pub(super) fn toggle(ui: &mut Ui, on: &mut bool, label: &str) -> bool {
 }
 
 /// Tooltip and note on anything a policy fixes.
-pub(super) const MANAGED: &str = "Managed by your organization";
+pub(super) const MANAGED: &str = tx("Managed by your organization");
 
 /// A small lock and "Managed by your organization", for a grayed-out setting or section.
 pub(super) fn managed_note(ui: &mut Ui) {
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = 4.0;
         ui.label(egui::RichText::new(ic(I_LOCK)).font(icon_font(11.0)).color(DIM()));
-        ui.label(egui::RichText::new(MANAGED).small().color(DIM()));
+        ui.label(egui::RichText::new(tr(MANAGED)).small().color(DIM()));
     });
 }
 
@@ -192,7 +192,7 @@ impl App {
         if !self.settings.explorer_colours() {
             return false;
         }
-        ui.label(egui::RichText::new("Explorer's colours decide this.").small().color(DIM()));
+        ui.label(egui::RichText::new(tr("Explorer's colours decide this.")).small().color(DIM()));
         ui.add_space(4.0);
         true
     }
@@ -202,19 +202,19 @@ impl App {
     fn looks_card(&mut self, ui: &mut Ui) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Look", "Set the colours, lines, Mica, row height and icons below, and the search box's switches under Files & folders, the way Windows Explorer has them or the way Daleris looks on its own. Each stays yours to change afterwards.");
+            heading(ui, tr("Look"), tr("Set the colours, lines, Mica, row height and icons below, and the search box's switches under Files & folders, the way Windows Explorer has them or the way Daleris looks on its own. Each stays yours to change afterwards."));
             let mut chosen = None;
             ui.horizontal(|ui| {
-                if ui.button("Look like Windows Explorer").clicked() {
+                if ui.button(tr("Look like Windows Explorer")).clicked() {
                     chosen = Some(true);
                 }
-                if ui.button("Daleris's own look").clicked() {
+                if ui.button(tr("Daleris's own look")).clicked() {
                     chosen = Some(false);
                 }
             });
             if super::LOOKS.iter().any(|(k, ..)| policy::is_fixed(k)) {
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new("What your organization manages stays as it is.").size(12.0).color(DIM()));
+                ui.label(egui::RichText::new(tr("What your organization manages stays as it is.")).size(12.0).color(DIM()));
             }
             if let Some(explorer) = chosen {
                 self.settings.apply_look(explorer);
@@ -252,20 +252,20 @@ impl App {
     fn window_card(&mut self, ui: &mut Ui) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Window", "How the panes and the tab bar are drawn.");
+            heading(ui, tr("Window"), tr("How the panes and the tab bar are drawn."));
             let s = &mut self.settings;
-            let mut changed = managed_toggle(ui, &mut s.explorer_lines, "explorer_lines", "Explorer's lines between the panes and around the tab in front");
+            let mut changed = managed_toggle(ui, &mut s.explorer_lines, "explorer_lines", tr("Explorer's lines between the panes and around the tab in front"));
             // Mica: Windows 11 only, and the window has to be made for it when it opens
             if shell::has_mica() {
-                changed |= managed_toggle(ui, &mut s.explorer_mica, "explorer_mica", "Mica behind the tab bar");
+                changed |= managed_toggle(ui, &mut s.explorer_mica, "explorer_mica", tr("Mica behind the tab bar"));
                 let mica = s.explorer_mica;
                 ui.indent("mica_parts", |ui| {
                     ui.add_enabled_ui(mica, |ui| {
-                        changed |= managed_toggle(ui, &mut s.explorer_mica_bar, "explorer_mica_bar", "A little of it through the tab in front and the address bar");
+                        changed |= managed_toggle(ui, &mut s.explorer_mica_bar, "explorer_mica_bar", tr("A little of it through the tab in front and the address bar"));
                     });
                 });
                 if s.wants_mica() && !crate::theme::mica_window() {
-                    ui.label(egui::RichText::new("Mica takes effect when Daleris starts again.").size(12.0).color(DIM()));
+                    ui.label(egui::RichText::new(tr("Mica takes effect when Daleris starts again.")).size(12.0).color(DIM()));
                 }
             }
             if changed {
@@ -309,7 +309,7 @@ impl App {
             .frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin { left: 16, right: 8, top: 18, bottom: 12 }))
             .show_separator_line(false)
             .show(ui, |ui| {
-                ui.label(egui::RichText::new("Settings").size(20.0).strong());
+                ui.label(egui::RichText::new(tr("Settings")).size(20.0).strong());
                 ui.add_space(12.0);
                 for (p, g, label) in PAGES {
                     // standing in for File Explorer only means something on Windows
@@ -325,7 +325,7 @@ impl App {
                         ui.painter().rect_filled(r, CornerRadius::same(6), HOVER());
                     }
                     ui.painter().text(r.left_center() + vec2(18.0, 0.0), Align2::CENTER_CENTER, ic(g), icon_font(14.0), if active { ACCENT() } else { DIM() });
-                    ui.painter().text(r.left_center() + vec2(38.0, 0.0), Align2::LEFT_CENTER, label, FontId::proportional(14.0), TEXT());
+                    ui.painter().text(r.left_center() + vec2(38.0, 0.0), Align2::LEFT_CENTER, tr(label), FontId::proportional(14.0), TEXT());
                     if resp.clicked() {
                         self.settings_page = p;
                     }
@@ -339,7 +339,7 @@ impl App {
                 if policy::current().any_fixed() {
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new(ic(I_LOCK)).font(icon_font(13.0)).color(ACCENT()));
-                        ui.label(egui::RichText::new("Some settings are managed by your organization. They are grayed out and can't be changed here.").color(DIM()));
+                        ui.label(egui::RichText::new(tr("Some settings are managed by your organization. They are grayed out and can't be changed here.")).color(DIM()));
                     });
                     ui.add_space(10.0);
                 }
@@ -379,15 +379,15 @@ impl App {
         }
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            managed_heading(ui, "Theme", "", "theme");
-            if cfg!(windows) && managed_toggle(ui, &mut self.settings.explorer_colours, "explorer_colours", "Explorer's colours, following Windows's light or dark mode and accent") {
+            managed_heading(ui, tr("Theme"), "", "theme");
+            if cfg!(windows) && managed_toggle(ui, &mut self.settings.explorer_colours, "explorer_colours", tr("Explorer's colours, following Windows's light or dark mode and accent")) {
                 self.apply_theme();
             }
             let explorer = self.explorer_decides(ui);
             ui.add_enabled_ui(!policy::is_fixed("theme") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
                 let accent = self.settings.palette().accent;
-                for (i, name) in [(0u8, if cfg!(windows) { "Follow Windows" } else { "Follow system" }), (1, "Dark"), (2, "Light")] {
+                for (i, name) in [(0u8, if cfg!(windows) { tr("Follow Windows") } else { tr("Follow system") }), (1, tr("Dark")), (2, tr("Light"))] {
                     let dark = match i {
                         0 => system_dark(),
                         1 => true,
@@ -402,14 +402,14 @@ impl App {
                 }
             }));
             ui.add_space(16.0);
-            managed_heading(ui, "Accent colour", "", "accent2");
+            managed_heading(ui, tr("Accent colour"), "", "accent2");
             let explorer = self.explorer_decides(ui);
             ui.add_enabled_ui(!policy::is_fixed("accent2") && !explorer, |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(10.0, 10.0);
                 let dark = pal().dark;
                 // Windows' own accent first: it's the default
-                let mut opts: Vec<(usize, String, Color32)> = vec![(ACCENTS.len(), if cfg!(windows) { "Windows accent colour (follows your Windows settings)" } else { "System accent colour" }.into(), system_accent().unwrap_or(ACCENTS[0].1))];
-                opts.extend(ACCENTS.iter().enumerate().map(|(i, a)| (i, a.0.to_string(), if dark { a.1 } else { a.2 })));
+                let mut opts: Vec<(usize, String, Color32)> = vec![(ACCENTS.len(), if cfg!(windows) { tr("Windows accent colour (follows your Windows settings)") } else { tr("System accent colour") }.into(), system_accent().unwrap_or(ACCENTS[0].1))];
+                opts.extend(ACCENTS.iter().enumerate().map(|(i, a)| (i, tr(a.0).to_string(), if dark { a.1 } else { a.2 })));
                 for (n, (i, name, c)) in opts.into_iter().enumerate() {
                     let (r, resp) = ui.allocate_exact_size(vec2(34.0, 34.0), Sense::click());
                     ui.painter().circle_filled(r.center(), 13.0, c);
@@ -433,10 +433,10 @@ impl App {
                 }
             }));
             ui.add_space(16.0);
-            managed_heading(ui, "Row height", "How tall each row in the file list is.", "density");
+            managed_heading(ui, tr("Row height"), tr("How tall each row in the file list is."), "density");
             ui.add_enabled_ui(!policy::is_fixed("density"), |ui| ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing = vec2(12.0, 12.0);
-                for (i, l) in ["Compact", "Normal", "Comfortable"].iter().enumerate() {
+                for (i, l) in [tr("Compact"), tr("Normal"), tr("Comfortable")].iter().enumerate() {
                     if self.density_card(ui, i as u8, l) {
                         self.settings.density = i as u8;
                         self.save_settings();
@@ -451,18 +451,18 @@ impl App {
         }
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Title bar", "The bar with the tabs at the top of the window.");
-            if managed_toggle(ui, &mut self.settings.title_custom, "title_custom", if cfg!(windows) { "Use the Daleris title bar (off = standard Windows title bar)" } else { "Use the Daleris title bar (off = the system's own title bar)" }) {
+            heading(ui, tr("Title bar"), tr("The bar with the tabs at the top of the window."));
+            if managed_toggle(ui, &mut self.settings.title_custom, "title_custom", if cfg!(windows) { tr("Use the Daleris title bar (off = standard Windows title bar)") } else { tr("Use the Daleris title bar (off = the system's own title bar)") }) {
                 self.set_titlebar();
                 self.save_settings();
             }
             ui.add_enabled_ui(self.settings.title_custom, |ui| {
-                let mut ch = managed_toggle(ui, &mut self.settings.title_logo, "title_logo", "Show the logo");
-                ch |= managed_toggle(ui, &mut self.settings.title_name, "title_name2", "Show the app name");
+                let mut ch = managed_toggle(ui, &mut self.settings.title_logo, "title_logo", tr("Show the logo"));
+                ch |= managed_toggle(ui, &mut self.settings.title_name, "title_name2", tr("Show the app name"));
                 let shown = self.settings.title_logo || self.settings.title_name;
                 ui.indent("brand_parts", |ui| {
                     ui.add_enabled_ui(shown, |ui| {
-                        ch |= managed_toggle(ui, &mut self.settings.title_brand_settings, "title_brand_settings", "Click them to open Settings, in place of the settings button");
+                        ch |= managed_toggle(ui, &mut self.settings.title_brand_settings, "title_brand_settings", tr("Click them to open Settings, in place of the settings button"));
                     });
                 });
                 if ch {
@@ -471,21 +471,21 @@ impl App {
             });
             let brand = self.settings.brand_opens_settings();
             ui.add_enabled_ui(!brand, |ui| {
-                if managed_toggle(ui, &mut self.settings.title_gear, "title_gear", "Show the settings button (Settings also opens with Ctrl+,)") {
+                if managed_toggle(ui, &mut self.settings.title_gear, "title_gear", tr("Show the settings button (Settings also opens with Ctrl+,)")) {
                     self.save_settings();
                 }
             });
             if brand {
-                ui.label(egui::RichText::new("The logo and name are the settings button.").size(12.0).color(DIM()));
+                ui.label(egui::RichText::new(tr("The logo and name are the settings button.")).size(12.0).color(DIM()));
             }
         });
         ui.add_space(14.0);
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            managed_heading(ui, "Icon pack", "How files and folders are drawn everywhere in the app.", "iconpack");
-            let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris".into()), ("phosphor".into(), "Phosphor".into())];
+            managed_heading(ui, tr("Icon pack"), tr("How files and folders are drawn everywhere in the app."), "iconpack");
+            let mut packs: Vec<(String, String)> = vec![("flat".into(), "Daleris".into()), ("phosphor".into(), "Phosphor".into())]; // i18n-ignore: names of icon packs
             if !prefers_bundled_icons() {
-                packs.insert(0, ("system".into(), "Windows (system icons)".into()));
+                packs.insert(0, ("system".into(), tr("Windows (system icons)").into()));
             }
 
             packs.extend(list_icon_packs().into_iter().map(|p| (p.clone(), p)));
@@ -519,20 +519,20 @@ impl App {
             }
             ui.add_space(4.0);
             ui.label(
-                egui::RichText::new(
+                egui::RichText::new(tr(
                     "Add your own pack: make a folder in the icon packs folder and put PNG files in it named folder.png, file.png, drive.png, \
                      desktop.png, documents.png, downloads.png…, or by file type (pdf.png, jpg.png) or kind (image.png, video.png, audio.png, code.png, archive.png). \
                      Anything missing falls back to the standard icon.",
-                )
+                ))
                 .color(DIM()),
             );
             ui.horizontal(|ui| {
-                if ui.button(egui::RichText::new(format!("{}  Open icon packs folder", ic(I_FOLDER))).font(icon_font(13.0))).clicked() {
+                if ui.button(egui::RichText::new(format!("{}  {}", ic(I_FOLDER), tr("Open icon packs folder"))).font(icon_font(13.0))).clicked() {
                     let d = icon_pack_dir();
                     let _ = std::fs::create_dir_all(&d);
                     self.acts.push(Act::NavigateNewTab(Loc::Dir(d)));
                 }
-                if ui.button("Reload packs").clicked() {
+                if ui.button(tr("Reload packs")).clicked() {
                     self.icons.retain(|k, _| !k.starts_with("pack:"));
                 }
             });
@@ -547,8 +547,8 @@ impl App {
         let selected = self.settings.density() == density;
         let list = Rect::from_min_size(r.min, vec2(r.width(), rows as f32 * row_h + 8.0));
         ui.painter().rect_filled(list, CornerRadius::same(8), BG());
-        let samples = [("Documents", "", true), ("Holiday.jpg", "jpg", false), ("Report.pdf", "pdf", false), ("notes.txt", "txt", false)];
-        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone()).unwrap_or_default();
+        let samples = [(tr("Documents"), "", true), (tr("Holiday.jpg"), "jpg", false), (tr("Report.pdf"), "pdf", false), (tr("notes.txt"), "txt", false)];
+        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone()).unwrap_or_default(); // i18n-ignore: a place name the code compares
         for (k, (name, ext, dir)) in samples.iter().enumerate() {
             let rr = Rect::from_min_size(list.min + vec2(4.0, 4.0 + k as f32 * row_h), vec2(list.width() - 8.0, row_h));
             if k == 1 {
@@ -569,8 +569,8 @@ impl App {
     /// A row of sample icons drawn with icon pack `id`.
     fn pack_preview(&mut self, ui: &mut Ui, id: &str) {
         let saved = std::mem::replace(&mut self.settings.icon_pack, id.to_string());
-        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone());
-        let desk = self.places.iter().find(|p| p.name == "Desktop").map(|p| p.path.clone());
+        let docs = self.places.iter().find(|p| p.name == "Documents").map(|p| p.path.clone()); // i18n-ignore: a place name the code compares
+        let desk = self.places.iter().find(|p| p.name == "Desktop").map(|p| p.path.clone()); // i18n-ignore: a place name the code compares
         let mut samples: Vec<(PathBuf, String, bool)> = Vec::new();
         samples.push((PathBuf::from(if cfg!(windows) { r"C:\" } else { "/" }), String::new(), true));
         if let Some(d) = desk {
@@ -595,12 +595,12 @@ impl App {
     // ------------------------------------------------------------------ sidebar editor
 
     fn page_sidebar(&mut self, ui: &mut Ui) {
-        ui.label(egui::RichText::new("Sidebar").heading());
+        ui.label(egui::RichText::new(tr("Sidebar")).heading());
         ui.label(
-            egui::RichText::new(
+            egui::RichText::new(tr(
                 "Show, hide and reorder sections and the places in them. In the sidebar itself you can also drag places to reorder them, \
                  drag folders from the file list onto a section title to pin them, and right-click anything for more.",
-            )
+            ))
             .color(DIM()),
         );
         let locked = policy::current().sidebar_locked();
@@ -634,29 +634,29 @@ impl App {
                             self.save_settings();
                         }
                     } else {
-                        ui.label(egui::RichText::new(&sec.title).size(14.0).strong().color(if sec.visible { TEXT() } else { FAINT() }));
+                        ui.label(egui::RichText::new(tr_dyn(&sec.title)).size(14.0).strong().color(if sec.visible { TEXT() } else { FAINT() }));
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if sec.custom && small_btn(ui, I_DELETE, "Delete section") {
+                        if sec.custom && small_btn(ui, I_DELETE, tr("Delete section")) {
                             self.settings.sections.retain(|s| s.id != sec.id);
                             self.save_settings();
                         }
-                        if sec.accepts_pins && ui.button(egui::RichText::new(format!("{}  Add folder…", ic(I_ADD))).font(icon_font(12.5))).clicked() {
+                        if sec.accepts_pins && ui.button(egui::RichText::new(format!("{}  {}", ic(I_ADD), tr("Add folder…"))).font(icon_font(12.5))).clicked() {
                             if let Some(p) = shell::pick_folder() {
                                 self.pin_to(&sec.id, p);
                             }
                         }
-                        if si + 1 < n && small_btn(ui, I_CHEV_D, "Move section down") {
+                        if si + 1 < n && small_btn(ui, I_CHEV_D, tr("Move section down")) {
                             self.move_section(&sec.id, 1);
                         }
-                        if si > 0 && small_btn(ui, I_CHEV_U, "Move section up") {
+                        if si > 0 && small_btn(ui, I_CHEV_U, tr("Move section up")) {
                             self.move_section(&sec.id, -1);
                         }
                     });
                 });
                 ui.add_space(4.0);
                 if sec.items.is_empty() {
-                    ui.label(egui::RichText::new(if sec.accepts_pins { "No folders yet. Add one, or drag a folder onto this section in the sidebar." } else { "Nothing to show on this PC right now." }).color(FAINT()));
+                    ui.label(egui::RichText::new(if sec.accepts_pins { tr("No folders yet. Add one, or drag a folder onto this section in the sidebar.") } else { tr("Nothing to show on this PC right now.") }).color(FAINT()));
                 }
                 let m = sec.items.len();
                 for (ii, item) in sec.items.iter().enumerate() {
@@ -677,21 +677,23 @@ impl App {
                             }
                             _ => {}
                         }
-                        ui.label(egui::RichText::new(&item.label).color(if item.visible && sec.visible { TEXT() } else { FAINT() }));
+                        // a place or a drive in the language shown, a pinned folder by its own name
+                        let label = if item.pinned { item.label.clone() } else { tr_dyn(&item.label) };
+                        ui.label(egui::RichText::new(label).color(if item.visible && sec.visible { TEXT() } else { FAINT() }));
                         if item.pinned {
-                            ui.label(egui::RichText::new("pinned").small().color(FAINT()));
+                            ui.label(egui::RichText::new(tr("pinned")).small().color(FAINT()));
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if item.pinned && small_btn(ui, I_CLOSE, "Unpin") {
+                            if item.pinned && small_btn(ui, I_CLOSE, tr("Unpin")) {
                                 if let Some(s) = self.settings.section_mut(&sec.id) {
                                     s.pins.retain(|p| side_key(p) != item.key);
                                 }
                                 self.save_settings();
                             }
-                            if ii + 1 < m && small_btn(ui, I_CHEV_D, "Move down") {
+                            if ii + 1 < m && small_btn(ui, I_CHEV_D, tr("Move down")) {
                                 self.move_side_item(&sec.id, &item.key, None, 1);
                             }
-                            if ii > 0 && small_btn(ui, I_CHEV_U, "Move up") {
+                            if ii > 0 && small_btn(ui, I_CHEV_U, tr("Move up")) {
                                 self.move_side_item(&sec.id, &item.key, None, -1);
                             }
                         });
@@ -701,11 +703,11 @@ impl App {
             ui.add_space(10.0);
         }
         ui.horizontal(|ui| {
-            if ui.button(egui::RichText::new(format!("{}  New section", ic(I_ADD))).font(icon_font(13.0))).clicked() {
+            if ui.button(egui::RichText::new(format!("{}  {}", ic(I_ADD), tr("New section"))).font(icon_font(13.0))).clicked() {
                 self.new_section(None);
                 self.renaming_section = None; // rename right here instead
             }
-            if ui.button("Reset sidebar").clicked() {
+            if ui.button(tr("Reset sidebar")).clicked() {
                 let pins: Vec<(String, Vec<PathBuf>)> = self.settings.sections.iter().map(|s| (s.id.clone(), s.pins.clone())).collect();
                 self.settings.sections = default_sections();
                 for (id, p) in pins {
@@ -723,8 +725,8 @@ impl App {
     // ------------------------------------------------------------------ ribbon bar editor
 
     fn page_ribbon(&mut self, ui: &mut Ui) {
-        ui.label(egui::RichText::new("Ribbon bar").heading());
-        ui.label(egui::RichText::new("Show, hide and reorder what's in the bar above the file list, and choose which side each item sits on.").color(DIM()));
+        ui.label(egui::RichText::new(tr("Ribbon bar")).heading());
+        ui.label(egui::RichText::new(tr("Show, hide and reorder what's in the bar above the file list, and choose which side each item sits on.")).color(DIM()));
         let locked = policy::current().ribbon_locked();
         if locked {
             managed_note(ui);
@@ -737,7 +739,7 @@ impl App {
             ui.add_space(10.0);
             self.ribbon_side(ui, false);
             ui.add_space(10.0);
-            if ui.button("Reset ribbon bar").clicked() {
+            if ui.button(tr("Reset ribbon bar")).clicked() {
                 let d = Settings::baseline();
                 self.settings.ribbon_left = d.ribbon_left;
                 self.settings.ribbon_right = d.ribbon_right;
@@ -755,9 +757,9 @@ impl App {
         painter.rect_stroke(rect, CornerRadius::same(8), Stroke::new(1.0_f32, LINE()), StrokeKind::Inside);
         let item_w = |id: &str| -> (f32, Option<Arc<egui::Galley>>) {
             let word = match id {
-                "new" => format!("{}  New", ic(I_ADD)),
-                "sort" => format!("{}  Sort: Name", ic(I_SORT)),
-                "view" => format!("{}  View", ic(I_LIST)),
+                "new" => format!("{}  {}", ic(I_ADD), tr("New")),
+                "sort" => format!("{}  {}", ic(I_SORT), tr("Sort: Name")),
+                "view" => format!("{}  {}", ic(I_LIST), tr("View")),
                 _ => return (if id.starts_with("sep") { 22.0 } else { 34.0 }, None),
             };
             let g = painter.layout_no_wrap(word, icon_font(13.5), TEXT());
@@ -791,11 +793,11 @@ impl App {
     fn ribbon_side(&mut self, ui: &mut Ui, left: bool) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.label(egui::RichText::new(if left { "Left side" } else { "Right side" }).size(14.0).strong());
+            ui.label(egui::RichText::new(if left { tr("Left side") } else { tr("Right side") }).size(14.0).strong());
             ui.add_space(4.0);
             let ids = if left { self.settings.ribbon_left.clone() } else { self.settings.ribbon_right.clone() };
             if ids.is_empty() {
-                ui.label(egui::RichText::new("Nothing here. Move an item over from the other side.").color(FAINT()));
+                ui.label(egui::RichText::new(tr("Nothing here. Move an item over from the other side.")).color(FAINT()));
             }
             let m = ids.len();
             for (i, id) in ids.iter().enumerate() {
@@ -815,15 +817,15 @@ impl App {
                     }
                     let (r, _) = ui.allocate_exact_size(vec2(20.0, 20.0), Sense::hover());
                     ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(glyph), icon_font(14.0), if vis { ACCENT() } else { FAINT() });
-                    ui.label(egui::RichText::new(*label).color(if vis { TEXT() } else { FAINT() }));
+                    ui.label(egui::RichText::new(tr(*label)).color(if vis { TEXT() } else { FAINT() }));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if small_btn(ui, if left { I_FWD } else { I_BACK }, if left { "Move to the right side" } else { "Move to the left side" }) {
+                        if small_btn(ui, if left { I_FWD } else { I_BACK }, if left { tr("Move to the right side") } else { tr("Move to the left side") }) {
                             self.ribbon_switch_side(id, left);
                         }
-                        if i + 1 < m && small_btn(ui, I_CHEV_D, "Move down (further right in the bar)") {
+                        if i + 1 < m && small_btn(ui, I_CHEV_D, tr("Move down (further right in the bar)")) {
                             self.ribbon_move(left, i, i + 1);
                         }
-                        if i > 0 && small_btn(ui, I_CHEV_U, "Move up (further left in the bar)") {
+                        if i > 0 && small_btn(ui, I_CHEV_U, tr("Move up (further left in the bar)")) {
                             self.ribbon_move(left, i, i - 1);
                         }
                     });
@@ -863,18 +865,18 @@ impl App {
                 paint_logo(ui.painter(), r, ACCENT());
                 ui.add_space(8.0);
                 ui.vertical(|ui| {
-                    ui.label(egui::RichText::new("Daleris").size(20.0).strong());
-                    ui.label(format!("Version {}", crate::update::CURRENT));
-                    ui.label(egui::RichText::new("A file explorer built for speed. Free software under the GPL-3.0 licence.").color(DIM()));
+                    ui.label(egui::RichText::new("Daleris").size(20.0).strong()); // i18n-ignore: the app's name
+                    ui.label(trf!("Version {version}", version = crate::update::CURRENT));
+                    ui.label(egui::RichText::new(tr("A file explorer built for speed. Free software under the GPL-3.0 licence.")).color(DIM()));
                 });
             });
             ui.add_space(10.0);
             ui.horizontal_wrapped(|ui| {
                 for (label, url) in [
-                    ("Project", crate::update::PROJECT.to_string()),
-                    ("What's new", crate::update::RELEASES.to_string()),
-                    ("Report a problem", format!("{}/issues", crate::update::PROJECT)),
-                    ("Licence", format!("{}/blob/main/LICENSE", crate::update::PROJECT)),
+                    (tr("Project"), crate::update::PROJECT.to_string()),
+                    (tr("What's new"), crate::update::RELEASES.to_string()),
+                    (tr("Report a problem"), format!("{}/issues", crate::update::PROJECT)),
+                    (tr("Licence"), format!("{}/blob/main/LICENSE", crate::update::PROJECT)),
                 ] {
                     if ui.button(label).on_hover_text(&url).clicked() {
                         shell::open_url(&url);
@@ -900,24 +902,24 @@ impl App {
         }
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Updates", "");
+            heading(ui, tr("Updates"), "");
             if policy::current().no_updates {
-                ui.label(egui::RichText::new("Your organization installs new versions of Daleris, so it doesn't look for updates itself.").color(DIM()));
+                ui.label(egui::RichText::new(tr("Your organization installs new versions of Daleris, so it doesn't look for updates itself.")).color(DIM()));
                 ui.add_space(4.0);
                 managed_note(ui);
                 return;
             }
             let how = match &install {
-                Install::PerUser { .. } => "Installed for this account. Updates install silently when you close Daleris.",
-                Install::Machine { .. } => "Installed for this PC. A background task installs updates once Daleris is closed, within about an hour.",
-                Install::Portable(_) | Install::AppImage(_) => "A single program file. Updates replace it, and take effect the next time you start it.",
-                Install::MacApp(_) => "Updates replace the app, and take effect the next time you start it.",
-                Install::LinuxPackage(_) => "Installed by your package manager, so updates ask for your password.",
-                Install::Unmanaged => "This copy can't update itself. New versions are on the releases page.",
+                Install::PerUser { .. } => tr("Installed for this account. Updates install silently when you close Daleris."),
+                Install::Machine { .. } => tr("Installed for this PC. A background task installs updates once Daleris is closed, within about an hour."),
+                Install::Portable(_) | Install::AppImage(_) => tr("A single program file. Updates replace it, and take effect the next time you start it."),
+                Install::MacApp(_) => tr("Updates replace the app, and take effect the next time you start it."),
+                Install::LinuxPackage(_) => tr("Installed by your package manager, so updates ask for your password."),
+                Install::Unmanaged => tr("This copy can't update itself. New versions are on the releases page."),
             };
             ui.label(egui::RichText::new(how).color(DIM()));
             ui.add_space(6.0);
-            if managed_toggle(ui, &mut self.settings.auto_update, "auto_update", "Install updates automatically") {
+            if managed_toggle(ui, &mut self.settings.auto_update, "auto_update", tr("Install updates automatically")) {
                 if machine {
                     if let Err(e) = crate::update::set_machine_switch(self.settings.auto_update) {
                         self.settings.auto_update = !self.settings.auto_update;
@@ -930,23 +932,23 @@ impl App {
             }
             ui.add_space(6.0);
             let text = match &status {
-                Status::Idle => "Not checked yet.".to_string(),
-                Status::Checking => "Checking for updates…".to_string(),
-                Status::UpToDate => "Daleris is up to date.".to_string(),
-                Status::Available(v) if machine => format!("Version {v} is available. It installs when automatic updates are on."),
-                Status::Available(v) => format!("Version {v} is available."),
-                Status::Downloading(v) => format!("Downloading version {v}…"),
-                Status::InstallsOnClose(v) => format!("Version {v} installs when you close Daleris."),
-                Status::RestartToFinish(v) => format!("Version {v} is ready. Restart Daleris to use it."),
+                Status::Idle => tr("Not checked yet.").to_string(),
+                Status::Checking => tr("Checking for updates…").to_string(),
+                Status::UpToDate => tr("Daleris is up to date.").to_string(),
+                Status::Available(v) if machine => trf!("Version {version} is available. It installs when automatic updates are on.", version = v),
+                Status::Available(v) => trf!("Version {version} is available.", version = v),
+                Status::Downloading(v) => trf!("Downloading version {version}…", version = v),
+                Status::InstallsOnClose(v) => trf!("Version {version} installs when you close Daleris.", version = v),
+                Status::RestartToFinish(v) => trf!("Version {version} is ready. Restart Daleris to use it.", version = v),
                 Status::Failed(e) => e.clone(),
             };
             ui.label(if matches!(status, Status::Failed(_)) { egui::RichText::new(text).color(WARN()) } else { egui::RichText::new(text) });
             ui.add_space(6.0);
             let busy = matches!(status, Status::Checking | Status::Downloading(_));
             ui.horizontal(|ui| {
-                clicked_check = ui.add_enabled(!busy && self.updater.is_some(), egui::Button::new("Check for updates")).clicked();
+                clicked_check = ui.add_enabled(!busy && self.updater.is_some(), egui::Button::new(tr("Check for updates"))).clicked();
                 if matches!(status, Status::Available(_)) && !machine && !matches!(install, Install::Unmanaged) {
-                    clicked_install = ui.button("Install update").clicked();
+                    clicked_install = ui.button(tr("Install update")).clicked();
                 }
             });
         });
@@ -966,11 +968,11 @@ impl App {
         let log = crate::logging::path().cloned();
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Settings file & log", "Settings are a plain text file. If Daleris crashes, the details are in the log.");
-            for (label, file, button) in [("Settings", settings, "Open settings folder"), ("Log", log, "Open log folder")] {
+            heading(ui, tr("Settings file & log"), tr("Settings are a plain text file. If Daleris crashes, the details are in the log."));
+            for (label, file, button) in [(tr("Settings"), settings, tr("Open settings folder")), (tr("Log"), log, tr("Open log folder"))] {
                 ui.horizontal(|ui| {
                     ui.add_sized(vec2(60.0, 24.0), egui::Label::new(label));
-                    let shown = file.as_ref().map_or("Not available".to_string(), |f| f.display().to_string());
+                    let shown = file.as_ref().map_or(tr("Not available").to_string(), |f| f.display().to_string());
                     ui.add(egui::Label::new(egui::RichText::new(shown).monospace().color(DIM())).truncate());
                 });
                 if let Some(dir) = file.as_ref().and_then(|f| f.parent()) {
@@ -988,47 +990,47 @@ impl App {
 
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Files & folders", "");
+            heading(ui, tr("Files & folders"), "");
             let mut ch = false;
-            let hidden_label = if cfg!(windows) { "Show hidden and system items" } else { "Show hidden items (names starting with a dot)" };
+            let hidden_label = if cfg!(windows) { tr("Show hidden and system items") } else { tr("Show hidden items (names starting with a dot)") };
             if managed_toggle(ui, &mut self.settings.show_hidden, "hidden", hidden_label) {
                 self.refilter_tabs();
                 ch = true;
             }
             // on Linux and macOS a leading dot is what makes a name hidden, so the switch above covers them
             if cfg!(windows) {
-                if managed_toggle(ui, &mut self.settings.hide_dotfiles, "hide_dots", "Hide dotfiles and dotfolders") {
+                if managed_toggle(ui, &mut self.settings.hide_dotfiles, "hide_dots", tr("Hide dotfiles and dotfolders")) {
                     self.refilter_tabs();
                     ch = true;
                 }
-                ui.label(egui::RichText::new("Names starting with a dot, such as .git or .env. This works on top of the setting above: an item stays hidden if either one hides it. Ctrl+Shift+. switches it for now.").size(12.0).color(DIM()));
+                ui.label(egui::RichText::new(tr("Names starting with a dot, such as .git or .env. This works on top of the setting above: an item stays hidden if either one hides it. Ctrl+Shift+. switches it for now.")).size(12.0).color(DIM()));
             } else {
-                ui.label(egui::RichText::new("Ctrl+Shift+. switches it for now.").size(12.0).color(DIM()));
+                ui.label(egui::RichText::new(tr("Ctrl+Shift+. switches it for now.")).size(12.0).color(DIM()));
             }
             ui.add_space(4.0);
-            ch |= managed_toggle(ui, &mut self.settings.show_ext, "ext", "Show file name extensions");
-            ch |= managed_toggle(ui, &mut self.settings.show_preview, "preview", "Show the preview pane");
-            if managed_toggle(ui, &mut self.settings.folder_sizes, "folder_sizes", "Show folder sizes (everything inside each folder, counted in the background)") {
+            ch |= managed_toggle(ui, &mut self.settings.show_ext, "ext", tr("Show file name extensions"));
+            ch |= managed_toggle(ui, &mut self.settings.show_preview, "preview", tr("Show the preview pane"));
+            if managed_toggle(ui, &mut self.settings.folder_sizes, "folder_sizes", tr("Show folder sizes (everything inside each folder, counted in the background)")) {
                 self.tabs.iter_mut().for_each(|t| t.dirty = true);
                 ch = true;
             }
-            ch |= managed_toggle(ui, &mut self.settings.restore_tabs, "restore_tabs2", "Reopen my tabs when Daleris starts");
+            ch |= managed_toggle(ui, &mut self.settings.restore_tabs, "restore_tabs2", tr("Reopen my tabs when Daleris starts"));
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
                 let fixed = policy::is_fixed("new_tab");
                 ui.add_enabled_ui(!fixed, |ui| {
                     ui.horizontal_wrapped(|ui| {
-                        ui.label("New tabs open");
+                        ui.label(tr("New tabs open"));
                         let now = self.settings.new_tab.clone();
-                        for (v, l) in [("home", "Home"), ("same", "The same folder as the tab in front"), ("thispc", "This PC")] {
+                        for (v, l) in [("home", tr("Home")), ("same", tr("The same folder as the tab in front")), ("thispc", tr("This PC"))] {
                             if ui.selectable_label(now == v, l).clicked() {
                                 self.settings.new_tab = v.into();
                                 ch = true;
                             }
                         }
                         let folder = !matches!(now.as_str(), "home" | "same" | "thispc");
-                        let label = if folder { now.clone() } else { "A folder…".into() };
-                        if ui.selectable_label(folder, label).on_hover_text("Choose a folder").clicked() {
+                        let label = if folder { now.clone() } else { tr("A folder…").into() };
+                        if ui.selectable_label(folder, label).on_hover_text(tr("Choose a folder")).clicked() {
                             if let Some(p) = shell::pick_folder() {
                                 self.settings.new_tab = p.to_string_lossy().into_owned();
                                 ch = true;
@@ -1040,29 +1042,29 @@ impl App {
                     managed_note(ui);
                 }
             });
-            ui.label(egui::RichText::new("With Shift, the + button and Ctrl+Shift+T open the same folder as the tab in front, whatever is set here.").size(12.0).color(DIM()));
+            ui.label(egui::RichText::new(tr("With Shift, the + button and Ctrl+Shift+T open the same folder as the tab in front, whatever is set here.")).size(12.0).color(DIM()));
             ui.add_space(4.0);
             if shell::HAS_NATIVE_PROPERTIES {
-                ch |= managed_toggle(ui, &mut self.settings.native_props, "native_props", "Use the Windows Properties dialog instead of Daleris's");
+                ch |= managed_toggle(ui, &mut self.settings.native_props, "native_props", tr("Use the Windows Properties dialog instead of Daleris's"));
             }
             // Windows opens a drive that was just connected as a folder, which comes here with "Open folders in Daleris"
             if cfg!(windows) {
-                ch |= managed_toggle(ui, &mut self.settings.open_new_drives, "open_new_drives", "Open a tab for a drive when it's connected, such as a USB stick");
-                ch |= managed_toggle(ui, &mut self.settings.start_new_window, "start_new_window", "Starting Daleris again opens a new window (off: a new tab in the open window)");
+                ch |= managed_toggle(ui, &mut self.settings.open_new_drives, "open_new_drives", tr("Open a tab for a drive when it's connected, such as a USB stick"));
+                ch |= managed_toggle(ui, &mut self.settings.start_new_window, "start_new_window", tr("Starting Daleris again opens a new window (off: a new tab in the open window)"));
             }
-            ch |= managed_toggle(ui, &mut self.settings.share_marks, "share_marks", "On network shares, let other people's Daleris see what you copy, move, delete and have open");
-            ui.label(egui::RichText::new("Daleris leaves a small hidden note in the folder, with your name and your Windows account picture, and removes it when it's done. Notes from others show the same way.").size(12.0).color(DIM()));
+            ch |= managed_toggle(ui, &mut self.settings.share_marks, "share_marks", tr("On network shares, let other people's Daleris see what you copy, move, delete and have open"));
+            ui.label(egui::RichText::new(tr("Daleris leaves a small hidden note in the folder, with your name and your Windows account picture, and removes it when it's done. Notes from others show the same way.")).size(12.0).color(DIM()));
             ui.add_space(8.0);
             ui.horizontal(|ui| {
                 let fixed = policy::is_fixed("view");
                 ui.add_enabled_ui(!fixed, |ui| {
                     ui.horizontal(|ui| {
-                        ui.label("Default view");
-                        if ui.selectable_label(self.settings.view == View::Details, "Details").clicked() {
+                        ui.label(tr("Default view"));
+                        if ui.selectable_label(self.settings.view == View::Details, tr("Details")).clicked() {
                             self.settings.view = View::Details;
                             ch = true;
                         }
-                        if ui.selectable_label(self.settings.view == View::Icons, "Large icons").clicked() {
+                        if ui.selectable_label(self.settings.view == View::Icons, tr("Large icons")).clicked() {
                             self.settings.view = View::Icons;
                             ch = true;
                         }
@@ -1074,7 +1076,7 @@ impl App {
             });
             ui.add_space(8.0);
             let mut sub = self.settings.nested_search;
-            if managed_toggle(ui, &mut sub, "nested_search", "Search subfolders too") {
+            if managed_toggle(ui, &mut sub, "nested_search", tr("Search subfolders too")) {
                 self.settings.nested_search = sub;
                 let scope = if sub { Scope::Subfolders } else { Scope::ThisFolder };
                 for t in self.tabs.iter_mut().filter(|t| t.scope != Scope::AllDrives) {
@@ -1084,14 +1086,14 @@ impl App {
                 ch = true;
             }
             ui.indent("search_sub_parts", |ui| {
-                ch |= managed_toggle(ui, &mut self.settings.search_hide_sub, "search_hide_sub", "Hide its switch in the search box");
+                ch |= managed_toggle(ui, &mut self.settings.search_hide_sub, "search_hide_sub", tr("Hide its switch in the search box"));
             });
-            if managed_toggle(ui, &mut self.settings.regex_search, "regex_search", "Treat searches as regular expressions") {
+            if managed_toggle(ui, &mut self.settings.regex_search, "regex_search", tr("Treat searches as regular expressions")) {
                 self.refilter_tabs();
                 ch = true;
             }
             ui.indent("search_regex_parts", |ui| {
-                if managed_toggle(ui, &mut self.settings.search_hide_regex, "search_hide_regex", "Hide its switch in the search box (and turn it off)") {
+                if managed_toggle(ui, &mut self.settings.search_hide_regex, "search_hide_regex", tr("Hide its switch in the search box (and turn it off)")) {
                     let was = self.settings.regex_search;
                     self.settings.regex_off_if_hidden();
                     if was != self.settings.regex_search {
@@ -1100,8 +1102,8 @@ impl App {
                     ch = true;
                 }
             });
-            ch |= managed_toggle(ui, &mut self.settings.search_hide_help, "search_hide_help", "Hide the help button (?) in the search box");
-            ui.label(egui::RichText::new("It has the search syntax, Search all drives and Rescan the index.").size(12.0).color(DIM()));
+            ch |= managed_toggle(ui, &mut self.settings.search_hide_help, "search_hide_help", tr("Hide the help button (?) in the search box"));
+            ui.label(egui::RichText::new(tr("It has the search syntax, Search all drives and Rescan the index.")).size(12.0).color(DIM()));
             if ch {
                 self.save_settings();
             }
@@ -1116,7 +1118,7 @@ impl App {
     fn search_skip_card(&mut self, ui: &mut Ui) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Leave out of search", "Search never finds what's ticked here, and doesn't look inside ticked folders, which also makes it faster.");
+            heading(ui, tr("Leave out of search"), tr("Search never finds what's ticked here, and doesn't look inside ticked folders, which also makes it faster."));
             let mut ch = false;
             for (g, (key, name, _, _)) in search::SKIP_GROUPS.iter().enumerate() {
                 let fixed = policy::is_fixed(key);
@@ -1127,13 +1129,13 @@ impl App {
                 let mut open = ui.data(|d| d.get_temp::<bool>(open_id).unwrap_or(false));
                 ui.horizontal(|ui| {
                     let arrow = egui::RichText::new(ic(if open { I_CHEV_D } else { I_CHEV_R })).font(icon_font(10.0)).color(DIM());
-                    if ui.add(egui::Button::new(arrow).frame(false)).on_hover_text(if open { "Hide what's in it" } else { "Choose what's in it one by one" }).clicked() {
+                    if ui.add(egui::Button::new(arrow).frame(false)).on_hover_text(if open { tr("Hide what's in it") } else { tr("Choose what's in it one by one") }).clicked() {
                         open = !open;
                     }
                     ui.add_enabled_ui(!fixed, |ui| {
                         // a partly ticked group shows a dash; clicking it ticks all of it
                         let mut checked = all;
-                        if tick_box(ui, true, egui::Checkbox::new(&mut checked, *name).indeterminate(some && !all)).changed() {
+                        if tick_box(ui, true, egui::Checkbox::new(&mut checked, tr(*name)).indeterminate(some && !all)).changed() {
                             ticks.iter_mut().for_each(|t| *t = checked);
                             ch = true;
                         }
@@ -1155,17 +1157,17 @@ impl App {
                 ui.data_mut(|d| d.insert_temp(open_id, open));
             }
             ui.add_space(4.0);
-            ch |= managed_check(ui, &mut self.settings.skip_hidden, "search_skip_hidden", "Hidden files and folders, even when hidden items are shown");
+            ch |= managed_check(ui, &mut self.settings.skip_hidden, "search_skip_hidden", tr("Hidden files and folders, even when hidden items are shown"));
             // only Windows marks files as system files
             if cfg!(windows) {
-                ch |= managed_check(ui, &mut self.settings.skip_system, "search_skip_system", "System files, such as desktop.ini");
+                ch |= managed_check(ui, &mut self.settings.skip_system, "search_skip_system", tr("System files, such as desktop.ini"));
             }
             let folder_example = if cfg!(windows) { r"%USERPROFILE%\Archive" } else { "~/Archive" };
             for (n, (key, title, sub, example)) in [
-                (policy::SKIP_FOLDERS, "Folders", "These folders and everything in them.", folder_example),
-                (policy::SKIP_NAMES, "Folder names", "Folders with these names, wherever they are.", "Backup"),
-                (policy::SKIP_TYPES, "File types", "Files ending in these.", ".iso"),
-                (policy::SKIP_PATTERNS, "Patterns", "Regular expressions, matched against the whole path. Case doesn't matter.", r"\.(key|pem)$"),
+                (policy::SKIP_FOLDERS, tr("Folders"), tr("These folders and everything in them."), folder_example),
+                (policy::SKIP_NAMES, tr("Folder names"), tr("Folders with these names, wherever they are."), tr("Backup")),
+                (policy::SKIP_TYPES, tr("File types"), tr("Files ending in these."), ".iso"),
+                (policy::SKIP_PATTERNS, tr("Patterns"), tr("Regular expressions, matched against the whole path. Case doesn't matter."), r"\.(key|pem)$"),
             ]
             .into_iter()
             .enumerate()
@@ -1211,16 +1213,16 @@ impl App {
             }
             for item in fixed.iter().chain(own.iter()) {
                 if let Some(e) = invalid(item) {
-                    ui.label(egui::RichText::new(format!("{item}  isn't used: {e}")).small().color(WARN()));
+                    ui.label(egui::RichText::new(trf!("{item}  isn't used: {error}", item = item, error = e)).small().color(WARN()));
                 }
             }
         }
         let mut add = false;
         ui.horizontal(|ui| {
-            let field = ui.add(egui::TextEdit::singleline(&mut self.skip_new[n]).hint_text(format!("Add one, such as {example}")).desired_width(320.0));
+            let field = ui.add(egui::TextEdit::singleline(&mut self.skip_new[n]).hint_text(trf!("Add one, such as {example}", example = example)).desired_width(320.0));
             add = field.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter));
-            add |= ui.add_enabled(!self.skip_new[n].trim().is_empty(), egui::Button::new(egui::RichText::new(format!("{}  Add", ic(I_ADD))).font(icon_font(13.0)))).clicked();
-            if key == policy::SKIP_FOLDERS && ui.button(egui::RichText::new(format!("{}  Choose folder…", ic(I_FOLDER))).font(icon_font(13.0))).clicked() {
+            add |= ui.add_enabled(!self.skip_new[n].trim().is_empty(), egui::Button::new(egui::RichText::new(format!("{}  {}", ic(I_ADD), tr("Add"))).font(icon_font(13.0)))).clicked();
+            if key == policy::SKIP_FOLDERS && ui.button(egui::RichText::new(format!("{}  {}", ic(I_FOLDER), tr("Choose folder…"))).font(icon_font(13.0))).clicked() {
                 if let Some(p) = shell::pick_folder() {
                     self.skip_new[n] = p.display().to_string();
                     add = true;
@@ -1245,15 +1247,15 @@ impl App {
     fn sort_card(&mut self, ui: &mut Ui) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            heading(ui, "Sorting", "A folder keeps the sort you choose for it, wherever it opens. Every other folder starts like this:");
+            heading(ui, tr("Sorting"), tr("A folder keeps the sort you choose for it, wherever it opens. Every other folder starts like this:"));
             let mut ch = false;
             let fixed_key = policy::is_fixed("sort_key");
             ui.horizontal(|ui| {
                 ui.add_enabled_ui(!fixed_key, |ui| {
-                    ui.label("Sort by");
-                    let items: Vec<(String, bool)> = SortKey::ALL.iter().map(|k| (k.label().to_string(), true)).collect();
+                    ui.label(tr("Sort by"));
+                    let items: Vec<(String, bool)> = SortKey::ALL.iter().map(|k| (tr(k.label()).to_string(), true)).collect();
                     let at = SortKey::ALL.iter().position(|k| *k == self.settings.sort_key);
-                    let (_, picked) = field_dropdown(ui, "default_sort", 190.0, self.settings.sort_key.label(), &items, at, !fixed_key);
+                    let (_, picked) = field_dropdown(ui, "default_sort", 190.0, tr(self.settings.sort_key.label()), &items, at, !fixed_key);
                     if let Some(k) = picked.and_then(|i| SortKey::ALL.get(i).copied()) {
                         self.settings.sort_key = k;
                         if !policy::is_fixed("sort_asc") {
@@ -1265,11 +1267,11 @@ impl App {
                 let fixed_way = policy::is_fixed("sort_asc");
                 ui.add_enabled_ui(!fixed_way, |ui| {
                     let spec = SortSpec { key: self.settings.sort_key, asc: true, dirs_first: true };
-                    if ui.selectable_label(self.settings.sort_asc, spec.direction()).clicked() && !self.settings.sort_asc {
+                    if ui.selectable_label(self.settings.sort_asc, tr(spec.direction())).clicked() && !self.settings.sort_asc {
                         self.settings.sort_asc = true;
                         ch = true;
                     }
-                    if ui.selectable_label(!self.settings.sort_asc, SortSpec { asc: false, ..spec }.direction()).clicked() && self.settings.sort_asc {
+                    if ui.selectable_label(!self.settings.sort_asc, tr(SortSpec { asc: false, ..spec }.direction())).clicked() && self.settings.sort_asc {
                         self.settings.sort_asc = false;
                         ch = true;
                     }
@@ -1279,15 +1281,15 @@ impl App {
                 }
             });
             ui.add_space(6.0);
-            ch |= managed_toggle(ui, &mut self.settings.dirs_first, "dirs_first", "Keep folders above files");
+            ch |= managed_toggle(ui, &mut self.settings.dirs_first, "dirs_first", tr("Keep folders above files"));
             ui.add_space(4.0);
-            ch |= managed_toggle(ui, &mut self.settings.downloads_newest, "downloads_newest", "Show Downloads newest first, with folders mixed in");
+            ch |= managed_toggle(ui, &mut self.settings.downloads_newest, "downloads_newest", tr("Show Downloads newest first, with folders mixed in"));
             let n = self.settings.folder_sorts.len();
             if n > 0 {
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
-                    ui.label(egui::RichText::new(format!("{n} folder{} sorted your own way", if n == 1 { " is" } else { "s are" })).color(DIM()));
-                    if ui.button("Forget them all").clicked() {
+                    ui.label(egui::RichText::new(trn!(n, "{n} folder is sorted your own way", "{n} folders are sorted your own way")).color(DIM()));
+                    if ui.button(tr("Forget them all")).clicked() {
                         self.settings.folder_sorts.clear();
                         ch = true;
                     }
@@ -1330,9 +1332,9 @@ fn rule_chip(ui: &mut Ui, text: &str, locked: bool, invalid: bool) -> bool {
             if locked {
                 let (r, resp) = ui.allocate_exact_size(vec2(26.0, 26.0), Sense::hover());
                 ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(I_LOCK), icon_font(11.0), DIM());
-                resp.on_hover_text(MANAGED);
+                resp.on_hover_text(tr(MANAGED));
             } else {
-                removed = small_btn(ui, I_CLOSE, "Remove");
+                removed = small_btn(ui, I_CLOSE, tr("Remove"));
             }
         });
     });
@@ -1355,7 +1357,7 @@ fn eye(ui: &mut Ui, on: &mut bool, id: &str) -> bool {
         ui.painter().rect_filled(r, CornerRadius::same(5), HOVER());
     }
     ui.painter().text(r.center(), Align2::CENTER_CENTER, ic(if *on { I_EYE } else { I_HIDE }), icon_font(13.0), if *on { ACCENT() } else { FAINT() });
-    let clicked = resp.on_hover_text(if *on { "Shown. Click to hide" } else { "Hidden. Click to show" }).clicked();
+    let clicked = resp.on_hover_text(if *on { tr("Shown. Click to hide") } else { tr("Hidden. Click to show") }).clicked();
     if clicked {
         *on = !*on;
     }

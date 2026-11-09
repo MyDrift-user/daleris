@@ -142,7 +142,7 @@ impl App {
                 }
                 Request::ThisPc => self.open_tab(Loc::ThisPc, true),
                 Request::Show => {
-                    let home = self.places.iter().find(|p| p.name == "Home").map(|p| p.path.clone()).unwrap_or_else(|| PathBuf::from("C:\\"));
+                    let home = self.places.iter().find(|p| p.name == "Home").map(|p| p.path.clone()).unwrap_or_else(|| PathBuf::from("C:\\")); // i18n-ignore: a place name the code compares
                     self.open_tab(Loc::Dir(home), true);
                 }
             }
@@ -163,35 +163,35 @@ impl App {
     pub(super) fn page_explorer(&mut self, ui: &mut Ui) {
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.label(egui::RichText::new("Windows Explorer").size(15.0).strong());
-            ui.label(egui::RichText::new("Make Daleris stand in for File Explorer. Each switch works on its own and is off until you turn it on. They only change your own account.").color(DIM()));
+            ui.label(egui::RichText::new(tr("Windows Explorer")).size(15.0).strong());
+            ui.label(egui::RichText::new(tr("Make Daleris stand in for File Explorer. Each switch works on its own and is off until you turn it on. They only change your own account.")).color(DIM()));
             if integration::is_elevated() {
                 ui.add_space(6.0);
-                ui.label(egui::RichText::new("Daleris is running as administrator, so these can't be changed here. Run it normally.").color(WARN_COLOR));
+                ui.label(egui::RichText::new(tr("Daleris is running as administrator, so these can't be changed here. Run it normally.")).color(WARN_COLOR));
             }
         });
         ui.add_space(14.0);
         let enabled = !integration::is_elevated();
         let mut changed = false;
         ui.add_enabled_ui(enabled, |ui| {
-            changed |= self.switch_card(ui, Feature::Folders, "Open folders in Daleris", "Double-clicking a folder on the desktop, opening one from Start, and what most apps do to open a folder, all come here.", Some("Apps that start explorer.exe themselves can't be redirected and still open File Explorer. Places only Explorer can show, such as the Recycle Bin and Control Panel, go to it too."));
-            changed |= self.switch_card(ui, Feature::WinE, "Win + E opens Daleris", "Uses the setting Windows reads for this shortcut, like File Pilot's installer does.", Some("Recent Windows builds can skip that setting. If Win + E still opens File Explorer, turn on the next switch as well."));
-            changed |= self.switch_card(ui, Feature::WinEHook, "Win + E opens Daleris even if Windows ignores the setting", "Runs a small background program from sign-in that watches for Win + E. Only that key combination is kept from Windows.", Some("It's a system-wide keyboard hook, in a process of its own: nothing loads into other apps, but some anti-cheat software looks for hooks like this. Turn it off if a game complains."));
-            changed |= self.switch_card(ui, Feature::Select, "\"Show in folder\" selects the file", "When an app shows a file in its folder through the Windows call for that, the file is selected here too.", Some("Needs \"Open folders in Daleris\". It relies on undocumented Windows behaviour, so an update could stop it working: the folder would still open, with nothing selected. Apps that run explorer.exe /select still open File Explorer."));
-            changed |= self.switch_card(ui, Feature::SingleWindow, "Open new folders as tabs in the running window", "With this off, each folder opened from outside gets its own window.", None);
-            changed |= self.switch_card(ui, Feature::Dialogs, "Open and Save dialogs use Daleris", "When an app asks Windows for a modern file dialog, Daleris shows it instead, with any controls the app added, and goes back to the Windows dialog if anything goes wrong. Properties an app collects in the dialog, such as Office's Authors and Tags, can't be edited in Daleris.", Some("This loads a Daleris DLL into the app that opens the dialog, and only then. Games, game launchers, anti-cheat and security software get the Windows dialog straight away, but the DLL is loaded for a moment to find that out, and it isn't signed, so antivirus may question it. Don't turn this on while you play games with strict anti-cheat if you'd rather not take any chance."));
+            changed |= self.switch_card(ui, Feature::Folders, tr("Open folders in Daleris"), tr("Double-clicking a folder on the desktop, opening one from Start, and what most apps do to open a folder, all come here."), Some(tr("Apps that start explorer.exe themselves can't be redirected and still open File Explorer. Places only Explorer can show, such as the Recycle Bin and Control Panel, go to it too.")));
+            changed |= self.switch_card(ui, Feature::WinE, tr("Win + E opens Daleris"), tr("Uses the setting Windows reads for this shortcut, like File Pilot's installer does."), Some(tr("Recent Windows builds can skip that setting. If Win + E still opens File Explorer, turn on the next switch as well.")));
+            changed |= self.switch_card(ui, Feature::WinEHook, tr("Win + E opens Daleris even if Windows ignores the setting"), tr("Runs a small background program from sign-in that watches for Win + E. Only that key combination is kept from Windows."), Some(tr("It's a system-wide keyboard hook, in a process of its own: nothing loads into other apps, but some anti-cheat software looks for hooks like this. Turn it off if a game complains.")));
+            changed |= self.switch_card(ui, Feature::Select, tr("\"Show in folder\" selects the file"), tr("When an app shows a file in its folder through the Windows call for that, the file is selected here too."), Some(tr("Needs \"Open folders in Daleris\". It relies on undocumented Windows behaviour, so an update could stop it working: the folder would still open, with nothing selected. Apps that run explorer.exe /select still open File Explorer.")));
+            changed |= self.switch_card(ui, Feature::SingleWindow, tr("Open new folders as tabs in the running window"), tr("With this off, each folder opened from outside gets its own window."), None);
+            changed |= self.switch_card(ui, Feature::Dialogs, tr("Open and Save dialogs use Daleris"), tr("When an app asks Windows for a modern file dialog, Daleris shows it instead, with any controls the app added, and goes back to the Windows dialog if anything goes wrong. Properties an app collects in the dialog, such as Office's Authors and Tags, can't be edited in Daleris."), Some(tr("This loads a Daleris DLL into the app that opens the dialog, and only then. Games, game launchers, anti-cheat and security software get the Windows dialog straight away, but the DLL is loaded for a moment to find that out, and it isn't signed, so antivirus may question it. Don't turn this on while you play games with strict anti-cheat if you'd rather not take any chance.")));
             changed |= self.exclusions_card(ui);
-            changed |= self.switch_card(ui, Feature::DialogJump, "Ctrl + G sends a Windows file dialog to this folder", "While a Windows Open, Save or folder dialog is in front, Ctrl + G takes it to the folder Daleris is showing, and keeps the name you typed. Works in every app, and loads nothing into it.", Some("A small background program from sign-in watches which window is in front, and has Ctrl + G only while a file dialog is. It tells you if Daleris isn't open or the dialog can't be reached, as with apps running as administrator. Its log is dialog-jump.log, next to the file below."));
-            changed |= self.switch_card(ui, Feature::DialogLog, "Log file dialog decisions", "Writes down every app that asks for a file dialog, whether Daleris showed it, and why not if it didn't: the controls the app added, and any interface it asked for that Daleris doesn't know.", Some("Use this to find out why an app, such as Office, still shows the Windows dialog. If an app doesn't appear in the log at all, it never asked Windows for this kind of dialog. Microsoft Store apps, including Store copies of Office, are packaged and always keep the Windows dialog; Windows may also keep what they write in their own copy of this folder, under %LOCALAPPDATA%\\Packages."));
+            changed |= self.switch_card(ui, Feature::DialogJump, tr("Ctrl + G sends a Windows file dialog to this folder"), tr("While a Windows Open, Save or folder dialog is in front, Ctrl + G takes it to the folder Daleris is showing, and keeps the name you typed. Works in every app, and loads nothing into it."), Some(tr("A small background program from sign-in watches which window is in front, and has Ctrl + G only while a file dialog is. It tells you if Daleris isn't open or the dialog can't be reached, as with apps running as administrator. Its log is dialog-jump.log, next to the file below.")));
+            changed |= self.switch_card(ui, Feature::DialogLog, tr("Log file dialog decisions"), tr("Writes down every app that asks for a file dialog, whether Daleris showed it, and why not if it didn't: the controls the app added, and any interface it asked for that Daleris doesn't know."), Some(tr("Use this to find out why an app, such as Office, still shows the Windows dialog. If an app doesn't appear in the log at all, it never asked Windows for this kind of dialog. Microsoft Store apps, including Store copies of Office, are packaged and always keep the Windows dialog; Windows may also keep what they write in their own copy of this folder, under %LOCALAPPDATA%\\Packages.")));
             self.dialog_log_buttons(ui);
         });
         ui.add_space(14.0);
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.label(egui::RichText::new("Put File Explorer back").strong());
-            ui.label(egui::RichText::new("Turns all of the above off and removes everything Daleris wrote, and nothing else. It's what uninstalling does, and it's the same as running daleris --restore-explorer.").color(DIM()));
+            ui.label(egui::RichText::new(tr("Put File Explorer back")).strong());
+            ui.label(egui::RichText::new(tr("Turns all of the above off and removes everything Daleris wrote, and nothing else. It's what uninstalling does, and it's the same as running daleris --restore-explorer.")).color(DIM()));
             ui.add_space(6.0);
-            if ui.button("Restore File Explorer").clicked() {
+            if ui.button(tr("Restore File Explorer")).clicked() {
                 self.restore_explorer();
                 changed = true;
             }
@@ -204,13 +204,13 @@ impl App {
     fn dialog_log_buttons(&mut self, ui: &mut Ui) {
         let Some(file) = integration::dialog_log_file() else { return };
         ui.horizontal(|ui| {
-            if ui.add_enabled(file.is_file(), egui::Button::new("Open the log")).clicked() {
+            if ui.add_enabled(file.is_file(), egui::Button::new(tr("Open the log"))).clicked() {
                 shell::open(&file);
             }
-            if ui.add_enabled(file.is_file(), egui::Button::new("Clear it")).clicked() {
+            if ui.add_enabled(file.is_file(), egui::Button::new(tr("Clear it"))).clicked() {
                 let _ = std::fs::remove_file(&file);
             }
-            ui.label(egui::RichText::new(if file.is_file() { file.display().to_string() } else { "Nothing logged yet".to_string() }).small().color(DIM()));
+            ui.label(egui::RichText::new(if file.is_file() { file.display().to_string() } else { tr("Nothing logged yet").to_string() }).small().color(DIM()));
         });
         ui.add_space(10.0);
     }
@@ -224,7 +224,7 @@ impl App {
         }
         integration::restore();
         self.explorer_applied = None;
-        self.toast("File Explorer is back", false);
+        self.toast(tr("File Explorer is back"), false);
     }
 
     fn switch_card(&mut self, ui: &mut Ui, f: Feature, title: &str, plain: &str, warning: Option<&str>) -> bool {
@@ -269,24 +269,26 @@ impl App {
         let mut changed = false;
         card().show(ui, |ui| {
             ui.set_width(ui.available_width());
-            ui.label(egui::RichText::new("Apps that keep the Windows dialog").strong());
-            ui.label(egui::RichText::new("Program names or folders, separated by | such as notepad++.exe | C:\\Tools\\. To let Daleris show a browser's dialogs, add !chrome.exe.").color(DIM()));
+            ui.label(egui::RichText::new(tr("Apps that keep the Windows dialog")).strong());
+            ui.label(egui::RichText::new(tr("Program names or folders, separated by | such as notepad++.exe | C:\\Tools\\. To let Daleris show a browser's dialogs, add !chrome.exe.")).color(DIM()));
             ui.add_enabled_ui(!fixed, |ui| {
                 changed = ui.add(egui::TextEdit::singleline(&mut self.settings.exp_exclude).desired_width(f32::INFINITY)).changed();
             });
             if fixed {
                 managed_note(ui);
             }
-            egui::CollapsingHeader::new("Always left alone").id_salt("explorer_denied").show(ui, |ui| {
-                ui.label(egui::RichText::new(format!("Programs: {}", deny::ALWAYS_LEFT_ALONE.join(", "))).small().color(DIM()));
+            egui::CollapsingHeader::new(tr("Always left alone")).id_salt("explorer_denied").show(ui, |ui| {
+                let (programs, folders) = (deny::ALWAYS_LEFT_ALONE.join(", "), deny::GAME_FOLDERS.join(" "));
+                let (modules, by_default) = (deny::WATCHFUL_MODULES.join(", "), deny::LEFT_ALONE_BY_DEFAULT.join(", "));
+                ui.label(egui::RichText::new(trf!("Programs: {list}", list = programs)).small().color(DIM()));
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new(format!("Anything in these folders: {}", deny::GAME_FOLDERS.join(" "))).small().color(DIM()));
+                ui.label(egui::RichText::new(trf!("Anything in these folders: {list}", list = folders)).small().color(DIM()));
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new(format!("Anything with these loaded: {}", deny::WATCHFUL_MODULES.join(", "))).small().color(DIM()));
+                ui.label(egui::RichText::new(trf!("Anything with these loaded: {list}", list = modules)).small().color(DIM()));
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new(format!("Left alone unless you say otherwise: {}", deny::LEFT_ALONE_BY_DEFAULT.join(", "))).small().color(DIM()));
+                ui.label(egui::RichText::new(trf!("Left alone unless you say otherwise: {list}", list = by_default)).small().color(DIM()));
                 ui.add_space(4.0);
-                ui.label(egui::RichText::new("So is anything running as administrator, sandboxed, or installed from the Microsoft Store.").small().color(DIM()));
+                ui.label(egui::RichText::new(tr("So is anything running as administrator, sandboxed, or installed from the Microsoft Store.")).small().color(DIM()));
             });
         });
         ui.add_space(10.0);
@@ -314,7 +316,7 @@ pub fn handle_integration_command() -> Option<i32> {
                 let tabs = s.tabs.clone();
                 s.save(&tabs);
             }
-            println!("restored");
+            println!("restored"); // i18n-ignore: output for installers and scripts
             Some(0)
         }
         // For tests and scripts: the same as the switches in Settings.
@@ -322,7 +324,7 @@ pub fn handle_integration_command() -> Option<i32> {
             let mut s = Settings::load();
             for pair in args[1..].chunks(2) {
                 let (Some(f), Some(on)) = (Feature::from_id(&pair[0]), pair.get(1)) else {
-                    eprintln!("usage: --integration <switch> on|off ...");
+                    eprintln!("usage: --integration <switch> on|off ..."); // i18n-ignore: output for scripts
                     return Some(2);
                 };
                 *s.switch_mut(f) = on == "on";
@@ -337,7 +339,7 @@ pub fn handle_integration_command() -> Option<i32> {
                     Some(0)
                 }
                 Err(e) => {
-                    println!("error: {e}");
+                    println!("error: {e}"); // i18n-ignore: output for scripts
                     Some(1)
                 }
             }
