@@ -109,8 +109,33 @@ pub struct Index {
     pub dirs: AtomicUsize,
 }
 
+/// How hard a crawl may read one root: hammering a hard disk, a USB stick or a file server with parallel listings
+/// wears it, slows everything else on it, and on a server looks like ransomware scouting the network.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Lanes {
+    pub threads: usize,
+    /// the least time between two folder listings, for servers
+    pub pace: Option<Duration>,
+}
+
+impl Lanes {
+    /// A file server: one folder at a time, at most 20 a second.
+    pub const NETWORK: Lanes = Lanes { threads: 1, pace: Some(Duration::from_millis(50)) };
+    /// A USB stick or a hard disk, where reading in parallel only makes the head jump around.
+    pub const ONE: Lanes = Lanes { threads: 1, pace: None };
+
+    /// A fixed drive: one thread if it's a hard disk, a few if it's an SSD (or nobody could tell).
+    pub fn local(seek_penalty: Option<bool>) -> Lanes {
+        if seek_penalty == Some(true) {
+            return Lanes::ONE;
+        }
+        Lanes { threads: std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(1, 4), pace: None }
+    }
+}
+
 impl Index {
-    pub fn build(roots: Vec<PathBuf>, skip: Skip, ctx: eframe::egui::Context) -> Arc<Index> {
+    /// Crawls `roots`, each read as its `lanes` allow (one each, in the same order).
+    pub fn build(roots: Vec<PathBuf>, lanes: Vec<Lanes>, skip: Skip, ctx: eframe::egui::Context) -> Arc<Index> {
         let idx = Arc::new(Index {
             roots: roots.clone(),
             skip,
@@ -122,39 +147,51 @@ impl Index {
             took: Mutex::new(None),
             dirs: AtomicUsize::new(0),
         });
-        let mut queue = Vec::new();
+        // each root has a queue and threads of its own, so a slow disk or server never gets more than it allows
+        let mut pools = Vec::new();
         {
             let mut d = idx.data.write().unwrap();
-            for r in &roots {
+            for (r, l) in roots.iter().zip(lanes.iter().chain(std::iter::repeat(&Lanes::ONE))) {
                 let name = r.to_string_lossy().trim_end_matches('\\').to_string();
                 let name = if name.ends_with(':') { format!("{name}\\") } else { name };
                 let i = d.push(&name, NO_PARENT, A_DIR, 0, 0);
                 // started somewhere search never finds anything: nothing to crawl
                 if !idx.skip.skips_start(r) {
-                    queue.push((i, r.clone()));
+                    pools.push((vec![(i, r.clone())], *l));
                 }
             }
             idx.len.store(d.items.len(), Ordering::Release);
         }
-        let shared = Arc::new((Mutex::new((queue, 0usize)), Condvar::new()));
-        let threads = std::thread::available_parallelism().map(|n| n.get()).unwrap_or(4).clamp(2, 16);
+        let threads: usize = pools.iter().map(|(_, l)| l.threads.max(1)).sum();
+        if threads == 0 {
+            *idx.took.lock().unwrap() = Some(Duration::ZERO);
+            idx.done.store(true, Ordering::Release);
+            return idx;
+        }
         let finished = Arc::new(AtomicUsize::new(0));
-        for t in 0..threads {
-            let idx = idx.clone();
-            let shared = shared.clone();
-            let finished = finished.clone();
-            let ctx = ctx.clone();
-            std::thread::Builder::new()
-                .name(format!("crawl{t}"))
-                .spawn(move || {
-                    crawl_worker(&idx, &shared);
-                    if finished.fetch_add(1, Ordering::AcqRel) + 1 == threads {
-                        *idx.took.lock().unwrap() = Some(idx.started.elapsed());
-                        idx.done.store(true, Ordering::Release);
-                        ctx.request_repaint();
-                    }
-                })
-                .ok();
+        let mut n = 0;
+        for (queue, lanes) in pools {
+            let shared = Arc::new((Mutex::new((queue, 0usize)), Condvar::new()));
+            for _ in 0..lanes.threads.max(1) {
+                let idx = idx.clone();
+                let shared = shared.clone();
+                let finished = finished.clone();
+                let ctx = ctx.clone();
+                std::thread::Builder::new()
+                    .name(format!("crawl{n}"))
+                    .spawn(move || {
+                        // low disk priority: whatever else reads the disk goes first
+                        crate::fsx::background_io();
+                        crawl_worker(&idx, &shared, lanes.pace);
+                        if finished.fetch_add(1, Ordering::AcqRel) + 1 == threads {
+                            *idx.took.lock().unwrap() = Some(idx.started.elapsed());
+                            idx.done.store(true, Ordering::Release);
+                            ctx.request_repaint();
+                        }
+                    })
+                    .ok();
+                n += 1;
+            }
         }
         idx
     }
@@ -169,7 +206,7 @@ impl Index {
 
 type Shared = Arc<(Mutex<(Vec<(u32, PathBuf)>, usize)>, Condvar)>;
 
-fn crawl_worker(idx: &Index, shared: &Shared) {
+fn crawl_worker(idx: &Index, shared: &Shared, pace: Option<Duration>) {
     struct Raw {
         name: String,
         attrs: u32,
@@ -198,9 +235,13 @@ fn crawl_worker(idx: &Index, shared: &Shared) {
         };
         let Some((dir_idx, path)) = job else { return };
         local.clear();
+        let listed = Instant::now();
         for_each_raw(&path, |d| {
             local.push(Raw { name: d.name.into_owned(), attrs: d.attrs, size: d.size, mtime: d.mtime });
         });
+        if let Some(pace) = pace {
+            std::thread::sleep(pace.saturating_sub(listed.elapsed()));
+        }
         idx.dirs.fetch_add(1, Ordering::Relaxed);
         // what search never finds stays out of the index, and a folder it skips isn't crawled
         local.retain(|r| !idx.skip.skips(&path, &r.name, r.attrs));
@@ -897,6 +938,40 @@ mod skip_tests {
     }
 
     #[test]
+    fn slow_drives_get_one_lane() {
+        assert_eq!(Lanes::local(Some(true)), Lanes::ONE);
+        assert!((1..=4).contains(&Lanes::local(Some(false)).threads));
+        assert!((1..=4).contains(&Lanes::local(None).threads));
+        assert_eq!(Lanes::NETWORK.threads, 1);
+        assert_eq!(Lanes::NETWORK.pace, Some(Duration::from_millis(50)));
+    }
+
+    #[test]
+    fn a_server_is_listed_at_most_twenty_folders_a_second() {
+        let dir = std::env::temp_dir().join(format!("daleris-pace-test-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        for i in 0..9 {
+            std::fs::create_dir_all(dir.join(format!("d{i}"))).unwrap();
+        }
+        let started = Instant::now();
+        let idx = Index::build(vec![dir.clone()], vec![Lanes::NETWORK], Skip::default(), eframe::egui::Context::default());
+        while !idx.is_done() {
+            std::thread::sleep(Duration::from_millis(5));
+        }
+        // ten folders, the root and nine below it, one at a time and 50 ms apart
+        assert_eq!(idx.dirs.load(Ordering::Relaxed), 10);
+        assert!(started.elapsed() >= Duration::from_millis(450), "took {:?}", started.elapsed());
+        assert_eq!(idx.count(), 10);
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn nothing_to_crawl_is_done_at_once() {
+        let idx = Index::build(Vec::new(), Vec::new(), Skip::default(), eframe::egui::Context::default());
+        assert!(idx.is_done());
+    }
+
+    #[test]
     fn nothing_inside_a_skipped_folder_is_indexed() {
         let dir = std::env::temp_dir().join(format!("daleris-skip-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
@@ -907,7 +982,7 @@ mod skip_tests {
             std::fs::write(dir.join(f), "x").unwrap();
         }
         let skip = Skip::new(&dev(), false, false, &[], &[], &[], &own(&[r"[\\/]Payroll[\\/]", r"\.key$"]));
-        let idx = Index::build(vec![dir.clone()], skip, eframe::egui::Context::default());
+        let idx = Index::build(vec![dir.clone()], vec![Lanes::local(None)], skip, eframe::egui::Context::default());
         while !idx.is_done() {
             std::thread::sleep(Duration::from_millis(5));
         }

@@ -39,7 +39,9 @@
       <string id="ReopenTabs">Registerkarten beim Start wieder öffnen</string>
       <string id="WindowsPropertiesDialog">Windows-Eigenschaftendialog verwenden</string>
       <string id="FolderSizes">Ordnergrößen anzeigen</string>
+      <string id="FolderSizesNetwork">Ordnergrößen auf Netzlaufwerken anzeigen</string>
       <string id="SearchSubfolders">Unterordner durchsuchen</string>
+      <string id="SearchNetworkSubfolders">Unterordner auf Netzlaufwerken durchsuchen</string>
       <string id="SearchRegex">Suche als regulären Ausdruck behandeln</string>
       <string id="SearchHideSubfolders">Unterordner-Schalter im Suchfeld ausblenden</string>
       <string id="SearchHideRegex">Schalter für reguläre Ausdrücke im Suchfeld ausblenden</string>

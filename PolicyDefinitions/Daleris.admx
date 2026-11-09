@@ -161,7 +161,19 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Fixed_FolderSizesNetwork" class="Both" displayName="$(string.FolderSizesNetwork)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="FolderSizesNetwork">
+      <parentCategory ref="Fixed" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Fixed_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchSubfolders">
+      <parentCategory ref="FixedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Fixed_SearchNetworkSubfolders" class="Both" displayName="$(string.SearchNetworkSubfolders)" explainText="$(string.ExplainFixed)" key="Software\Policies\Daleris" valueName="SearchNetworkSubfolders">
       <parentCategory ref="FixedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>
@@ -602,7 +614,19 @@
       <enabledValue><decimal value="1" /></enabledValue>
       <disabledValue><decimal value="0" /></disabledValue>
     </policy>
+    <policy name="Rec_FolderSizesNetwork" class="Both" displayName="$(string.FolderSizesNetwork)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="FolderSizesNetwork">
+      <parentCategory ref="Recommended" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
     <policy name="Rec_SearchSubfolders" class="Both" displayName="$(string.SearchSubfolders)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchSubfolders">
+      <parentCategory ref="RecommendedSearch" />
+      <supportedOn ref="SUPPORTED_ANY" />
+      <enabledValue><decimal value="1" /></enabledValue>
+      <disabledValue><decimal value="0" /></disabledValue>
+    </policy>
+    <policy name="Rec_SearchNetworkSubfolders" class="Both" displayName="$(string.SearchNetworkSubfolders)" explainText="$(string.ExplainRecommended)" key="Software\Policies\Daleris\Recommended" valueName="SearchNetworkSubfolders">
       <parentCategory ref="RecommendedSearch" />
       <supportedOn ref="SUPPORTED_ANY" />
       <enabledValue><decimal value="1" /></enabledValue>

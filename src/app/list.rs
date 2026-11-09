@@ -537,7 +537,7 @@ impl App {
                                 "type" => self.type_name(&row.ext, row.is_dir),
                                 "size" if !row.is_dir => fmt_size(row.size),
                                 // folders: the total of everything inside, counted in the background
-                                "size" if self.settings.folder_sizes => match self.sizer.get(&row.path) {
+                                "size" if self.settings.counts_size_of(&row.path) => match self.sizer.get(&row.path) {
                                     DirSize::Done(b) => fmt_size(b),
                                     DirSize::Counting(b) if b > 0 => format!("{}…", fmt_size(b)),
                                     _ => "…".into(),

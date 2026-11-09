@@ -1016,6 +1016,13 @@ impl App {
                 self.tabs.iter_mut().for_each(|t| t.dirty = true);
                 ch = true;
             }
+            ui.indent("folder_sizes_parts", |ui| {
+                if managed_toggle(ui, &mut self.settings.folder_sizes_network, "folder_sizes_network", tr("On network drives too")) {
+                    self.tabs.iter_mut().for_each(|t| t.dirty = true);
+                    ch = true;
+                }
+                ui.label(egui::RichText::new(tr("Counting lists every folder below on the server, which loads it and can look like an attack to its antivirus.")).size(12.0).color(DIM()));
+            });
             ch |= managed_toggle(ui, &mut self.settings.restore_tabs, "restore_tabs2", tr("Reopen my tabs when Daleris starts"));
             ui.add_space(4.0);
             ui.horizontal_wrapped(|ui| {
@@ -1088,6 +1095,11 @@ impl App {
                 ch = true;
             }
             ui.indent("search_sub_parts", |ui| {
+                if managed_toggle(ui, &mut self.settings.nested_search_network, "nested_search_network", tr("On network drives too")) {
+                    self.refilter_tabs();
+                    ch = true;
+                }
+                ui.label(egui::RichText::new(tr("Searching lists every folder below on the server, which loads it and can look like an attack to its antivirus. Off, the status bar offers it for one search at a time.")).size(12.0).color(DIM()));
                 ch |= managed_toggle(ui, &mut self.settings.search_hide_sub, "search_hide_sub", tr("Hide its switch in the search box"));
             });
             if managed_toggle(ui, &mut self.settings.regex_search, "regex_search", tr("Treat searches as regular expressions")) {

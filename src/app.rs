@@ -177,6 +177,10 @@ struct Tab {
     rename: Option<Rename>,
     query: String,
     scope: Scope,
+    /// searching only this network folder, as subfolders on network drives aren't searched
+    net_shallow: bool,
+    /// the network folder whose subfolders were searched anyway, this once
+    net_deep_for: Option<PathBuf>,
     search: Option<Search>,
     watcher: Option<fsx::Watcher>,
     watched: Option<PathBuf>,
@@ -238,6 +242,8 @@ impl Tab {
             rename: None,
             query: String::new(),
             scope: Scope::Subfolders,
+            net_shallow: false,
+            net_deep_for: None,
             search: None,
             watcher: None,
             watched: None,
@@ -623,10 +629,14 @@ pub struct Settings {
     native_props: bool,
     /// show each folder's total size (counted in the background)
     folder_sizes: bool,
+    /// ... on network drives too, where counting walks every folder below on the server
+    folder_sizes_network: bool,
     /// details-view column widths you set (column id to width)
     col_w: HashMap<String, f32>,
     /// search box 'Subfolders' switch (on = search every folder below)
     nested_search: bool,
+    /// ... on network drives too, where it lists every folder below on the server
+    nested_search_network: bool,
     /// search box '.*' switch: the whole search text is a regular expression
     regex_search: bool,
     /// no subfolders switch in the search box, as in Explorer; "Search subfolders too" still decides
@@ -803,8 +813,10 @@ impl Settings {
             auto_update: true,
             native_props: false,
             folder_sizes: true,
+            folder_sizes_network: false,
             col_w: HashMap::new(),
             nested_search: true,
+            nested_search_network: false,
             regex_search: false,
             search_hide_sub: cfg!(windows),
             search_hide_regex: cfg!(windows),
@@ -959,6 +971,11 @@ impl Settings {
         cfg!(windows) && self.hide_dotfiles
     }
 
+    /// Is the size of the folder `dir` counted? On network drives only when asked for, as counting walks the server.
+    fn counts_size_of(&self, dir: &Path) -> bool {
+        self.folder_sizes && (self.folder_sizes_network || !fsx::is_network_path(dir))
+    }
+
     fn density(&self) -> u8 {
         self.density
     }
@@ -1044,7 +1061,9 @@ impl Settings {
             "accent2" => self.accent = v.parse().unwrap_or(ACCENTS.len()),
             "native_props" => self.native_props = on,
             "folder_sizes" => self.folder_sizes = on,
+            "folder_sizes_network" => self.folder_sizes_network = on,
             "nested_search" => self.nested_search = on,
+            "nested_search_network" => self.nested_search_network = on,
             "regex_search" => self.regex_search = on,
             "search_hide_sub" => self.search_hide_sub = on,
             "search_hide_regex" => self.search_hide_regex = on,
@@ -1120,7 +1139,9 @@ impl Settings {
             ("auto_update", b(self.auto_update)),
             ("native_props", b(self.native_props)),
             ("folder_sizes", b(self.folder_sizes)),
+            ("folder_sizes_network", b(self.folder_sizes_network)),
             ("nested_search", b(self.nested_search)),
+            ("nested_search_network", b(self.nested_search_network)),
             ("regex_search", b(self.regex_search)),
             ("search_hide_sub", b(self.search_hide_sub)),
             ("search_hide_regex", b(self.search_hide_regex)),
@@ -1453,6 +1474,8 @@ pub struct App {
     type_names: HashMap<String, String>,
     thumb_order: VecDeque<String>,
     indexes: Vec<Arc<Index>>,
+    /// the status bar's "Search them this time" was clicked
+    net_deep_asked: bool,
     preview: Preview,
     toast: Option<(String, Instant, bool)>,
     /// The folder dragged files are over this frame, for the label under the pointer.
@@ -1596,6 +1619,7 @@ impl App {
             type_names: HashMap::new(),
             thumb_order: VecDeque::new(),
             indexes: Vec::new(),
+            net_deep_asked: false,
             preview: Preview { path: None, entry: None, generation: 0, content: PvContent::Nothing },
             toast: None,
             drop_hint: None,
@@ -2328,7 +2352,7 @@ impl App {
     // ------------------------------------------------------------------ view building
 
     fn rebuild_view(&self, t: &mut Tab) {
-        let filter = (t.scope == Scope::ThisFolder && !t.query.trim().is_empty()).then(|| if self.settings.regex_search { Query::regex_whole(&t.query) } else { Query::new(&t.query) });
+        let filter = ((t.scope == Scope::ThisFolder || t.net_shallow) && !t.query.trim().is_empty()).then(|| if self.settings.regex_search { Query::regex_whole(&t.query) } else { Query::new(&t.query) });
         self.ensure_order(t);
         let (show_hidden, hide_dots) = (self.settings.show_hidden, self.settings.hides_dotfiles());
         let picker = self.picker.as_ref();
@@ -2984,6 +3008,10 @@ impl App {
                 self.command_bar(root, &mut t);
             }
             self.status_bar(root, &t);
+            if std::mem::take(&mut self.net_deep_asked) {
+                t.net_deep_for = t.dir().map(Path::to_path_buf);
+                self.query_changed(&mut t);
+            }
             self.sidebar(root, &t);
             if self.settings.show_preview && !in_settings {
                 self.preview_panel(root, &t);
@@ -3250,7 +3278,7 @@ impl App {
     fn refilter_tabs(&mut self) {
         for i in 0..self.tabs.len() {
             self.tabs[i].dirty = true;
-            if self.tabs[i].searching() {
+            if self.tabs[i].searching() || self.tabs[i].net_shallow {
                 let mut t = std::mem::replace(&mut self.tabs[i], Tab::new(0, Loc::ThisPc));
                 self.query_changed(&mut t);
                 self.tabs[i] = t;
@@ -3651,6 +3679,19 @@ mod tests {
             assert!(s.skip_groups[g].iter().all(|&t| t == (*key != "search_skip_cloud")), "search leaves out all of {key} but cloud folders");
         }
         assert!(s.skip_hidden && s.skip_system);
+    }
+
+    #[test]
+    fn network_drives_are_left_alone_unless_asked() {
+        let mut s = Settings::defaults();
+        assert!(s.nested_search && !s.nested_search_network, "subfolders are searched on local drives, not on servers");
+        assert!(s.folder_sizes && !s.folder_sizes_network, "folder sizes are counted on local drives, not on servers");
+        assert!(s.counts_size_of(Path::new(r"C:\Users")));
+        assert!(!s.counts_size_of(Path::new(r"\\fileserver\projects\2026")));
+        s.folder_sizes_network = true;
+        assert!(s.counts_size_of(Path::new(r"\\fileserver\projects\2026")));
+        s.folder_sizes = false;
+        assert!(!s.counts_size_of(Path::new(r"\\fileserver\projects\2026")), "the main switch still decides");
     }
 
     #[test]

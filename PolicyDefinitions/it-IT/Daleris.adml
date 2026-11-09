@@ -39,7 +39,9 @@
       <string id="ReopenTabs">Riapri le schede all'avvio</string>
       <string id="WindowsPropertiesDialog">Usa la finestra Proprietà di Windows</string>
       <string id="FolderSizes">Mostra le dimensioni delle cartelle</string>
+      <string id="FolderSizesNetwork">Mostra le dimensioni delle cartelle sulle unità di rete</string>
       <string id="SearchSubfolders">Cerca nelle sottocartelle</string>
+      <string id="SearchNetworkSubfolders">Cerca nelle sottocartelle sulle unità di rete</string>
       <string id="SearchRegex">Tratta le ricerche come espressioni regolari</string>
       <string id="SearchHideSubfolders">Nascondi l'interruttore delle sottocartelle nella casella di ricerca</string>
       <string id="SearchHideRegex">Nascondi l'interruttore delle espressioni regolari nella casella di ricerca</string>

@@ -587,3 +587,28 @@ pub fn bitlocker_locked(_root: &Path) -> bool {
 }
 
 pub fn unlock_bitlocker(_root: &Path) {}
+
+/// Lowers this thread's priority for the disk, so whatever else reads the disk goes first.
+pub fn background_io() {
+    // Linux: the idle I/O class for this thread (ioprio_set, IOPRIO_WHO_PROCESS with 0 is the calling thread)
+    #[cfg(target_os = "linux")]
+    unsafe {
+        libc::syscall(libc::SYS_ioprio_set, 1, 0, 3 << 13);
+    }
+    // macOS: throttled disk access for this thread
+    #[cfg(target_os = "macos")]
+    {
+        // in libSystem, but not in the libc crate: IOPOL_TYPE_DISK 0, IOPOL_SCOPE_THREAD 1, IOPOL_THROTTLE 3
+        unsafe extern "C" {
+            fn setiopolicy_np(iotype: libc::c_int, scope: libc::c_int, policy: libc::c_int) -> libc::c_int;
+        }
+        unsafe {
+            setiopolicy_np(0, 1, 3);
+        }
+    }
+}
+
+/// Whether the drive is a hard disk isn't asked here; searches read it as an SSD.
+pub fn seek_penalty(_p: &Path) -> Option<bool> {
+    None
+}

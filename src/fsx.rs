@@ -844,3 +844,54 @@ pub fn unlock_bitlocker(root: &Path) {
     let system = std::env::var_os("SystemRoot").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(r"C:\Windows"));
     let _ = std::process::Command::new(system.join(r"System32\bdeunlock.exe")).arg(root).spawn();
 }
+
+/// Lowers this thread's priority for the disk as well as the processor, so whatever else reads the disk goes first.
+pub fn background_io() {
+    use windows::Win32::System::Threading::{GetCurrentThread, SetThreadPriority, THREAD_MODE_BACKGROUND_BEGIN};
+    let _ = unsafe { SetThreadPriority(GetCurrentThread(), THREAD_MODE_BACKGROUND_BEGIN) };
+}
+
+/// Is the drive `p` is on a hard disk, which slows down when read in many places at once? None when Windows can't
+/// tell, as for some RAID and USB enclosures. Asked once per drive letter.
+pub fn seek_penalty(p: &Path) -> Option<bool> {
+    use std::collections::HashMap;
+    use std::sync::Mutex;
+    use windows::Win32::System::Ioctl::*;
+    use windows::Win32::System::IO::DeviceIoControl;
+    static KNOWN: Mutex<Option<HashMap<char, Option<bool>>>> = Mutex::new(None);
+    let s = p.to_string_lossy();
+    let mut chars = s.chars();
+    let (letter, colon) = (chars.next()?.to_ascii_uppercase(), chars.next()?);
+    if colon != ':' || !letter.is_ascii_alphabetic() {
+        return None;
+    }
+    if let Some(known) = KNOWN.lock().unwrap().get_or_insert_with(HashMap::new).get(&letter) {
+        return *known;
+    }
+    let ask = || -> Option<bool> {
+        // no access asked for: needs no administrator rights, only lets the drive be asked about itself
+        let dev = wide(&format!(r"\.\{letter}:"));
+        let h = unsafe { CreateFileW(PCWSTR(dev.as_ptr()), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, None, OPEN_EXISTING, FILE_FLAGS_AND_ATTRIBUTES(0), None) }.ok()?;
+        let query = STORAGE_PROPERTY_QUERY { PropertyId: StorageDeviceSeekPenaltyProperty, QueryType: PropertyStandardQuery, ..Default::default() };
+        let mut out = DEVICE_SEEK_PENALTY_DESCRIPTOR::default();
+        let mut got = 0u32;
+        let asked = unsafe {
+            DeviceIoControl(
+                h,
+                IOCTL_STORAGE_QUERY_PROPERTY,
+                Some(&query as *const _ as *const _),
+                std::mem::size_of::<STORAGE_PROPERTY_QUERY>() as u32,
+                Some(&mut out as *mut _ as *mut _),
+                std::mem::size_of::<DEVICE_SEEK_PENALTY_DESCRIPTOR>() as u32,
+                Some(&mut got),
+                None,
+            )
+        };
+        let _ = unsafe { CloseHandle(h) };
+        asked.ok()?;
+        Some(out.IncursSeekPenalty)
+    };
+    let answer = ask();
+    KNOWN.lock().unwrap().get_or_insert_with(HashMap::new).insert(letter, answer);
+    answer
+}

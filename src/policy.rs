@@ -21,7 +21,7 @@ enum Kind {
 }
 
 /// Registry value name, settings file key, what it holds.
-const VALUES: [(&str, &str, Kind); 67] = [
+const VALUES: [(&str, &str, Kind); 69] = [
     ("ShowHiddenItems", "hidden", Kind::Bool),
     ("HideDotfiles", "hide_dots", Kind::Bool),
     ("ExplorerColours", "explorer_colours", Kind::Bool),
@@ -52,7 +52,9 @@ const VALUES: [(&str, &str, Kind); 67] = [
     ("NewTabOpens", "new_tab", Kind::Text),
     ("WindowsPropertiesDialog", "native_props", Kind::Bool),
     ("FolderSizes", "folder_sizes", Kind::Bool),
+    ("FolderSizesNetwork", "folder_sizes_network", Kind::Bool),
     ("SearchSubfolders", "nested_search", Kind::Bool),
+    ("SearchNetworkSubfolders", "nested_search_network", Kind::Bool),
     ("SearchRegex", "regex_search", Kind::Bool),
     ("SearchHideSubfolders", "search_hide_sub", Kind::Bool),
     ("SearchHideRegex", "search_hide_regex", Kind::Bool),

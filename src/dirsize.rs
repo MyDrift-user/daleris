@@ -129,6 +129,10 @@ impl DirSizer {
 }
 
 fn worker(inner: &Inner, net: bool) {
+    // low disk priority: whatever else reads the disk goes first
+    crate::fsx::background_io();
+    // a server gets one folder listing at a time, at most 20 a second, as the search crawler does
+    let pace = net.then_some(crate::search::Lanes::NETWORK.pace).flatten();
     let (queue, wake) = if net { (&inner.net_queue, &inner.net_wake) } else { (&inner.queue, &inner.wake) };
     loop {
         let dir = {
@@ -153,6 +157,7 @@ fn worker(inner: &Inner, net: bool) {
         let mut stack = vec![dir];
         let mut last = Instant::now();
         while let Some(d) = stack.pop() {
+            let listed = Instant::now();
             for_each_raw(&d, |e| {
                 if e.attrs & A_DIR != 0 {
                     // never follow links/junctions: no loops, no double counting
@@ -163,6 +168,9 @@ fn worker(inner: &Inner, net: bool) {
                     bytes += e.size;
                 }
             });
+            if let Some(pace) = pace {
+                std::thread::sleep(pace.saturating_sub(listed.elapsed()));
+            }
             if last.elapsed() > Duration::from_millis(250) {
                 last = Instant::now();
                 let mut cache = inner.cache.lock().unwrap();

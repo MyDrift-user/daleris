@@ -39,7 +39,9 @@
       <string id="ReopenTabs">Reopen tabs at startup</string>
       <string id="WindowsPropertiesDialog">Use the Windows Properties dialog</string>
       <string id="FolderSizes">Show folder sizes</string>
+      <string id="FolderSizesNetwork">Show folder sizes on network drives</string>
       <string id="SearchSubfolders">Search subfolders</string>
+      <string id="SearchNetworkSubfolders">Search subfolders on network drives</string>
       <string id="SearchRegex">Treat searches as regular expressions</string>
       <string id="SearchHideSubfolders">Hide the subfolders switch in the search box</string>
       <string id="SearchHideRegex">Hide the regular expression switch in the search box</string>

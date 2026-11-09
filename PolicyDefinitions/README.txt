@@ -76,7 +76,12 @@ VALUES
                                       path: where a new tab opens. With Shift, it's always the folder of the tab in front
   WindowsPropertiesDialog   DWORD     0 Daleris's, 1 the Windows dialog
   FolderSizes               DWORD     0 off, 1 on
+  FolderSizesNetwork        DWORD     1 on, 0 off: folder sizes on network drives too. Off by default: counting
+                                      walks every folder below on the server
   SearchSubfolders          DWORD     0 off, 1 on
+  SearchNetworkSubfolders   DWORD     1 on, 0 off: subfolders are searched on network drives too. Off by default:
+                                      it lists every folder below on the server, which loads it and can look like
+                                      ransomware to antivirus there
   SearchRegex               DWORD     0 off, 1 on
   SearchHideSubfolders      DWORD     1 on, 0 off: the search box has no subfolders switch; SearchSubfolders still
                                       decides. On by default on Windows

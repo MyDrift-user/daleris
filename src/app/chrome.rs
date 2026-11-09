@@ -614,7 +614,13 @@ impl App {
             t.search = None;
             return;
         }
-        if q.is_empty() || (t.scope == Scope::ThisFolder && t.loc != Loc::ThisPc) {
+        // Listing every folder below on a server loads it, and looks like ransomware to antivirus there, so on
+        // network drives only this folder is searched unless that's switched on, or asked for this once.
+        t.net_shallow = match (&t.loc, t.scope) {
+            (Loc::Dir(p), Scope::Subfolders) => fsx::is_network_path(p) && !self.settings.nested_search_network && t.net_deep_for.as_ref().is_none_or(|d| !p.starts_with(d)),
+            _ => false,
+        };
+        if q.is_empty() || (t.scope == Scope::ThisFolder && t.loc != Loc::ThisPc) || t.net_shallow {
             t.search = None;
             t.dirty = true;
             return;
@@ -637,6 +643,18 @@ impl App {
         t.search = Some(s);
     }
 
+    /// How hard searching may read `root`: gently on servers, USB sticks and hard disks.
+    fn lanes_for(&self, root: &Path) -> search::Lanes {
+        if fsx::is_network_path(root) {
+            return search::Lanes::NETWORK;
+        }
+        match self.drives.iter().find(|d| fsx::is_under(root, &d.root)).map(|d| d.kind) {
+            Some(DriveKind::Network) => search::Lanes::NETWORK,
+            Some(DriveKind::Removable | DriveKind::Optical) => search::Lanes::ONE,
+            _ => search::Lanes::local(fsx::seek_penalty(root)),
+        }
+    }
+
     fn index_for(&mut self, roots: Vec<PathBuf>) -> Arc<Index> {
         let skip = self.settings.search_skip(&policy::current());
         // an index built before what search never finds changed would still find it
@@ -645,7 +663,9 @@ impl App {
             return i.clone();
         }
         self.indexes.retain(|i| !search::roots_equal(&i.roots, &roots));
-        let i = Index::build(roots, skip, self.ctx.clone());
+        let lanes: Vec<_> = roots.iter().map(|r| self.lanes_for(r)).collect();
+        log::info!("crawling {roots:?} with {lanes:?}");
+        let i = Index::build(roots, lanes, skip, self.ctx.clone());
         self.indexes.push(i.clone());
         while self.indexes.len() > 6 {
             let old = self.indexes.remove(0);
@@ -1126,6 +1146,13 @@ impl App {
                     }
                     if t.loading {
                         ui.add(egui::Spinner::new().size(12.0).color(ACCENT()));
+                    }
+                    if t.net_shallow && !t.query.trim().is_empty() {
+                        ui.add_space(14.0);
+                        ui.label(small(tr("Subfolders on network drives aren't searched").into()));
+                        if ui.add(egui::Button::new(egui::RichText::new(tr("Search them this time")).size(12.0).color(ACCENT())).frame(false)).on_hover_text(tr("Lists every folder below this one on the server, slowly, one at a time")).clicked() {
+                            self.net_deep_asked = true;
+                        }
                     }
                     if t.in_cloud {
                         ui.add_space(14.0);
