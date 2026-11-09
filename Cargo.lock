@@ -446,7 +446,7 @@ dependencies = [
 
 [[package]]
 name = "daleris"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "daleris-integration",
  "ed25519-dalek",
