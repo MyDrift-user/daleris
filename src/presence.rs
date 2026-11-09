@@ -4,6 +4,8 @@
 use std::path::Path;
 use std::sync::{Arc, OnceLock};
 
+use crate::i18n::{tr, tx};
+
 /// A small square picture of a person, as RGBA pixels.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Face {
@@ -14,7 +16,7 @@ pub struct Face {
 /// Someone with a file open.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Opener {
-    /// "You", or the person, by the name their PC knows them by
+    /// "You" in the language shown, or the person, by the name their PC knows them by
     pub who: String,
     /// the program, when known
     pub app: Option<String>,
@@ -22,7 +24,8 @@ pub struct Opener {
     pub since: Option<u64>,
     pub face: Option<Arc<Face>>,
     pub me: bool,
-    /// where it's known from, for the tooltip: "this PC", "their Daleris", "Office's lock file"
+    /// where it's known from, as a whole phrase for the tooltip, marked with `tx` and shown with `tr`: "known from this
+    /// PC", "known from their Daleris", "known from its lock file"
     pub from: &'static str,
 }
 
@@ -156,7 +159,7 @@ fn account_picture() -> Option<std::path::PathBuf> {
         s?
     };
     let key = format!(r"SOFTWARE\Microsoft\Windows\CurrentVersion\AccountPicture\Users\{sid}");
-    ["Image96", "Image64", "Image192", "Image240", "Image448"].iter().find_map(|v| {
+    ["Image96", "Image64", "Image192", "Image240", "Image448"].iter().find_map(|v| { // i18n-ignore: registry value names
         let p = std::path::PathBuf::from(crate::fsx::reg_text(windows::Win32::System::Registry::HKEY_LOCAL_MACHINE, &key, v)?);
         p.is_file().then_some(p)
     })
@@ -218,36 +221,6 @@ pub fn initials(who: &str) -> String {
     letters.into_iter().flat_map(char::to_uppercase).collect()
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn lock_files_name_their_document_and_owner() {
-        let names = ["Quarterly report.docx", "Budget.xlsx", "notes.odt", "~$arterly report.docx", "~$Budget.xlsx"];
-        assert_eq!(lock_target("~$Budget.xlsx", &names), Some("Budget.xlsx"));
-        assert_eq!(lock_target("~$arterly report.docx", &names), Some("Quarterly report.docx"), "Word drops two letters");
-        assert_eq!(lock_target(".~lock.notes.odt#", &names), Some("notes.odt"));
-        assert_eq!(lock_target("~$nothing.docx", &names), None);
-        let mut office = vec![11u8];
-        office.extend(b"Ana Mueller");
-        office.extend([0u8; 40]);
-        assert_eq!(lock_owner("~$Budget.xlsx", &office).as_deref(), Some("Ana Mueller"));
-        assert_eq!(lock_owner(".~lock.notes.odt#", b"Ana Mueller,PC-7,/home/ana,08.11.2026 17:00,file:///x;").as_deref(), Some("Ana Mueller"));
-    }
-
-    #[test]
-    fn faces_survive_a_note() {
-        let f = Face { size: 2, rgba: (0..16).collect() };
-        let text = face_text(&f);
-        let (size, data) = text.split_once('\t').unwrap();
-        assert_eq!(face_from(size, data), Some(f));
-        assert_eq!(b64_encode(b"Ma"), "TWE=");
-        assert_eq!(initials("Ana Müller on PC-7"), "AM");
-        assert_eq!(initials("mydrift on DESKTOP"), "M");
-    }
-}
-
 // ---------------------------------------------------------------- one look at a folder
 
 /// Who has what open in `dir`, by item name in lower case: this PC's apps, and the people lock files name. `items` is the
@@ -271,12 +244,12 @@ pub fn scan(dir: &Path, items: &[(String, bool)], share_note: Option<&str>) -> s
     let first_seen = remember_first_seen(dir, &mine);
     for (name, apps) in &mine {
         out.entry(name.to_lowercase()).or_default().push(Opener {
-            who: "You".into(),
+            who: tr("You").into(),
             app: Some(apps.join(", ")),
             since: first_seen.get(name).copied(),
             face: my_face(),
             me: true,
-            from: "this PC",
+            from: tx("known from this PC"),
         });
     }
     // the people Office and LibreOffice name, unless it's you, who's already there
@@ -290,14 +263,14 @@ pub fn scan(dir: &Path, items: &[(String, bool)], share_note: Option<&str>) -> s
             continue;
         }
         let since = std::fs::metadata(dir.join(lock)).and_then(|m| m.modified()).ok().and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok()).map(|d| d.as_secs());
-        let app = if lock.starts_with(".~lock.") { "LibreOffice" } else { "Office" };
+        let app = if lock.starts_with(".~lock.") { "LibreOffice" } else { "Office" }; // i18n-ignore: program names
         out.entry(key).or_default().push(Opener {
-            who: if you { "You".into() } else { owner },
+            who: if you { tr("You").into() } else { owner },
             app: Some(app.into()),
             since,
             face: if you { my_face() } else { None },
             me: you,
-            from: "its lock file",
+            from: tx("known from its lock file"),
         });
     }
     if let Some(file) = share_note.filter(|_| crate::fsx::is_network_path(dir)) {
@@ -369,5 +342,35 @@ fn share_open(dir: &Path, file: &str, me: &str, mine: &[(String, Vec<String>)], 
     let face = my_face();
     if crate::marks::write(dir, file, &marks, face.as_deref().map(|f| (me, f))).is_ok() {
         written.insert(dir.to_path_buf(), (what, Instant::now()));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn lock_files_name_their_document_and_owner() {
+        let names = ["Quarterly report.docx", "Budget.xlsx", "notes.odt", "~$arterly report.docx", "~$Budget.xlsx"];
+        assert_eq!(lock_target("~$Budget.xlsx", &names), Some("Budget.xlsx"));
+        assert_eq!(lock_target("~$arterly report.docx", &names), Some("Quarterly report.docx"), "Word drops two letters");
+        assert_eq!(lock_target(".~lock.notes.odt#", &names), Some("notes.odt"));
+        assert_eq!(lock_target("~$nothing.docx", &names), None);
+        let mut office = vec![11u8];
+        office.extend(b"Ana Mueller");
+        office.extend([0u8; 40]);
+        assert_eq!(lock_owner("~$Budget.xlsx", &office).as_deref(), Some("Ana Mueller"));
+        assert_eq!(lock_owner(".~lock.notes.odt#", b"Ana Mueller,PC-7,/home/ana,08.11.2026 17:00,file:///x;").as_deref(), Some("Ana Mueller"));
+    }
+
+    #[test]
+    fn faces_survive_a_note() {
+        let f = Face { size: 2, rgba: (0..16).collect() };
+        let text = face_text(&f);
+        let (size, data) = text.split_once('\t').unwrap();
+        assert_eq!(face_from(size, data), Some(f));
+        assert_eq!(b64_encode(b"Ma"), "TWE=");
+        assert_eq!(initials("Ana Müller on PC-7"), "AM");
+        assert_eq!(initials("mydrift on DESKTOP"), "M");
     }
 }

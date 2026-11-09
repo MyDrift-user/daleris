@@ -73,7 +73,7 @@ fn templates_dir() -> Option<PathBuf> {
         let v = line.split_once('=')?.1.trim().trim_matches('"').to_string();
         Some(PathBuf::from(v.replace("$HOME", &home.to_string_lossy())))
     });
-    let dir = named.unwrap_or_else(|| home.join("Templates"));
+    let dir = named.unwrap_or_else(|| home.join("Templates")); // i18n-ignore: folder name on disk
     // pointing at the home folder itself means there's none
     (dir != home && dir.is_dir()).then_some(dir)
 }
@@ -82,7 +82,7 @@ fn templates_dir() -> Option<PathBuf> {
 fn find() -> Vec<Template> {
     use windows::Win32::System::Registry::*;
     // Explorer keeps what its New menu shows; without that, every file type is looked at
-    let cached = reg::multi(HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Discardable\PostSetup\ShellNew", "Classes");
+    let cached = reg::multi(HKEY_CURRENT_USER, r"Software\Microsoft\Windows\CurrentVersion\Explorer\Discardable\PostSetup\ShellNew", "Classes"); // i18n-ignore: registry value name
     let types = cached.filter(|c| !c.is_empty()).unwrap_or_else(|| reg::subkeys(HKEY_CLASSES_ROOT, "").into_iter().filter(|k| k.starts_with('.')).collect());
     // folders and text documents are Daleris's own items; a library only belongs in Libraries
     types.iter().filter(|t| t.starts_with('.') && !matches!(t.to_lowercase().as_str(), ".txt" | ".library-ms")).filter_map(|ext| template(ext)).collect()
@@ -103,9 +103,9 @@ fn template(ext: &str) -> Option<Template> {
     let has = |name: &str| reg::raw(CR, &key, name).is_some();
     let how = if ext.eq_ignore_ascii_case(".lnk") {
         How::Shortcut
-    } else if let Some(c) = reg::string(CR, &key, "Command") {
+    } else if let Some(c) = reg::string(CR, &key, "Command") { // i18n-ignore: registry value name
         How::Command(c)
-    } else if let Some((ty, bytes)) = reg::raw(CR, &key, "Data") {
+    } else if let Some((ty, bytes)) = reg::raw(CR, &key, "Data") { // i18n-ignore: registry value name
         // text data is written as it reads, without the closing zero
         const REG_SZ: u32 = 1;
         if ty == REG_SZ { How::Bytes(String::from_utf16_lossy(&wide_of(&bytes)).trim_end_matches('\0').as_bytes().to_vec()) } else { How::Bytes(bytes) }
@@ -119,7 +119,7 @@ fn template(ext: &str) -> Option<Template> {
     let friendly = prog.as_deref().and_then(|p| reg::string(CR, p, "FriendlyTypeName").map(|s| crate::fsx::resolve_indirect(&s)).filter(|s| !s.is_empty()).or_else(|| reg::string(CR, p, "").filter(|s| !s.is_empty())));
     // "&" marks a menu's shortcut letter in Windows's wording
     let label = text("MenuText").map(|s| without_marks(&s)).or(friendly).unwrap_or_else(|| ext.trim_start_matches('.').to_uppercase());
-    let base = text("ItemName").unwrap_or_else(|| format!("New {label}"));
+    let base = text("ItemName").unwrap_or_else(|| trf!("New {label}", label = label));
     let name = if base.to_lowercase().ends_with(&ext.to_lowercase()) { base } else { format!("{base}{ext}") };
     Some(Template { label, name, how })
 }

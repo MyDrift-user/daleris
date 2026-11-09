@@ -5,6 +5,7 @@ use std::cmp::Ordering;
 use std::collections::BTreeMap;
 use std::path::Path;
 
+use crate::i18n::{tr, tx};
 use crate::util::{filetime_from_ymd, filetime_local, kind_of, natural_cmp, now_filetime, Kind, FT_DAY};
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -35,14 +36,15 @@ impl SortKey {
         SortKey::ALL.into_iter().find(|k| k.word() == w)
     }
 
+    /// Its name, marked with `tx`: `tr` shows it in the language shown.
     pub fn label(self) -> &'static str {
         match self {
-            SortKey::Name => "Name",
-            SortKey::Modified => "Date modified",
-            SortKey::Created => "Date created",
-            SortKey::Type => "Type",
-            SortKey::Extension => "Extension",
-            SortKey::Size => "Size",
+            SortKey::Name => tx("Name"),
+            SortKey::Modified => tx("Date modified"),
+            SortKey::Created => tx("Date created"),
+            SortKey::Type => tx("Type"),
+            SortKey::Extension => tx("Extension"),
+            SortKey::Size => tx("Size"),
         }
     }
 
@@ -75,15 +77,15 @@ impl SortSpec {
         Some(SortSpec { key: SortKey::from_word(f.next()?)?, asc: f.next()? == "1", dirs_first: f.next()? == "1" })
     }
 
-    /// Which way round it runs, as a person would say it.
+    /// Which way round it runs, as a person would say it; marked with `tx`, `tr` shows it.
     pub fn direction(self) -> &'static str {
         match (self.key, self.asc) {
-            (SortKey::Modified | SortKey::Created, false) => "Newest first",
-            (SortKey::Modified | SortKey::Created, true) => "Oldest first",
-            (SortKey::Size, false) => "Largest first",
-            (SortKey::Size, true) => "Smallest first",
-            (_, true) => "A to Z",
-            (_, false) => "Z to A",
+            (SortKey::Modified | SortKey::Created, false) => tx("Newest first"),
+            (SortKey::Modified | SortKey::Created, true) => tx("Oldest first"),
+            (SortKey::Size, false) => tx("Largest first"),
+            (SortKey::Size, true) => tx("Smallest first"),
+            (_, true) => tx("A to Z"),
+            (_, false) => tx("Z to A"),
         }
     }
 
@@ -195,15 +197,15 @@ pub enum SizeRange {
     Custom,
 }
 
-/// The kinds the panel offers.
+/// The kinds the panel offers, their names marked with `tx`: `tr` shows them.
 pub const FILTER_KINDS: [(Kind, &str); 7] = [
-    (Kind::Folder, "Folders"),
-    (Kind::Image, "Images"),
-    (Kind::Document, "Documents"),
-    (Kind::Video, "Video"),
-    (Kind::Audio, "Audio"),
-    (Kind::Archive, "Archives"),
-    (Kind::Code, "Code"),
+    (Kind::Folder, tx("Folders")),
+    (Kind::Image, tx("Images")),
+    (Kind::Document, tx("Documents")),
+    (Kind::Video, tx("Video")),
+    (Kind::Audio, tx("Audio")),
+    (Kind::Archive, tx("Archives")),
+    (Kind::Code, tx("Code")),
 ];
 
 /// What the person chose in the filter panel, as they chose it.
@@ -253,12 +255,14 @@ impl ListFilter {
         }
     }
 
+    /// What to write instead, in the language shown. The example stays as `parse_day` reads it in every language.
     pub fn date_error(&self) -> Option<&'static str> {
-        (self.date == DateRange::Custom && [&self.date_from, &self.date_to].iter().any(|d| !d.trim().is_empty() && parse_day(d).is_none())).then_some("Write dates as 2026-11-05")
+        (self.date == DateRange::Custom && [&self.date_from, &self.date_to].iter().any(|d| !d.trim().is_empty() && parse_day(d).is_none())).then(|| tr("Write dates as 2026-11-05"))
     }
 
+    /// What to write instead, in the language shown.
     pub fn size_error(&self) -> Option<&'static str> {
-        (self.size == SizeRange::Custom && [&self.size_min, &self.size_max].iter().any(|s| !s.trim().is_empty() && parse_size(s).is_none())).then_some("Write sizes as 500 KB, 10 MB or 2 GB")
+        (self.size == SizeRange::Custom && [&self.size_min, &self.size_max].iter().any(|s| !s.trim().is_empty() && parse_size(s).is_none())).then(|| tr("Write sizes as 500 KB, 10 MB or 2 GB"))
     }
 
     /// Ready to test against many entries, as of `now` (FILETIME ticks).

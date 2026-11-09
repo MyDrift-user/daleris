@@ -10,6 +10,7 @@ use std::sync::{Arc, Condvar, Mutex, RwLock};
 use std::time::{Duration, Instant};
 
 use crate::fsx::{for_each_raw, A_DIR, A_HIDDEN, A_REPARSE, A_SYSTEM};
+use crate::i18n::{tr, tx};
 use crate::util::*;
 
 pub const NO_PARENT: u32 = u32::MAX;
@@ -225,24 +226,25 @@ fn crawl_worker(idx: &Index, shared: &Shared) {
 
 // ---------------------------------------------------------------- what search never finds
 
-/// The ready-made groups in Settings: settings file key, name, folder names, file types.
+/// The ready-made groups in Settings: settings file key, name (marked with `tx`, shown with `tr`), folder names, file
+/// types.
 pub const SKIP_GROUPS: [(&str, &str, &[&str], &[&str]); 6] = [
-    ("search_skip_appdata", "App data", &["AppData"], &[]),
+    ("search_skip_appdata", tx("App data"), &["AppData"], &[]),
     (
         "search_skip_windows",
-        "Windows and installed programs",
-        &["Windows", "Program Files", "Program Files (x86)", "ProgramData", "$Recycle.Bin", "System Volume Information", "$WinREAgent", "Recovery"],
+        tx("Windows and installed programs"),
+        &["Windows", "Program Files", "Program Files (x86)", "ProgramData", "$Recycle.Bin", "System Volume Information", "$WinREAgent", "Recovery"], // i18n-ignore: folder names on disk
         &[],
     ),
     (
         "search_skip_dev",
-        "Developer clutter",
+        tx("Developer clutter"),
         &["node_modules", ".git", ".svn", "target", "__pycache__", ".cache", ".cargo", ".rustup", ".npm", ".gradle", ".venv", "venv"],
         &[],
     ),
-    ("search_skip_cloud", "Cloud folders", &["OneDrive", "Dropbox", "Google Drive", "iCloudDrive"], &[]),
-    ("search_skip_temp", "Temporary and log files", &[], &[".tmp", ".temp", ".log", ".bak", ".dmp"]),
-    ("search_skip_parts", "Program parts", &[], &[".dll", ".sys", ".mui", ".cat", ".pdb", ".obj", ".lib"]),
+    ("search_skip_cloud", tx("Cloud folders"), &["OneDrive", "Dropbox", "Google Drive", "iCloudDrive"], &[]), // i18n-ignore: folder names on disk
+    ("search_skip_temp", tx("Temporary and log files"), &[], &[".tmp", ".temp", ".log", ".bak", ".dmp"]),
+    ("search_skip_parts", tx("Program parts"), &[], &[".dll", ".sys", ".mui", ".cat", ".pdb", ".obj", ".lib"]),
 ];
 
 /// What search never finds: the switches and lists in Settings, with what the administrator adds.
@@ -371,7 +373,7 @@ pub fn pattern(p: &str) -> Result<regex::Regex, String> {
 /// The line of a regex error that says what's wrong.
 fn short_error(e: &regex::Error) -> String {
     let msg = e.to_string();
-    msg.lines().filter(|l| !l.trim().is_empty()).last().unwrap_or("invalid pattern").trim().trim_start_matches("error: ").to_string()
+    msg.lines().filter(|l| !l.trim().is_empty()).last().unwrap_or(tr("invalid pattern")).trim().trim_start_matches("error: ").to_string()
 }
 
 // ---------------------------------------------------------------- query language

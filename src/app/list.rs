@@ -41,25 +41,25 @@ impl App {
         let folder = if search { user("folder").unwrap_or(((full - COL_LEFT - COL_RIGHT - fixed) * 0.42).max(120.0)) } else { 0.0 };
         let name = user("name").unwrap_or((full - COL_LEFT - COL_RIGHT - fixed - folder).max(200.0));
 
-        let mut v = vec![ColSpec { id: "name", label: "Name", sort: Some(SortKey::Name), w: name }];
+        let mut v = vec![ColSpec { id: "name", label: tx("Name"), sort: Some(SortKey::Name), w: name }];
         if search {
-            v.push(ColSpec { id: "folder", label: "Folder", sort: None, w: folder });
+            v.push(ColSpec { id: "folder", label: tx("Folder"), sort: None, w: folder });
         }
         if status_w > 0.0 {
-            v.push(ColSpec { id: "status", label: "Status", sort: None, w: status_w });
+            v.push(ColSpec { id: "status", label: tx("Status"), sort: None, w: status_w });
         }
-        v.push(ColSpec { id: "modified", label: "Date modified", sort: Some(SortKey::Modified), w: modified });
+        v.push(ColSpec { id: "modified", label: tx("Date modified"), sort: Some(SortKey::Modified), w: modified });
         // what the list is sorted by has to be there to see
         if t.sort == SortKey::Created && !search {
-            v.push(ColSpec { id: "created", label: "Date created", sort: Some(SortKey::Created), w: user("created").unwrap_or(140.0) });
+            v.push(ColSpec { id: "created", label: tx("Date created"), sort: Some(SortKey::Created), w: user("created").unwrap_or(140.0) });
         }
         if t.sort == SortKey::Extension && !search {
-            v.push(ColSpec { id: "ext", label: "Extension", sort: Some(SortKey::Extension), w: user("ext").unwrap_or(84.0) });
+            v.push(ColSpec { id: "ext", label: tx("Extension"), sort: Some(SortKey::Extension), w: user("ext").unwrap_or(84.0) });
         }
         if !search {
-            v.push(ColSpec { id: "type", label: "Type", sort: Some(SortKey::Type), w: ty });
+            v.push(ColSpec { id: "type", label: tx("Type"), sort: Some(SortKey::Type), w: ty });
         }
-        v.push(ColSpec { id: "size", label: "Size", sort: Some(SortKey::Size), w: size });
+        v.push(ColSpec { id: "size", label: tx("Size"), sort: Some(SortKey::Size), w: size });
         v
     }
 
@@ -126,7 +126,7 @@ impl App {
                 if resp.hovered() && c.sort.is_some() {
                     painter.rect_filled(r.shrink(2.0), CornerRadius::same(4), HOVER());
                 }
-                let label = truncated(ui, c.label, FontId::proportional(12.5), DIM(), c.w - 24.0);
+                let label = truncated(ui, tr(c.label), FontId::proportional(12.5), DIM(), c.w - 24.0);
                 painter.galley(r.left_center() + vec2(8.0, -label.size().y / 2.0), label, DIM());
                 if let Some(k) = c.sort {
                     if t.sort == k {
@@ -176,7 +176,7 @@ impl App {
                 self.settings.col_w.insert(id.to_string(), fit);
                 self.save_settings();
             }
-            let tip = format!("Drag to resize · double-click to fit {}", if id == "name" { "the longest name" } else { "the longest entry" });
+            let tip = if id == "name" { tr("Drag to resize · double-click to fit the longest name") } else { tr("Drag to resize · double-click to fit the longest entry") };
             let _ = resp.on_hover_text(tip);
         }
     }
@@ -198,18 +198,18 @@ impl App {
             let hidden_by_filter = t.filtered() && t.shown_of > 0 && t.query.is_empty();
             ui.vertical_centered(|ui| {
                 if hidden_by_filter {
-                    ui.label(egui::RichText::new(format!("The filter is hiding all {} items in this folder.", fmt_count(t.shown_of))).color(DIM()));
+                    ui.label(egui::RichText::new(trn!(t.shown_of, "The filter is hiding the only item in this folder.", "The filter is hiding all {n} items in this folder.")).color(DIM()));
                     ui.add_space(8.0);
-                    if action_button(ui, "Clear filter", false).clicked() {
+                    if action_button(ui, tr("Clear filter"), false).clicked() {
                         self.acts.push(Act::ClearFilter);
                     }
                 } else {
                     let msg = if t.searching() || !t.query.is_empty() {
-                        "No items match your search."
+                        tr("No items match your search.")
                     } else if !t.entries.is_empty() {
-                        "Everything in this folder is hidden. The View menu can show hidden items and dotfiles."
+                        tr("Everything in this folder is hidden. The View menu can show hidden items and dotfiles.")
                     } else {
-                        "This folder is empty."
+                        tr("This folder is empty.")
                     };
                     ui.label(egui::RichText::new(msg).color(DIM()));
                 }
@@ -229,8 +229,8 @@ impl App {
         }
         ui.ctx().request_repaint_after(Duration::from_millis(250));
         let title = match self.remote_of(p) {
-            Some(r) if network => format!("Connecting to {r}…"),
-            _ => format!("Opening {}…", t.loc.title()),
+            Some(r) if network => trf!("Connecting to {place}…", place = r),
+            _ => trf!("Opening {place}…", place = t.loc.title()),
         };
         page_column(ui, |ui| {
             ui.add(egui::Spinner::new().size(30.0).color(ACCENT()));
@@ -238,9 +238,9 @@ impl App {
             ui.add(egui::Label::new(egui::RichText::new(title).size(16.0).color(TEXT())).wrap());
             if waited >= Duration::from_secs(2) {
                 ui.add_space(6.0);
-                ui.label(egui::RichText::new(format!("{} s so far. A server that doesn't answer can take a minute or more to give up.", waited.as_secs())).size(12.5).color(DIM()));
+                ui.label(egui::RichText::new(trf!("{s} s so far. A server that doesn't answer can take a minute or more to give up.", s = waited.as_secs())).size(12.5).color(DIM()));
                 ui.add_space(14.0);
-                if action_button(ui, "Cancel", false).clicked() {
+                if action_button(ui, tr("Cancel"), false).clicked() {
                     self.acts.push(Act::CancelLoad);
                 }
             }
@@ -265,32 +265,39 @@ impl App {
             .filter(|d| Some(d.letter) != letter && !d.disconnected && d.remote.as_deref().is_some_and(|r| !server.is_empty() && r.trim_start_matches('\\').split('\\').next().is_some_and(|s| s.eq_ignore_ascii_case(&server))))
             .map(|d| format!("{}:", d.letter))
             .collect();
+        let unc = format!("\\\\{server}");
         let (title, body) = match e.kind {
-            FailKind::Unreachable => (format!("Can't reach {host}"), "The server isn't answering. It may be switched off, or this PC may not be on its network or VPN.".to_string()),
-            FailKind::ShareMissing => (format!("\\\\{server} has no share called {share}"), "The server answered, but this share isn't there. It may have been renamed or removed.".to_string()),
-            FailKind::AccessDenied if network => ("You don't have access to this folder".to_string(), format!("{host} knows your account, but doesn't let it into this folder. Someone with rights to it can let you in, or you can sign in with another account.")),
-            FailKind::AccessDenied => ("You don't have access to this folder".to_string(), "Your account isn't allowed to open it.".to_string()),
-            FailKind::SignIn => (format!("{host} didn't accept the sign-in"), "The user name or password Windows tried for it is wrong, or has changed since it was saved. Sign in again with the right one.".to_string()),
-            FailKind::PasswordExpired => (format!("The password for {host} has expired"), "Change it first: on a PC in the same domain, press Ctrl+Alt+Del and choose Change a password. Then sign in again.".to_string()),
-            FailKind::AccountLocked => ("The account is locked".to_string(), format!("{host} locked or switched off the account Windows tried, often after too many wrong passwords. Ask whoever runs it, or wait until it unlocks.")),
+            FailKind::Unreachable => (trf!("Can't reach {host}", host = host), tr("The server isn't answering. It may be switched off, or this PC may not be on its network or VPN.").to_string()),
+            FailKind::ShareMissing => (trf!("{server} has no share called {share}", server = unc, share = share), tr("The server answered, but this share isn't there. It may have been renamed or removed.").to_string()),
+            FailKind::AccessDenied if network => (tr("You don't have access to this folder").to_string(), trf!("{host} knows your account, but doesn't let it into this folder. Someone with rights to it can let you in, or you can sign in with another account.", host = host)),
+            FailKind::AccessDenied => (tr("You don't have access to this folder").to_string(), tr("Your account isn't allowed to open it.").to_string()),
+            FailKind::SignIn => (trf!("{host} didn't accept the sign-in", host = host), tr("The user name or password Windows tried for it is wrong, or has changed since it was saved. Sign in again with the right one.").to_string()),
+            FailKind::PasswordExpired => (trf!("The password for {host} has expired", host = host), tr("Change it first: on a PC in the same domain, press Ctrl+Alt+Del and choose Change a password. Then sign in again.").to_string()),
+            FailKind::AccountLocked => (tr("The account is locked").to_string(), trf!("{host} locked or switched off the account Windows tried, often after too many wrong passwords. Ask whoever runs it, or wait until it unlocks.", host = host)),
             FailKind::OtherUser => (
-                format!("Connected to {host} as someone else already"),
-                format!(
-                    "Windows uses one account per server at a time, and this PC is connected to it with another one{}. Close that connection first, or reach the server by another of its names, such as its IP address. Windows's saved passwords may also hold more than one account for it.",
-                    match same_server.as_slice() {
-                        [] => String::new(),
-                        [one] => format!(", through drive {one}"),
-                        more => format!(", through drives {}", more.join(", ")),
+                trf!("Connected to {host} as someone else already", host = host),
+                match same_server.as_slice() {
+                    [] => tr("Windows uses one account per server at a time, and this PC is connected to it with another one. Close that connection first, or reach the server by another of its names, such as its IP address. Windows's saved passwords may also hold more than one account for it.").to_string(),
+                    [one] => trf!("Windows uses one account per server at a time, and this PC is connected to it with another one, through drive {drive}. Close that connection first, or reach the server by another of its names, such as its IP address. Windows's saved passwords may also hold more than one account for it.", drive = one),
+                    more => {
+                        let drives = more.join(", ");
+                        trf!("Windows uses one account per server at a time, and this PC is connected to it with another one, through drives {drives}. Close that connection first, or reach the server by another of its names, such as its IP address. Windows's saved passwords may also hold more than one account for it.", drives = drives)
                     }
-                ),
+                },
             ),
-            FailKind::Disconnected => (format!("Drive {}: isn't connected", letter.unwrap_or('?')), format!("It points to {place}, which isn't connected right now. Connecting it may ask for a password.")),
-            FailKind::NotFound => ("This folder isn't there any more".to_string(), "It may have been moved, renamed or deleted.".to_string()),
-            FailKind::NotReady => ("This drive isn't ready".to_string(), "There may be no disk in it, or it may be locked.".to_string()),
-            FailKind::Locked => (format!("{} is locked by BitLocker", self.drive_for(&p).map(|d| d.title()).unwrap_or_else(|| "This drive".into())), "Unlock it with its password or recovery key, and it opens here.".to_string()),
-            FailKind::Cancelled if network => ("Stopped connecting".to_string(), format!("You stopped waiting for {place}.")),
-            FailKind::Cancelled => ("Stopped opening this folder".to_string(), String::new()),
-            FailKind::Other => ("This folder can't be opened".to_string(), String::new()),
+            FailKind::Disconnected => (trf!("Drive {letter}: isn't connected", letter = letter.unwrap_or('?')), trf!("It points to {place}, which isn't connected right now. Connecting it may ask for a password.", place = place)),
+            FailKind::NotFound => (tr("This folder isn't there any more").to_string(), tr("It may have been moved, renamed or deleted.").to_string()),
+            FailKind::NotReady => (tr("This drive isn't ready").to_string(), tr("There may be no disk in it, or it may be locked.").to_string()),
+            FailKind::Locked => (
+                match self.drive_for(&p) {
+                    Some(d) => trf!("{drive} is locked by BitLocker", drive = d.title()),
+                    None => tr("This drive is locked by BitLocker").to_string(),
+                },
+                tr("Unlock it with its password or recovery key, and it opens here.").to_string(),
+            ),
+            FailKind::Cancelled if network => (tr("Stopped connecting").to_string(), trf!("You stopped waiting for {place}.", place = place)),
+            FailKind::Cancelled => (tr("Stopped opening this folder").to_string(), String::new()),
+            FailKind::Other => (tr("This folder can't be opened").to_string(), String::new()),
         };
         let sign_in_trouble = matches!(e.kind, FailKind::SignIn | FailKind::PasswordExpired | FailKind::AccountLocked | FailKind::OtherUser);
         // a mapped drive connects again; a share, mapped or not, can be signed in to with another account
@@ -315,30 +322,33 @@ impl App {
                 let mut buttons: Vec<(&str, Act, bool, String)> = Vec::new();
                 if e.kind == FailKind::Locked {
                     let root = p.ancestors().last().unwrap_or(&p).to_path_buf();
-                    buttons.push(("Unlock", Act::Unlock(root), true, "Asks for the drive's BitLocker password or recovery key, as File Explorer does".into()));
+                    buttons.push((tr("Unlock"), Act::Unlock(root), true, tr("Asks for the drive's BitLocker password or recovery key, as File Explorer does").into()));
                 }
                 if reconnect && !reconnecting {
                     if sign_in {
-                        buttons.push(("Sign in", Act::Reconnect, true, format!("Asks for a user name and password for {host}, and connects with them")));
+                        buttons.push((tr("Sign in"), Act::Reconnect, true, trf!("Asks for a user name and password for {host}, and connects with them", host = host)));
                     } else {
-                        let d = letter.map(|l| format!("drive {l}:")).unwrap_or_else(|| "the drive".into());
-                        buttons.push(("Connect", Act::Reconnect, e.kind == FailKind::Disconnected, format!("Connects {d} to {place} again. Windows asks for a password if it needs one")));
+                        let tip = match letter {
+                            Some(l) => trf!("Connects drive {letter}: to {place} again. Windows asks for a password if it needs one", letter = l, place = place),
+                            None => trf!("Connects the drive to {place} again. Windows asks for a password if it needs one", place = place),
+                        };
+                        buttons.push((tr("Connect"), Act::Reconnect, e.kind == FailKind::Disconnected, tip));
                     }
                 }
                 if cfg!(windows) && sign_in_trouble {
-                    buttons.push(("Saved passwords", Act::CredentialManager, buttons.is_empty(), format!("Opens Credential Manager, where Windows keeps the accounts and passwords it uses for {host}, to correct or remove them")));
+                    buttons.push((tr("Saved passwords"), Act::CredentialManager, buttons.is_empty(), trf!("Opens Credential Manager, where Windows keeps the accounts and passwords it uses for {host}, to correct or remove them", host = host)));
                 }
                 let primary = buttons.is_empty();
-                buttons.push(("Try again", Act::Retry, primary, "Looks at the folder again, without connecting or signing in".into()));
+                buttons.push((tr("Try again"), Act::Retry, primary, tr("Looks at the folder again, without connecting or signing in").into()));
                 if !t.back.is_empty() {
-                    buttons.push(("Back", Act::Back, false, "Goes back to the last place you were".into()));
+                    buttons.push((tr("Back"), Act::Back, false, tr("Goes back to the last place you were").into()));
                 }
                 // a server that isn't there is no reason to go up, or to This PC: Back, or another tab, is where to go
                 let up_helps = p.parent().is_some() && if network { matches!(e.kind, FailKind::AccessDenied | FailKind::NotFound) } else { !matches!(e.kind, FailKind::Unreachable | FailKind::Disconnected) };
                 if up_helps {
-                    buttons.push(("Go up", Act::Up, false, "Opens the folder this one is in".into()));
+                    buttons.push((tr("Go up"), Act::Up, false, tr("Opens the folder this one is in").into()));
                 } else if !network {
-                    buttons.push(("This PC", Act::Navigate(Loc::ThisPc), false, "Shows your drives".into()));
+                    buttons.push((tr("This PC"), Act::Navigate(Loc::ThisPc), false, tr("Shows your drives").into()));
                 }
                 let widths: f32 = buttons.iter().map(|(l, ..)| ui.fonts_mut(|f| f.layout_no_wrap(l.to_string(), FontId::proportional(13.5), TEXT()).size().x).max(64.0) + 32.0 + 8.0).sum();
                 ui.add_space(((ui.available_width() - widths) / 2.0).max(0.0));
@@ -350,11 +360,11 @@ impl App {
             });
             if reconnect && t.reconnecting {
                 ui.add_space(6.0);
-                ui.label(egui::RichText::new("Reconnecting…").size(12.5).color(DIM()));
+                ui.label(egui::RichText::new(tr("Reconnecting…")).size(12.5).color(DIM()));
             }
             ui.add_space(10.0);
             if e.may_recover() {
-                let note = if t.loading { "Checking again…" } else { "Daleris keeps trying, and opens the folder as soon as it answers." };
+                let note = if t.loading { tr("Checking again…") } else { tr("Daleris keeps trying, and opens the folder as soon as it answers.") };
                 ui.label(egui::RichText::new(note).size(12.0).color(FAINT()));
             }
             if !e.detail.is_empty() {
@@ -377,8 +387,8 @@ impl App {
             ui.set_width(ui.available_width());
             ui.horizontal(|ui| {
                 ui.add(egui::Spinner::new().size(14.0).color(WARN()));
-                ui.label(egui::RichText::new(format!("{place} isn't answering. What's shown here may be out of date.")).size(12.5).color(TEXT()));
-                if refreshing && ui.small_button("Stop waiting").clicked() {
+                ui.label(egui::RichText::new(trf!("{place} isn't answering. What's shown here may be out of date.", place = place)).size(12.5).color(TEXT()));
+                if refreshing && ui.small_button(tr("Stop waiting")).clicked() {
                     self.acts.push(Act::CancelLoad);
                 }
             });
@@ -624,7 +634,7 @@ impl App {
         if let Some(r) = t.rename.as_mut() {
             // the grid renames in a small floating box
             let (mut commit, mut cancel) = (false, false);
-            egui::Window::new("Rename").collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).show(ui.ctx(), |ui| {
+            egui::Window::new(tr("Rename")).id(egui::Id::unique("grid_rename")).collapsible(false).resizable(false).anchor(Align2::CENTER_CENTER, vec2(0.0, 0.0)).show(ui.ctx(), |ui| {
                 let te = ui.add(egui::TextEdit::singleline(&mut r.buf).desired_width(320.0));
                 if r.focus {
                     te.request_focus();
@@ -814,21 +824,24 @@ impl App {
             return;
         };
         let n = p.0.len();
-        let items = format!("{n} item{}", if n == 1 { "" } else { "s" });
         let (text, look) = match &hint {
-            None => (items, DropLook::Fine),
+            None => (trn!(n, "{n} item", "{n} items"), DropLook::Fine),
             Some(dest) => {
                 // a drive by its name, as everywhere else
                 let drive = self.drives.iter().find(|d| fsx::same_path(&d.root, dest)).map(|d| d.title());
                 let name = drive.unwrap_or_else(|| dest.file_name().map_or_else(|| dest.to_string_lossy().to_string(), |n| n.to_string_lossy().to_string()));
-                let verb = match drop_plan(&p.0, dest, DropMode::of(ctx.input(|i| i.modifiers))) {
-                    Ok((Op::Move, _)) => "Move",
-                    _ => "Copy",
-                };
+                let moving = matches!(drop_plan(&p.0, dest, DropMode::of(ctx.input(|i| i.modifiers))), Ok((Op::Move, _)));
                 match (self.drop_look(ctx, dest), self.drop_verdict(ctx, dest)) {
-                    (DropLook::AsAdmin, _) => (format!("{verb} {items} to {name}: needs administrator rights, Windows will ask for them"), DropLook::AsAdmin),
+                    (DropLook::AsAdmin, _) => (
+                        if moving {
+                            trn!(n, "Move {n} item to {name}: needs administrator rights, Windows will ask for them", "Move {n} items to {name}: needs administrator rights, Windows will ask for them", name = name)
+                        } else {
+                            trn!(n, "Copy {n} item to {name}: needs administrator rights, Windows will ask for them", "Copy {n} items to {name}: needs administrator rights, Windows will ask for them", name = name)
+                        },
+                        DropLook::AsAdmin,
+                    ),
                     (_, Some(Err(why))) => (why_no_drop(why, &name), DropLook::No),
-                    _ => (format!("{verb} {items} to {name}"), DropLook::Fine),
+                    _ => (if moving { trn!(n, "Move {n} item to {name}", "Move {n} items to {name}", name = name) } else { trn!(n, "Copy {n} item to {name}", "Copy {n} items to {name}", name = name) }, DropLook::Fine),
                 }
             }
         };
@@ -880,11 +893,11 @@ impl App {
         let (mut install, mut later) = (false, false);
         egui::Area::new(egui::Id::unique("update_notice")).order(egui::Order::Foreground).anchor(Align2::RIGHT_BOTTOM, vec2(-16.0, -16.0)).show(ctx, |ui| {
             egui::Frame::new().fill(RAISED()).stroke(Stroke::new(1.0_f32, LINE())).corner_radius(8).inner_margin(12).show(ui, |ui| {
-                ui.label(format!("Daleris {version} is available."));
+                ui.label(trf!("Daleris {version} is available.", version = version));
                 ui.add_space(6.0);
                 ui.horizontal(|ui| {
-                    install = ui.button("Install").clicked();
-                    later = ui.button("Later").clicked();
+                    install = ui.button(tr("Install")).clicked();
+                    later = ui.button(tr("Later")).clicked();
                 });
             });
         });
@@ -959,11 +972,11 @@ impl App {
                                 ui.add(egui::Label::new(egui::RichText::new(text).monospace().size(12.0).color(TEXT())).extend());
                             });
                         });
-                        let note = format!("{} lines{}", fmt_count(*lines), if *truncated { " · preview truncated" } else { "" });
+                        let note = if *truncated { trn!(*lines, "{n} line · preview truncated", "{n} lines · preview truncated") } else { trn!(*lines, "{n} line", "{n} lines") };
                         ui.label(egui::RichText::new(note).size(11.5).color(FAINT()));
                     }
                     PvContent::CloudOnly => {
-                        let msg = format!("{}  Online-only file. Open it, or choose \"Always keep on this device\", to download it.", ic(I_CLOUD));
+                        let msg = format!("{}  {}", ic(I_CLOUD), tr("Online-only file. Open it, or choose \"Always keep on this device\", to download it."));
                         ui.add(egui::Label::new(egui::RichText::new(msg).font(icon_font(12.5)).color(CLOUD_BLUE())).wrap());
                     }
                     PvContent::Loading => {
@@ -974,26 +987,26 @@ impl App {
                 ui.add_space(10.0);
                 let mut rows: Vec<(&str, String)> = Vec::new();
                 if let PvContent::Folder { files, dirs, size } = &self.preview.content {
-                    rows.push(("Contains", format!("{} files, {} folders", fmt_count(*files), fmt_count(*dirs))));
-                    rows.push(("Files size", fmt_size(*size)));
+                    rows.push((tr("Contains"), format!("{}, {}", trn!(*files, "{n} file", "{n} files"), trn!(*dirs, "{n} folder", "{n} folders"))));
+                    rows.push((tr("Files size"), fmt_size(*size)));
                 } else if !e.is_dir {
-                    rows.push(("Size", format!("{}  ({} bytes)", fmt_size(e.size), fmt_count(e.size as usize))));
+                    rows.push((tr("Size"), trn!(e.size, "{size}  ({n} byte)", "{size}  ({n} bytes)", size = fmt_size(e.size))));
                 }
-                rows.push(("Modified", fmt_filetime(e.mtime)));
-                rows.push(("Created", fmt_filetime(e.ctime)));
-                let attrs: Vec<&str> = [(fsx::A_READONLY, "Read-only"), (fsx::A_HIDDEN, "Hidden"), (fsx::A_SYSTEM, "System"), (fsx::A_COMPRESSED, "Compressed"), (fsx::A_ENCRYPTED, "Encrypted"), (fsx::A_REPARSE, "Link")]
+                rows.push((tr("Modified"), fmt_filetime(e.mtime)));
+                rows.push((tr("Created"), fmt_filetime(e.ctime)));
+                let attrs: Vec<&str> = [(fsx::A_READONLY, tx("Read-only")), (fsx::A_HIDDEN, tx("Hidden")), (fsx::A_SYSTEM, tx("System")), (fsx::A_COMPRESSED, tx("Compressed")), (fsx::A_ENCRYPTED, tx("Encrypted")), (fsx::A_REPARSE, tx("Link"))]
                     .iter()
                     .filter(|(b, _)| e.attrs & b != 0)
-                    .map(|(_, n)| *n)
+                    .map(|(_, n)| tr(*n))
                     .collect();
                 if !attrs.is_empty() {
-                    rows.push(("Attributes", attrs.join(", ")));
+                    rows.push((tr("Attributes"), attrs.join(", ")));
                 }
                 let st = self.cloud_of(&path, e.attrs, t);
                 if st != Cloud::None {
-                    rows.push(("Status", cloud_text(st).to_string()));
+                    rows.push((tr("Status"), cloud_text(st).to_string()));
                 }
-                rows.push(("Location", path.parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default()));
+                rows.push((tr("Location"), path.parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default()));
                 egui::Grid::new("pvinfo").num_columns(2).spacing(vec2(12.0, 6.0)).show(ui, |ui| {
                     for (k, v) in rows {
                         ui.label(egui::RichText::new(k).color(DIM()).size(12.5));
@@ -1003,10 +1016,10 @@ impl App {
                 });
                 ui.add_space(12.0);
                 ui.horizontal(|ui| {
-                    if ui.button("Open").clicked() {
+                    if ui.button(tr("Open")).clicked() {
                         self.acts.push(if e.is_dir { Act::Navigate(Loc::Dir(path.clone())) } else { Act::Open(path.clone()) });
                     }
-                    if ui.button("Properties").clicked() {
+                    if ui.button(tr("Properties")).clicked() {
                         self.acts.push(Act::Properties(path.clone()));
                     }
                 });
@@ -1017,15 +1030,15 @@ impl App {
     fn preview_summary(&mut self, ui: &mut Ui, t: &Tab, n_sel: usize) {
         ui.add_space(8.0);
         let (title, sub) = if n_sel > 1 {
-            (format!("{} items selected", fmt_count(n_sel)), if t.sel_info.1 > 0 { fmt_size(t.sel_info.1) } else { String::new() })
+            (trn!(n_sel, "{n} item selected", "{n} items selected"), if t.sel_info.1 > 0 { fmt_size(t.sel_info.1) } else { String::new() })
         } else if let Some(s) = &t.search {
-            (format!("Search: {}", s.text), format!("{} results", fmt_count(s.results.len())))
+            (trf!("Search: {text}", text = s.text), trn!(s.results.len(), "{n} result", "{n} results"))
         } else {
             match &t.loc {
-                Loc::ThisPc => ("This PC".into(), format!("{} drives", self.drives.len())),
-                Loc::Settings => ("Settings".into(), String::new()),
+                Loc::ThisPc => (tr("This PC").into(), trn!(self.drives.len(), "{n} drive", "{n} drives")),
+                Loc::Settings => (tr("Settings").into(), String::new()),
                 Loc::Dir(_) if t.error.is_some() || (t.loading && t.entries.is_empty()) => (t.loc.title(), String::new()),
-                Loc::Dir(_) => (t.loc.title(), format!("{} item{}", fmt_count(t.view.len()), if t.view.len() == 1 { "" } else { "s" })),
+                Loc::Dir(_) => (t.loc.title(), trn!(t.view.len(), "{n} item", "{n} items")),
             }
         };
         if let (Loc::Dir(d), false, true) = (&t.loc, t.searching(), n_sel <= 1) {
@@ -1038,7 +1051,7 @@ impl App {
             ui.label(egui::RichText::new(title).size(16.0));
             ui.label(egui::RichText::new(sub).color(DIM()));
             ui.add_space(14.0);
-            ui.label(egui::RichText::new("Select a file to preview it.").color(FAINT()));
+            ui.label(egui::RichText::new(tr("Select a file to preview it.")).color(FAINT()));
         });
     }
 }
@@ -1047,13 +1060,13 @@ impl App {
 fn why_no_drop(why: NoDrop, name: &str) -> String {
     use fsx::NoWrite::*;
     match why {
-        NoDrop::IntoItself => "A folder can't go inside itself".into(),
-        NoDrop::AlreadyThere => format!("Already in {name}"),
-        NoDrop::Cant(NoAccess) => format!("You don't have permission to add to {name}"),
-        NoDrop::Cant(ReadOnly) => format!("{name} is read-only"),
-        NoDrop::Cant(NotReady) => format!("{name} isn't ready: no disk in the drive, or it's locked"),
-        NoDrop::Cant(Unreachable) => format!("{name} can't be reached right now"),
-        NoDrop::Cant(SignIn) => format!("{name} needs you to sign in again"),
+        NoDrop::IntoItself => tr("A folder can't go inside itself").into(),
+        NoDrop::AlreadyThere => trf!("Already in {name}", name = name),
+        NoDrop::Cant(NoAccess) => trf!("You don't have permission to add to {name}", name = name),
+        NoDrop::Cant(ReadOnly) => trf!("{name} is read-only", name = name),
+        NoDrop::Cant(NotReady) => trf!("{name} isn't ready: no disk in the drive, or it's locked", name = name),
+        NoDrop::Cant(Unreachable) => trf!("{name} can't be reached right now", name = name),
+        NoDrop::Cant(SignIn) => trf!("{name} needs you to sign in again", name = name),
     }
 }
 

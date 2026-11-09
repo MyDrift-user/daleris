@@ -62,11 +62,22 @@ impl App {
             });
         }
         if p.cancelled {
-            self.toast("Stopped. What was done already stays done.", false);
+            self.toast(tr("Stopped. What was done already stays done."), false);
         } else if let [one] = p.failed.as_slice() {
-            self.toast(format!("Couldn't {} {one}", verb(j.kind)), true);
+            let text = match j.kind {
+                Kind::Copy => trf!("Couldn't copy {name}", name = one),
+                Kind::Move => trf!("Couldn't move {name}", name = one),
+                Kind::Delete => trf!("Couldn't delete {name}", name = one),
+            };
+            self.toast(text, true);
         } else if !p.failed.is_empty() {
-            self.toast(format!("{} items couldn't be {}. The first: {}", p.failed.len(), done_word(j.kind), p.failed[0]), true);
+            let (n, first) = (p.failed.len(), &p.failed[0]);
+            let text = match j.kind {
+                Kind::Copy => trn!(n, "{n} item couldn't be copied: {first}", "{n} items couldn't be copied. The first: {first}", first = first),
+                Kind::Move => trn!(n, "{n} item couldn't be moved: {first}", "{n} items couldn't be moved. The first: {first}", first = first),
+                Kind::Delete => trn!(n, "{n} item couldn't be deleted: {first}", "{n} items couldn't be deleted. The first: {first}", first = first),
+            };
+            self.toast(text, true);
         }
     }
 
@@ -79,7 +90,7 @@ impl App {
                     ui.horizontal(|ui| {
                         ui.add(egui::Label::new(egui::RichText::new(job_title(j)).strong()).truncate());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.add(egui::Button::new(egui::RichText::new(ic(I_CLOSE)).font(icon_font(12.0))).frame(false)).on_hover_text("Stop").clicked() {
+                            if ui.add(egui::Button::new(egui::RichText::new(ic(I_CLOSE)).font(icon_font(12.0))).frame(false)).on_hover_text(tr("Stop")).clicked() {
                                 j.cancel();
                             }
                         });
@@ -87,7 +98,7 @@ impl App {
                     let r = readout(j.kind, &p);
                     // what's being worked on, and which of how many
                     ui.horizontal(|ui| {
-                        let name = if j.question().is_some() { "Waiting for your answer".to_string() } else { p.current.clone() };
+                        let name = if j.question().is_some() { tr("Waiting for your answer").to_string() } else { p.current.clone() };
                         ui.add(egui::Label::new(egui::RichText::new(name).color(DIM())).truncate());
                         if !r.count.is_empty() {
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
@@ -130,59 +141,65 @@ impl App {
                 Question::Conflict { dst, from, there, can_replace, others } => {
                     let name = file_name(dst);
                     let folder = dst.parent().map(|p| file_name(p)).unwrap_or_default();
-                    ui.label(egui::RichText::new(if there.is_dir { "There's already a folder with this name" } else { "There's already a file with this name" }).size(16.0).strong());
+                    ui.label(egui::RichText::new(if there.is_dir { tr("There's already a folder with this name") } else { tr("There's already a file with this name") }).size(16.0).strong());
                     ui.add_space(6.0);
-                    ui.label(format!("\"{name}\" is in \"{folder}\" already."));
+                    ui.label(trf!("\"{name}\" is in \"{folder}\" already.", name = name, folder = folder));
                     ui.add_space(10.0);
                     let newer = |a: &Side, b: &Side| a.modified.zip(b.modified).is_some_and(|(x, y)| x > y);
-                    side_row(ui, if job.kind == Kind::Move { "Being moved" } else { "Being copied" }, from, newer(from, there));
-                    side_row(ui, "Already there", there, newer(there, from));
+                    side_row(ui, if job.kind == Kind::Move { tr("Being moved") } else { tr("Being copied") }, from, newer(from, there));
+                    side_row(ui, tr("Already there"), there, newer(there, from));
                     if *others > 0 {
                         ui.add_space(8.0);
-                        tick_box(ui, egui::Checkbox::new(&mut all, format!("Do the same for the other {others}")));
+                        tick_box(ui, egui::Checkbox::new(&mut all, trn!(*others, "Do the same for the other one", "Do the same for the other {n}")));
                     }
                     ui.add_space(12.0);
                     ui.horizontal(|ui| {
-                        if *can_replace && ui.button("Replace").clicked() {
+                        if *can_replace && ui.button(tr("Replace")).clicked() {
                             answer = Some(Answer::Conflict(Choice::Replace, all));
                         }
-                        if ui.button("Keep both").on_hover_text("The new one gets a number after its name").clicked() {
+                        if ui.button(tr("Keep both")).on_hover_text(tr("The new one gets a number after its name")).clicked() {
                             answer = Some(Answer::Conflict(Choice::KeepBoth, all));
                         }
-                        if ui.button("Skip").clicked() {
+                        if ui.button(tr("Skip")).clicked() {
                             answer = Some(Answer::Conflict(Choice::Skip, all));
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.button("Stop").clicked() {
+                            if ui.button(tr("Stop")).clicked() {
                                 answer = Some(Answer::Cancel);
                             }
                         });
                     });
                 }
                 Question::Error { path, message, needs_admin } => {
-                    ui.label(egui::RichText::new(format!("Couldn't {} \"{}\"", verb(job.kind), file_name(path))).size(16.0).strong());
+                    let name = file_name(path);
+                    let title = match job.kind {
+                        Kind::Copy => trf!("Couldn't copy \"{name}\"", name = name),
+                        Kind::Move => trf!("Couldn't move \"{name}\"", name = name),
+                        Kind::Delete => trf!("Couldn't delete \"{name}\"", name = name),
+                    };
+                    ui.label(egui::RichText::new(title).size(16.0).strong());
                     ui.add_space(6.0);
                     ui.label(message);
                     if *needs_admin {
                         ui.add_space(6.0);
-                        ui.label(egui::RichText::new("This place may need administrator rights. Windows can do the rest and ask for them.").small().color(DIM()));
+                        ui.label(egui::RichText::new(tr("This place may need administrator rights. Windows can do the rest and ask for them.")).small().color(DIM()));
                     }
                     ui.add_space(12.0);
                     ui.horizontal(|ui| {
-                        if ui.button("Try again").clicked() {
+                        if ui.button(tr("Try again")).clicked() {
                             answer = Some(Answer::Retry);
                         }
-                        if ui.button("Skip").clicked() {
+                        if ui.button(tr("Skip")).clicked() {
                             answer = Some(Answer::Skip);
                         }
-                        if ui.button("Skip all that fail").clicked() {
+                        if ui.button(tr("Skip all that fail")).clicked() {
                             answer = Some(Answer::SkipAll);
                         }
-                        if *needs_admin && ui.button("Let Windows do it").clicked() {
+                        if *needs_admin && ui.button(tr("Let Windows do it")).clicked() {
                             answer = Some(Answer::HandOff);
                         }
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.button("Stop").clicked() {
+                            if ui.button(tr("Stop")).clicked() {
                                 answer = Some(Answer::Cancel);
                             }
                         });
@@ -212,19 +229,20 @@ impl App {
         let (mut go, mut cancel) = (false, false);
         let modal = egui::Modal::new(egui::Id::unique("delete_check")).frame(dialog_frame(ctx)).show(ctx, |ui| {
             ui.set_width(420.0);
-            let what = match paths.as_slice() {
-                [one] => format!("\"{}\"", file_name(one)),
-                more => format!("these {} items", more.len()),
-            };
-            ui.label(egui::RichText::new("Delete for good?").size(16.0).strong());
+            ui.label(egui::RichText::new(tr("Delete for good?")).size(16.0).strong());
             ui.add_space(6.0);
-            let bin = if cfg!(windows) { "the Recycle Bin" } else { "the Trash" };
-            ui.label(format!("Daleris deletes {what} without putting {} in {bin}. This can't be undone.", if paths.len() == 1 { "it" } else { "them" }));
+            let text = match (paths.as_slice(), cfg!(windows)) {
+                ([one], true) => trf!("Daleris deletes \"{name}\" without putting it in the Recycle Bin. This can't be undone.", name = file_name(one)),
+                ([one], false) => trf!("Daleris deletes \"{name}\" without putting it in the Trash. This can't be undone.", name = file_name(one)),
+                (more, true) => trf!("Daleris deletes these {count} items without putting them in the Recycle Bin. This can't be undone.", count = more.len()),
+                (more, false) => trf!("Daleris deletes these {count} items without putting them in the Trash. This can't be undone.", count = more.len()),
+            };
+            ui.label(text);
             ui.add_space(12.0);
             ui.horizontal(|ui| {
-                let delete = egui::Button::new(egui::RichText::new("Delete").color(Color32::WHITE)).fill(Color32::from_rgb(0xc4, 0x2b, 0x1c));
+                let delete = egui::Button::new(egui::RichText::new(tr("Delete")).color(Color32::WHITE)).fill(Color32::from_rgb(0xc4, 0x2b, 0x1c));
                 go = ui.add(delete).clicked() || ui.input(|i| i.key_pressed(Key::Enter));
-                cancel = ui.button("Cancel").clicked();
+                cancel = ui.button(tr("Cancel")).clicked();
             });
         });
         if go {
@@ -256,11 +274,11 @@ fn side_row(ui: &mut Ui, label: &str, s: &Side, newer: bool) {
             parts.push(crate::util::fmt_size(s.size));
         }
         if let Some(m) = s.modified {
-            parts.push(format!("changed {}", crate::util::fmt_filetime(m)));
+            parts.push(trf!("changed {date}", date = crate::util::fmt_filetime(m)));
         }
         ui.label(parts.join(" · "));
         if newer {
-            ui.label(egui::RichText::new("newer").small().color(ACCENT()));
+            ui.label(egui::RichText::new(tr("newer")).small().color(ACCENT()));
         }
     });
 }
@@ -269,32 +287,15 @@ fn file_name(p: &Path) -> String {
     p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string())
 }
 
-fn verb(k: Kind) -> &'static str {
-    match k {
-        Kind::Copy => "copy",
-        Kind::Move => "move",
-        Kind::Delete => "delete",
-    }
-}
-
-fn done_word(k: Kind) -> &'static str {
-    match k {
-        Kind::Copy => "copied",
-        Kind::Move => "moved",
-        Kind::Delete => "deleted",
-    }
-}
-
 fn job_title(j: &Job) -> String {
-    let what = match j.sources.as_slice() {
-        [one] => format!("\"{}\"", file_name(one)),
-        more => format!("{} items", more.len()),
-    };
     let to = j.dest.as_deref().map(file_name).unwrap_or_default();
-    match j.kind {
-        Kind::Copy => format!("Copying {what} to {to}"),
-        Kind::Move => format!("Moving {what} to {to}"),
-        Kind::Delete => format!("Deleting {what}"),
+    match (j.kind, j.sources.as_slice()) {
+        (Kind::Copy, [one]) => trf!("Copying \"{name}\" to {folder}", name = file_name(one), folder = to),
+        (Kind::Copy, more) => trf!("Copying {count} items to {folder}", count = more.len(), folder = to),
+        (Kind::Move, [one]) => trf!("Moving \"{name}\" to {folder}", name = file_name(one), folder = to),
+        (Kind::Move, more) => trf!("Moving {count} items to {folder}", count = more.len(), folder = to),
+        (Kind::Delete, [one]) => trf!("Deleting \"{name}\"", name = file_name(one)),
+        (Kind::Delete, more) => trf!("Deleting {count} items", count = more.len()),
     }
 }
 
@@ -313,16 +314,17 @@ struct Readout {
 fn readout(kind: Kind, p: &Progress) -> Readout {
     let n = |v: u64| crate::util::fmt_count(v as usize);
     // only worth saying when there's more than one
-    let count = if p.files_total > 1 { format!("file {} of {}", n((p.files_done + 1).min(p.files_total)), n(p.files_total)) } else { String::new() };
+    let count = if p.files_total > 1 { trf!("file {done} of {total}", done = n((p.files_done + 1).min(p.files_total)), total = n(p.files_total)) } else { String::new() };
     if p.stage == Stage::Counting {
-        return Readout { frac: None, amount: "Finding out how much there is".into(), count: String::new(), speed: None, left: None };
+        return Readout { frac: None, amount: tr("Finding out how much there is").into(), count: String::new(), speed: None, left: None };
     }
     if kind == Kind::Delete || p.bytes_total == 0 {
         let frac = if p.files_total == 0 { 1.0 } else { p.files_done as f32 / p.files_total as f32 };
-        return Readout { frac: Some(frac), amount: format!("{} of {} files", n(p.files_done), n(p.files_total)), count: String::new(), speed: None, left: None };
+        let amount = if p.files_total == 1 { trf!("{done} of {total} file", done = n(p.files_done), total = n(p.files_total)) } else { trf!("{done} of {total} files", done = n(p.files_done), total = n(p.files_total)) };
+        return Readout { frac: Some(frac), amount, count: String::new(), speed: None, left: None };
     }
     let frac = (p.bytes_done as f32 / p.bytes_total as f32).clamp(0.0, 1.0);
-    let amount = format!("{} of {}", crate::util::fmt_size(p.bytes_done), crate::util::fmt_size(p.bytes_total));
+    let amount = trf!("{done} of {total}", done = crate::util::fmt_size(p.bytes_done), total = crate::util::fmt_size(p.bytes_total));
     let secs = p.started.elapsed().as_secs_f64();
     let (speed, left) = if secs > 1.0 && p.bytes_done > 0 {
         let speed = p.bytes_done as f64 / secs;
@@ -335,23 +337,10 @@ fn readout(kind: Kind, p: &Progress) -> Readout {
 
 fn time_left(secs: f64) -> String {
     match secs as u64 {
-        0..=4 => "almost done".into(),
-        s @ 5..=59 => format!("about {s} s left"),
-        s @ 60..=3599 => format!("about {} min left", s.div_ceil(60)),
-        s => format!("about {} h {} min left", s / 3600, (s % 3600) / 60),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn says_how_long_is_left_in_plain_words() {
-        assert_eq!(time_left(2.0), "almost done");
-        assert_eq!(time_left(40.0), "about 40 s left");
-        assert_eq!(time_left(61.0), "about 2 min left");
-        assert_eq!(time_left(3700.0), "about 1 h 1 min left");
+        0..=4 => tr("almost done").into(),
+        s @ 5..=59 => trf!("about {s} s left", s = s),
+        s @ 60..=3599 => trf!("about {m} min left", m = s.div_ceil(60)),
+        s => trf!("about {h} h {m} min left", h = s / 3600, m = (s % 3600) / 60),
     }
 }
 
@@ -478,24 +467,24 @@ impl Transit {
     /// What's happening, in a few words, as the tooltip's title.
     fn title(&self) -> &'static str {
         match (self.way, self.kind) {
-            (Way::Writing, _) => "Being written",
-            (Way::Arriving, Kind::Move) => "Moving here",
-            (Way::Arriving, _) => "Copying here",
-            (Way::Leaving, Kind::Delete) => "Deleting",
-            (Way::Leaving, _) => "Moving away",
-            (Way::Source, _) => "Copying from here",
+            (Way::Writing, _) => tr("Being written"),
+            (Way::Arriving, Kind::Move) => tr("Moving here"),
+            (Way::Arriving, _) => tr("Copying here"),
+            (Way::Leaving, Kind::Delete) => tr("Deleting"),
+            (Way::Leaving, _) => tr("Moving away"),
+            (Way::Source, _) => tr("Copying from here"),
         }
     }
 
     /// What it means for the item, below the details.
     fn note(&self) -> &'static str {
         match (self.way, self.kind) {
-            (Way::Writing, _) => "Its size changed while you were looking. Wait before opening or changing it.",
-            (Way::Arriving, Kind::Move) => "It's all here once it's done.",
-            (Way::Arriving, _) => "Wait until it's done before opening it.",
-            (Way::Leaving, Kind::Delete) => "It's gone for good once it's done.",
-            (Way::Leaving, _) => "It's gone from here once it's done.",
-            (Way::Source, _) => "It stays here and can still be used.",
+            (Way::Writing, _) => tr("Its size changed while you were looking. Wait before opening or changing it."),
+            (Way::Arriving, Kind::Move) => tr("It's all here once it's done."),
+            (Way::Arriving, _) => tr("Wait until it's done before opening it."),
+            (Way::Leaving, Kind::Delete) => tr("It's gone for good once it's done."),
+            (Way::Leaving, _) => tr("It's gone from here once it's done."),
+            (Way::Source, _) => tr("It stays here and can still be used."),
         }
     }
 
@@ -509,7 +498,7 @@ impl Transit {
         };
         egui::Grid::new("transit_tip").num_columns(2).spacing([14.0, 4.0]).show(ui, |ui| {
             if let Some(f) = self.frac {
-                key(ui, "Progress");
+                key(ui, tr("Progress"));
                 ui.horizontal(|ui| {
                     ui.add(egui::ProgressBar::new(f).desired_width(120.0).desired_height(6.0));
                     ui.label(format!("{:.0} %", f * 100.0));
@@ -517,7 +506,7 @@ impl Transit {
                 ui.end_row();
             }
             if let Some(p) = &self.there {
-                key(ui, if self.way == Way::Arriving { "From" } else { "To" });
+                key(ui, if self.way == Way::Arriving { tr("From") } else { tr("To") });
                 let name = p.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| p.display().to_string());
                 ui.label(name).on_hover_text(p.display().to_string());
                 ui.end_row();
@@ -526,46 +515,46 @@ impl Transit {
             let size = crate::util::fmt_size;
             match (i.done, i.total) {
                 (Some(d), Some(t)) if self.way != Way::Writing => {
-                    key(ui, "Size");
-                    ui.label(format!("{} of {}", size(d), size(t)));
+                    key(ui, tr("Size"));
+                    ui.label(trf!("{done} of {total}", done = size(d), total = size(t)));
                     ui.end_row();
                 }
                 (Some(d), _) if self.way == Way::Writing => {
-                    key(ui, "Size");
-                    ui.label(format!("{} so far", size(d)));
+                    key(ui, tr("Size"));
+                    ui.label(trf!("{size} so far", size = size(d)));
                     ui.end_row();
                 }
                 _ => {}
             }
             if let Some(s) = i.speed {
-                key(ui, if self.way == Way::Writing { "Growing" } else { "Speed" });
+                key(ui, if self.way == Way::Writing { tr("Growing") } else { tr("Speed") });
                 ui.label(format!("{}/s", size(s)));
                 ui.end_row();
             }
             if let Some(l) = i.left {
-                key(ui, "Time left");
+                key(ui, tr("Time left"));
                 ui.label(time_left(l.as_secs_f64()));
                 ui.end_row();
             }
             if let Some((n, of)) = i.place {
-                key(ui, "Item");
-                ui.label(format!("{n} of {of} chosen together"));
+                key(ui, tr("Item"));
+                ui.label(trf!("{index} of {count} chosen together", index = n, count = of));
                 ui.end_row();
             }
-            key(ui, "By");
+            key(ui, tr("By"));
             ui.label(match (&self.who, self.way) {
                 (Some(who), _) => who.clone(),
-                (None, Way::Writing) => "Someone, or an app".into(),
-                (None, _) => "You, in this window".into(),
+                (None, Way::Writing) => tr("Someone, or an app").into(),
+                (None, _) => tr("You, in this window").into(),
             });
             ui.end_row();
             if let Some(d) = i.since {
-                key(ui, if self.way == Way::Writing { "Noticed" } else { "Started" });
+                key(ui, if self.way == Way::Writing { tr("Noticed") } else { tr("Started") });
                 ui.label(ago(d));
                 ui.end_row();
             }
             if let Some(d) = i.heard {
-                key(ui, if self.way == Way::Writing { "Last change" } else { "Last heard" });
+                key(ui, if self.way == Way::Writing { tr("Last change") } else { tr("Last heard") });
                 ui.label(ago(d));
                 ui.end_row();
             }
@@ -720,12 +709,25 @@ fn note_job(job: &Job) {
     }
 }
 
-/// "just now", "12 s ago", "3 min ago", "2 h ago".
+/// "just now", "12 s ago", "3 min ago", "2 h ago", in the language shown.
 pub(super) fn ago(d: Duration) -> String {
     match d.as_secs() {
-        0..=2 => "just now".into(),
-        s @ 3..=59 => format!("{s} s ago"),
-        s @ 60..=3599 => format!("{} min ago", s / 60),
-        s => format!("{} h ago", s / 3600),
+        0..=2 => tr("just now").into(),
+        s @ 3..=59 => trf!("{s} s ago", s = s),
+        s @ 60..=3599 => trf!("{m} min ago", m = s / 60),
+        s => trf!("{h} h ago", h = s / 3600),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn says_how_long_is_left_in_plain_words() {
+        assert_eq!(time_left(2.0), "almost done");
+        assert_eq!(time_left(40.0), "about 40 s left");
+        assert_eq!(time_left(61.0), "about 2 min left");
+        assert_eq!(time_left(3700.0), "about 1 h 1 min left");
     }
 }
