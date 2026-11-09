@@ -1,10 +1,13 @@
-<!-- Built by the Release workflow: wix build -arch x64 -ext WixToolset.UI.wixext -d Version=x.y.z -o name.msi installer\app.wxs
+<!-- Built by installer\windows\package.ps1 once per language (en-US, de-DE, it-IT, each with installer\<culture>.wxl) into
+     one MSI whose wizard is in the language Windows is shown in.
      Silent, for this PC, from an admin prompt: msiexec /i name.msi /qn ALLUSERS=1 [APPLICATIONFOLDER="D:\Apps\Daleris"]
      Silent, for one account, no admin needed: msiexec /i name.msi /qn ALLUSERS=2 MSIINSTALLPERUSER=1 -->
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs" xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
-  <Package Name="Daleris" Manufacturer="MyDrift" Version="$(var.Version)" UpgradeCode="A87468C2-85E0-4FB0-9878-BF6064FC3D7F" Scope="perUserOrMachine">
-    <!-- Same version too: a rebuilt release must replace the old one, not install next to it. -->
-    <MajorUpgrade AllowSameVersionUpgrades="yes" DowngradeErrorMessage="A newer version of Daleris is already installed." />
+  <!-- One ProductCode for all three languages of a build, as a language transform needs: package.ps1 makes it. -->
+  <Package Name="Daleris" Manufacturer="MyDrift" Version="$(var.Version)" Language="!(loc.Language)" ProductCode="$(var.ProductCode)" UpgradeCode="A87468C2-85E0-4FB0-9878-BF6064FC3D7F" Scope="perUserOrMachine">
+    <!-- Same version too: a rebuilt release must replace the old one, not install next to it. And whatever language each
+         was installed in, or an English one would go next to a German one. -->
+    <MajorUpgrade AllowSameVersionUpgrades="yes" IgnoreLanguage="yes" DowngradeErrorMessage="!(loc.DowngradeError)" />
     <MediaTemplate EmbedCab="yes" />
     <Icon Id="app.ico" SourceFile="assets\icon.ico" />
     <Property Id="ARPPRODUCTICON" Value="app.ico" />
