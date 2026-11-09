@@ -1,2 +1,41 @@
 pub const T: &[(&str, &str)] = &[
+    // fscommon.rs
+    ("Network", "Rete"),
+    ("Local Disk", "Disco locale"),
+    ("USB Drive", "Unità USB"),
+    ("Network Drive", "Unità di rete"),
+    ("DVD Drive", "Unità DVD"),
+    ("RAM Disk", "Disco RAM"),
+    ("Drive", "Unità"),
+    // fsx.rs
+    ("{message} (error {code})", "{message} (errore {code})"),
+    ("Could not list shares on \\\\{server} (error {rc})", "Impossibile elencare le condivisioni su \\\\{server} (errore {rc})"),
+    ("Home", "Home"),
+    ("Desktop", "Desktop"),
+    ("Downloads", "Download"),
+    ("Documents", "Documenti"),
+    ("Pictures", "Immagini"),
+    ("Music", "Musica"),
+    ("Videos", "Video"),
+    ("Cloud", "Archivio cloud"),
+    ("File not found", "File non trovato"),
+    ("This isn't a mapped drive", "Questa non è un'unità di rete connessa"),
+    ("This isn't a network share", "Questa non è una condivisione di rete"),
+    // fsx_unix.rs
+    ("File System", "Disco di sistema"),
+    ("{share} on {server}", "{share} su {server}"),
+    ("Keeping files offline is managed by your sync app on Linux", "Su Linux è l'app di sincronizzazione a decidere quali file restano disponibili offline"),
+    ("{tool} {verb} failed", "{tool} {verb} non è riuscito"),
+    ("On Linux a file is hidden when its name starts with a dot. Rename it to change that", "Su Linux un file è nascosto quando il suo nome inizia con un punto. Rinominalo per cambiarlo"),
+    // shell.rs
+    ("Could not disconnect {letter}: (error {code})", "Impossibile disconnettere {letter}: (errore {code})"),
+    ("Operation failed (code {code})", "Operazione non riuscita (codice {code})"),
+    // shell_unix.rs
+    ("Connecting to servers needs GVFS (the `gio` tool), which GNOME, Cinnamon, MATE and Xfce include", "Per connetterti ai server serve GVFS (lo strumento `gio`), incluso in GNOME, Cinnamon, MATE e Xfce"),
+    ("Couldn't connect", "Impossibile connettersi"),
+    ("Connected, but the share's folder wasn't found", "Connesso, ma la cartella della condivisione non è stata trovata"),
+    ("macOS can't mount SFTP by itself. Install macFUSE and sshfs, then mount it and it will show up here", "macOS non può montare SFTP da solo. Installa macFUSE e sshfs e montalo con questi: comparirà qui"),
+    ("Couldn't disconnect {name}", "Impossibile disconnettere {name}"),
+    ("bad path", "Percorso non valido"),
+    ("no destination", "Nessuna destinazione"),
 ];

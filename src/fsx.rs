@@ -14,6 +14,7 @@ use windows::Win32::System::Registry::*;
 use windows::Win32::System::Threading::WaitForSingleObject;
 use windows::Win32::UI::Shell::*;
 
+use crate::i18n::{tr, tx};
 use crate::util::{ext_of, from_wide, wide};
 
 pub use crate::fscommon::*;
@@ -52,7 +53,7 @@ pub fn is_server_root(p: &Path) -> Option<String> {
 pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry>)) -> Result<(), FolderError> {
     // tests see what each failure looks like without a server that fails that way
     if let Some(code) = std::env::var("DALERIS_TEST_FAIL").ok().and_then(|c| c.parse().ok()).filter(|_| is_network_path(path)) {
-        return Err(classify(path, code, "(a test)".into()));
+        return Err(classify(path, code, "(a test)".into())); // i18n-ignore: a test hook's stand-in for what Windows says
     }
     if let Some(server) = is_server_root(path) {
         emit(list_shares(&server)?);
@@ -113,7 +114,7 @@ pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry
 /// What a system error means for someone looking at this path.
 fn classify(path: &Path, code: u32, message: String) -> FolderError {
     let kind = classify_code(code, is_network_path(path), drive_letter(path).is_some_and(|l| !drive_exists(l)));
-    FolderError::new(kind, format!("{} (error {code})", message.trim()))
+    FolderError::new(kind, trf!("{message} (error {code})", message = message.trim(), code = code))
 }
 
 /// The kind of failure a system error code is. `letter_gone`: the path is on a drive letter that doesn't exist now.
@@ -291,7 +292,7 @@ fn list_shares(server: &str) -> Result<Vec<Entry>, FolderError> {
     let rc = unsafe { NetShareEnum(PCWSTR(srv.as_ptr()), 1, &mut buf, u32::MAX, &mut read, &mut total, None) };
     if rc != 0 || buf.is_null() {
         let kind = if rc == 0 { FailKind::Other } else { classify_code(rc, true, false) };
-        return Err(FolderError::new(kind, format!("Could not list shares on \\\\{server} (error {rc})")));
+        return Err(FolderError::new(kind, trf!("Could not list shares on \\\\{server} (error {rc})", server = server, rc = rc)));
     }
     let mut out = Vec::new();
     unsafe {
@@ -435,14 +436,15 @@ pub fn drive_details(d: &mut Drive) {
 
 
 pub fn known_folders() -> Vec<Place> {
+    // the names stay English inside the program, which finds places by them; they're translated where drawn
     let ids: [(&str, windows::core::GUID); 7] = [
-        ("Home", FOLDERID_Profile),
-        ("Desktop", FOLDERID_Desktop),
-        ("Downloads", FOLDERID_Downloads),
-        ("Documents", FOLDERID_Documents),
-        ("Pictures", FOLDERID_Pictures),
-        ("Music", FOLDERID_Music),
-        ("Videos", FOLDERID_Videos),
+        (tx("Home"), FOLDERID_Profile),
+        (tx("Desktop"), FOLDERID_Desktop),
+        (tx("Downloads"), FOLDERID_Downloads),
+        (tx("Documents"), FOLDERID_Documents),
+        (tx("Pictures"), FOLDERID_Pictures),
+        (tx("Music"), FOLDERID_Music),
+        (tx("Videos"), FOLDERID_Videos),
     ];
     let mut out = Vec::new();
     for (name, id) in ids {
@@ -502,7 +504,7 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
                     if path.as_os_str().is_empty() || !path.exists() {
                         continue;
                     }
-                    let provider = key_name.split('!').next().unwrap_or("Cloud").to_string();
+                    let provider = key_name.split('!').next().unwrap_or(tr("Cloud")).to_string();
                     let account = key_name.rsplit('!').next().unwrap_or("").split('|').next().unwrap_or("").to_string();
                     let name = display.clone().unwrap_or_else(|| {
                         if account.is_empty() || account.starts_with("S-1-") {
@@ -529,7 +531,7 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
     }
     // Dropbox / Google Drive default folders that aren't registered as sync roots
     if let Some(home) = std::env::var_os("USERPROFILE") {
-        for (prov, sub) in [("Dropbox", "Dropbox"), ("GoogleDrive", "Google Drive"), ("iCloudDrive", "iCloudDrive")] {
+        for (prov, sub) in [("Dropbox", "Dropbox"), ("GoogleDrive", "Google Drive"), ("iCloudDrive", "iCloudDrive")] { // i18n-ignore: product and folder names
             let p = PathBuf::from(&home).join(sub);
             if p.is_dir() && !out.iter().any(|r| same_path(&r.path, &p)) {
                 out.push(CloudRoot { name: sub.into(), provider: prov.into(), path: p });
@@ -576,7 +578,7 @@ pub fn set_attrs(path: &Path, readonly: Option<bool>, hidden: Option<bool>) -> R
     let w = long_path(path);
     let cur = unsafe { GetFileAttributesW(PCWSTR(w.as_ptr())) };
     if cur == INVALID_FILE_ATTRIBUTES {
-        return Err("File not found".into());
+        return Err(tr("File not found").into());
     }
     // only the attributes SetFileAttributes accepts
     let mut a = cur & (A_READONLY | A_HIDDEN | A_SYSTEM | 0x20 /* archive */ | 0x2000 /* not indexed */ | A_OFFLINE | A_PINNED | A_UNPINNED);
@@ -595,7 +597,7 @@ pub fn set_pin(path: &Path, keep_local: bool) -> Result<(), String> {
     let w = long_path(path);
     let cur = unsafe { GetFileAttributesW(PCWSTR(w.as_ptr())) };
     if cur == INVALID_FILE_ATTRIBUTES {
-        return Err("File not found".into());
+        return Err(tr("File not found").into());
     }
     let mut a = cur & !(A_DIR | A_REPARSE | A_COMPRESSED | A_ENCRYPTED | A_OFFLINE | A_RECALL_ON_DATA | A_RECALL_ON_OPEN);
     if keep_local {
@@ -648,7 +650,7 @@ pub fn reconnect_for(path: &Path, owner: isize, ask: bool) -> Result<(), FolderE
     match drive_letter(path) {
         Some(l) => reconnect_drive(l, HWND(owner as *mut _), ask),
         None if ask && is_network_path(path) => sign_in_to_share(path, HWND(owner as *mut _)),
-        None => Err(FolderError::new(FailKind::Other, "This isn't a mapped drive")),
+        None => Err(FolderError::new(FailKind::Other, tr("This isn't a mapped drive"))),
     }
 }
 
@@ -658,7 +660,7 @@ fn sign_in_to_share(path: &Path, owner: HWND) -> Result<(), FolderError> {
     let s = path.to_string_lossy();
     let mut parts = s.trim_start_matches('\\').split('\\');
     let (Some(server), Some(share)) = (parts.next(), parts.next()) else {
-        return Err(FolderError::new(FailKind::Other, "This isn't a network share"));
+        return Err(FolderError::new(FailKind::Other, tr("This isn't a network share")));
     };
     let mut remote = wide(format!(r"\\{server}\{share}"));
     let res = NETRESOURCEW { dwType: RESOURCETYPE_DISK, lpRemoteName: windows::core::PWSTR(remote.as_mut_ptr()), ..Default::default() };

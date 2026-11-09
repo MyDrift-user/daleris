@@ -7,6 +7,8 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
+use crate::i18n::tr;
+
 // Attribute bits (Windows' values; the Unix back-end maps its own flags onto them).
 pub const A_READONLY: u32 = 0x1;
 pub const A_HIDDEN: u32 = 0x2;
@@ -202,15 +204,16 @@ impl Drive {
         let l = if !self.label.is_empty() {
             self.label.clone()
         } else if let Some(r) = &self.remote {
-            r.trim_start_matches('\\').replace('\\', "/").trim_end_matches('/').rsplit('/').next().unwrap_or("Network").to_string()
+            r.trim_start_matches('\\').replace('\\', "/").trim_end_matches('/').rsplit('/').next().unwrap_or(tr("Network")).to_string()
         } else {
+            // only ever shown, never compared: the sidebar and tabs key drives by their root
             match self.kind {
-                DriveKind::Fixed => "Local Disk",
-                DriveKind::Removable => "USB Drive",
-                DriveKind::Network => "Network Drive",
-                DriveKind::Optical => "DVD Drive",
-                DriveKind::Ram => "RAM Disk",
-                DriveKind::Unknown => "Drive",
+                DriveKind::Fixed => tr("Local Disk"),
+                DriveKind::Removable => tr("USB Drive"),
+                DriveKind::Network => tr("Network Drive"),
+                DriveKind::Optical => tr("DVD Drive"),
+                DriveKind::Ram => tr("RAM Disk"),
+                DriveKind::Unknown => tr("Drive"),
             }
             .to_string()
         };

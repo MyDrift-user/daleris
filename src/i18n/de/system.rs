@@ -1,2 +1,41 @@
 pub const T: &[(&str, &str)] = &[
+    // fscommon.rs
+    ("Network", "Netzwerk"),
+    ("Local Disk", "Lokaler Datenträger"),
+    ("USB Drive", "USB-Laufwerk"),
+    ("Network Drive", "Netzlaufwerk"),
+    ("DVD Drive", "DVD-Laufwerk"),
+    ("RAM Disk", "RAM-Datenträger"),
+    ("Drive", "Laufwerk"),
+    // fsx.rs
+    ("{message} (error {code})", "{message} (Fehler {code})"),
+    ("Could not list shares on \\\\{server} (error {rc})", "Die Freigaben auf \\\\{server} konnten nicht aufgelistet werden (Fehler {rc})"),
+    ("Home", "Start"),
+    ("Desktop", "Desktop"),
+    ("Downloads", "Downloads"),
+    ("Documents", "Dokumente"),
+    ("Pictures", "Bilder"),
+    ("Music", "Musik"),
+    ("Videos", "Videos"),
+    ("Cloud", "Cloudspeicher"),
+    ("File not found", "Datei nicht gefunden"),
+    ("This isn't a mapped drive", "Dies ist kein verbundenes Netzlaufwerk"),
+    ("This isn't a network share", "Dies ist keine Netzwerkfreigabe"),
+    // fsx_unix.rs
+    ("File System", "Dateisystem"),
+    ("{share} on {server}", "{share} auf {server}"),
+    ("Keeping files offline is managed by your sync app on Linux", "Unter Linux legt Ihre Synchronisierungs-App fest, welche Dateien offline verfügbar bleiben"),
+    ("{tool} {verb} failed", "{tool} {verb} ist fehlgeschlagen"),
+    ("On Linux a file is hidden when its name starts with a dot. Rename it to change that", "Unter Linux ist eine Datei ausgeblendet, wenn ihr Name mit einem Punkt beginnt. Benennen Sie sie um, um das zu ändern"),
+    // shell.rs
+    ("Could not disconnect {letter}: (error {code})", "{letter}: konnte nicht getrennt werden (Fehler {code})"),
+    ("Operation failed (code {code})", "Vorgang fehlgeschlagen (Code {code})"),
+    // shell_unix.rs
+    ("Connecting to servers needs GVFS (the `gio` tool), which GNOME, Cinnamon, MATE and Xfce include", "Für Verbindungen zu Servern wird GVFS benötigt (das Tool `gio`), das in GNOME, Cinnamon, MATE und Xfce enthalten ist"),
+    ("Couldn't connect", "Verbindung nicht möglich"),
+    ("Connected, but the share's folder wasn't found", "Verbunden, aber der Ordner der Freigabe wurde nicht gefunden"),
+    ("macOS can't mount SFTP by itself. Install macFUSE and sshfs, then mount it and it will show up here", "macOS kann SFTP nicht selbst einbinden. Installieren Sie macFUSE und sshfs und binden Sie es damit ein, dann erscheint es hier"),
+    ("Couldn't disconnect {name}", "{name} konnte nicht getrennt werden"),
+    ("bad path", "Ungültiger Pfad"),
+    ("no destination", "Kein Ziel"),
 ];

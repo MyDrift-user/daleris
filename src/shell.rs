@@ -461,7 +461,7 @@ pub fn open(path: &Path) {
 
 /// Credential Manager, where a server's saved account can be corrected or removed.
 pub fn credential_manager() {
-    run_program("control.exe", "/name Microsoft.CredentialManager", &std::env::temp_dir());
+    run_program("control.exe", "/name Microsoft.CredentialManager", &std::env::temp_dir()); // i18n-ignore: a command line
 }
 
 /// Starts a program with these arguments in `dir`, as Explorer runs a New menu command.
@@ -531,7 +531,7 @@ pub fn disconnect_drive(letter: char) -> Result<(), String> {
     if rc == NO_ERROR {
         Ok(())
     } else {
-        Err(format!("Could not disconnect {letter}: (error {})", rc.0))
+        Err(trf!("Could not disconnect {letter}: (error {code})", letter = letter, code = rc.0))
     }
 }
 
@@ -584,7 +584,8 @@ pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOn
             ..Default::default()
         };
         let rc = unsafe { SHFileOperationW(&mut s) };
-        done(if rc == 0 { Ok(()) } else if s.fAnyOperationsAborted.as_bool() { Ok(()) } else { Err(format!("Operation failed (code {rc:#x})")) });
+        let code = format!("{rc:#x}");
+        done(if rc == 0 { Ok(()) } else if s.fAnyOperationsAborted.as_bool() { Ok(()) } else { Err(trf!("Operation failed (code {code})", code = code)) });
     });
 }
 
@@ -614,8 +615,8 @@ pub fn clipboard_set_files(paths: &[PathBuf], cut: bool) -> bool {
             let _ = GlobalUnlock(hg);
             SetClipboardData(CF_HDROP.0 as u32, Some(HANDLE(hg.0))).ok()?;
 
-            let fmt = RegisterClipboardFormatW(w!("Preferred DropEffect"));
-            let he = GlobalAlloc(GMEM_MOVEABLE, 4).ok()?;
+            let fmt = RegisterClipboardFormatW(w!("Preferred DropEffect")); // i18n-ignore: Windows's clipboard format name
+            let he =GlobalAlloc(GMEM_MOVEABLE, 4).ok()?;
             let pe = GlobalLock(he) as *mut u32;
             if !pe.is_null() {
                 *pe = if cut { 2 } else { 5 };
@@ -667,7 +668,7 @@ pub fn clipboard_get_files() -> Option<(Vec<PathBuf>, bool)> {
                 DragQueryFileW(hdrop, i, Some(&mut buf));
                 out.push(PathBuf::from(from_wide(&buf)));
             }
-            let fmt = RegisterClipboardFormatW(w!("Preferred DropEffect"));
+            let fmt = RegisterClipboardFormatW(w!("Preferred DropEffect")); // i18n-ignore: Windows's clipboard format name
             let mut cut = false;
             if let Ok(he) = GetClipboardData(fmt) {
                 let p = GlobalLock(HGLOBAL(he.0)) as *const u32;

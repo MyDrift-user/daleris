@@ -9,6 +9,7 @@ use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, Condvar, Mutex, OnceLock};
 
 use crate::fscommon::KfId;
+use crate::i18n::tr;
 
 /// No COM on Linux/macOS.
 pub fn init_com() {}
@@ -161,7 +162,7 @@ pub fn open(path: &Path) {
 /// macOS lets you pick the app; on Linux this opens with the default app.
 pub fn open_with(path: &Path) {
     if cfg!(target_os = "macos") {
-        let script = "POSIX path of (choose application as alias)";
+        let script = "POSIX path of (choose application as alias)"; // i18n-ignore: AppleScript
         if let Ok(out) = Command::new("osascript").arg("-e").arg(script).output() {
             let app = String::from_utf8_lossy(&out.stdout).trim().to_string();
             if !app.is_empty() {
@@ -176,7 +177,7 @@ pub fn open_with(path: &Path) {
 pub fn run_as_admin(path: &Path) {
     if cfg!(target_os = "macos") {
         let p = path.display().to_string().replace('\\', "\\\\").replace('"', "\\\"");
-        let script = format!("do shell script quoted form of \"{p}\" with administrator privileges");
+        let script = format!("do shell script quoted form of \"{p}\" with administrator privileges"); // i18n-ignore: AppleScript
         spawn_detached(Command::new("osascript").arg("-e").arg(script));
     } else {
         spawn_detached(Command::new("pkexec").arg(path));
@@ -192,7 +193,7 @@ pub fn default_app(_ext: &str) -> Option<String> {
 
 pub fn open_terminal(dir: &Path) {
     if cfg!(target_os = "macos") {
-        spawn_detached(Command::new("open").arg("-a").arg("Terminal").arg(dir));
+        spawn_detached(Command::new("open").arg("-a").arg("Terminal").arg(dir)); // i18n-ignore: the app's name, for `open`
         return;
     }
     if let Ok(t) = std::env::var("TERMINAL") {
@@ -226,7 +227,7 @@ pub fn window_menu() {}
 
 pub fn pick_folder() -> Option<PathBuf> {
     let out = if cfg!(target_os = "macos") {
-        Command::new("osascript").arg("-e").arg("POSIX path of (choose folder)").output().ok()?
+        Command::new("osascript").arg("-e").arg("POSIX path of (choose folder)").output().ok()? // i18n-ignore: AppleScript
     } else if has("zenity") {
         Command::new("zenity").args(["--file-selection", "--directory"]).output().ok()?
     } else if has("kdialog") {
@@ -255,7 +256,7 @@ pub fn connect_server(url: String, user: String, pass: String, done: impl FnOnce
 fn mount_url(url: &str, user: &str, pass: &str) -> Result<PathBuf, String> {
     use std::io::Write;
     if !has("gio") {
-        return Err("Connecting to servers needs GVFS (the `gio` tool), which GNOME, Cinnamon, MATE and Xfce include".into());
+        return Err(tr("Connecting to servers needs GVFS (the `gio` tool), which GNOME, Cinnamon, MATE and Xfce include").into());
     }
     let uid = unsafe { libc::getuid() };
     let gvfs = PathBuf::from(format!("/run/user/{uid}/gvfs"));
@@ -267,8 +268,8 @@ fn mount_url(url: &str, user: &str, pass: &str) -> Result<PathBuf, String> {
     }
     let out = child.wait_with_output().map_err(|e| e.to_string())?;
     let err = String::from_utf8_lossy(&out.stderr).to_string();
-    if !out.status.success() && !err.contains("already mounted") {
-        return Err(err.lines().last().unwrap_or("Couldn't connect").trim().to_string());
+    if !out.status.success() && !err.contains("already mounted") { // i18n-ignore: what gio says, matched
+        return Err(err.lines().last().unwrap_or(tr("Couldn't connect")).trim().to_string());
     }
     let host = url.split("://").nth(1).unwrap_or("").split(['/', ':']).next().unwrap_or("").rsplit('@').next().unwrap_or("").to_lowercase();
     let after: Vec<PathBuf> = std::fs::read_dir(&gvfs).map(|r| r.flatten().map(|e| e.path()).collect()).unwrap_or_default();
@@ -277,20 +278,20 @@ fn mount_url(url: &str, user: &str, pass: &str) -> Result<PathBuf, String> {
         .find(|p| !before.contains(p))
         .or_else(|| after.iter().find(|p| p.to_string_lossy().to_lowercase().contains(&host)))
         .cloned()
-        .ok_or_else(|| "Connected, but the share's folder wasn't found".into())
+        .ok_or_else(|| tr("Connected, but the share's folder wasn't found").into())
 }
 
 #[cfg(target_os = "macos")]
 fn mount_url(url: &str, user: &str, pass: &str) -> Result<PathBuf, String> {
     let lower = url.to_lowercase();
     if lower.starts_with("sftp://") || lower.starts_with("ssh://") {
-        return Err("macOS can't mount SFTP by itself. Install macFUSE and sshfs, then mount it and it will show up here".into());
+        return Err(tr("macOS can't mount SFTP by itself. Install macFUSE and sshfs, then mount it and it will show up here").into());
     }
     let before: Vec<PathBuf> = std::fs::read_dir("/Volumes").map(|r| r.flatten().map(|e| e.path()).collect()).unwrap_or_default();
     let q = |s: &str| s.replace('\\', "\\\\").replace('"', "\\\"");
-    let mut script = format!("mount volume \"{}\"", q(url));
+    let mut script = format!("mount volume \"{}\"", q(url)); // i18n-ignore: AppleScript
     if !user.is_empty() {
-        script += &format!(" as user name \"{}\" with password \"{}\"", q(user), q(pass));
+        script += &format!(" as user name \"{}\" with password \"{}\"", q(user), q(pass)); // i18n-ignore: AppleScript
     }
     let out = Command::new("osascript").arg("-e").arg(script).output().map_err(|e| e.to_string())?;
     if !out.status.success() {
@@ -303,7 +304,7 @@ fn mount_url(url: &str, user: &str, pass: &str) -> Result<PathBuf, String> {
         .find(|p| !before.contains(p))
         .or_else(|| after.iter().find(|p| p.file_name().is_some_and(|n| n.to_string_lossy().to_lowercase() == share)))
         .cloned()
-        .ok_or_else(|| "Connected, but the share's folder wasn't found".into())
+        .ok_or_else(|| tr("Connected, but the share's folder wasn't found").into())
 }
 
 /// Disconnect / unmount (network shares, FUSE mounts, removable media).
@@ -323,7 +324,7 @@ pub fn unmount(root: &Path) -> Result<(), String> {
             return Ok(());
         }
     }
-    Err(format!("Couldn't disconnect {}", root.display()))
+    Err(trf!("Couldn't disconnect {name}", name = root.display()))
 }
 
 // ---------------------------------------------------------------- file operations
@@ -377,7 +378,7 @@ fn trash(paths: &[PathBuf]) -> Result<(), String> {
         // ~/.Trash, like Finder's "Move to Bin"
         let bin = PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".Trash");
         for p in paths {
-            let name = p.file_name().ok_or("bad path")?;
+            let name = p.file_name().ok_or(tr("bad path"))?;
             let to = free_name(&bin, name);
             std::fs::rename(p, &to).or_else(|_| copy_tree(p, &to).and_then(|_| remove_tree(p))).map_err(|e| e.to_string())?;
         }
@@ -388,17 +389,17 @@ fn trash(paths: &[PathBuf]) -> Result<(), String> {
         return Ok(());
     }
     let data = std::env::var_os("XDG_DATA_HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from(std::env::var("HOME").unwrap_or_default()).join(".local/share"));
-    let (files, info) = (data.join("Trash/files"), data.join("Trash/info"));
+    let (files, info) = (data.join("Trash/files"), data.join("Trash/info")); // i18n-ignore: paths
     std::fs::create_dir_all(&files).map_err(|e| e.to_string())?;
     std::fs::create_dir_all(&info).map_err(|e| e.to_string())?;
     let st = crate::util::filetime_local(crate::util::now_filetime());
     for p in paths {
-        let name = p.file_name().ok_or("bad path")?;
+        let name = p.file_name().ok_or(tr("bad path"))?;
         let to = free_name(&files, name);
         let base = to.file_name().unwrap().to_string_lossy().to_string();
         let stamp = format!("{:04}-{:02}-{:02}T{:02}:{:02}:00", st.year, st.month, st.day, st.hour, st.minute);
         let abs = std::fs::canonicalize(p).unwrap_or(p.clone());
-        std::fs::write(info.join(format!("{base}.trashinfo")), format!("[Trash Info]\nPath={}\nDeletionDate={stamp}\n", abs.display())).map_err(|e| e.to_string())?;
+        std::fs::write(info.join(format!("{base}.trashinfo")), format!("[Trash Info]\nPath={}\nDeletionDate={stamp}\n", abs.display())).map_err(|e| e.to_string())?; // i18n-ignore: the trash's file format
         std::fs::rename(p, &to).or_else(|_| copy_tree(p, &to).and_then(|_| remove_tree(p))).map_err(|e| e.to_string())?;
     }
     Ok(())
@@ -411,9 +412,9 @@ pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOn
             match op {
                 Op::Recycle => trash(&src),
                 Op::Copy | Op::Move => {
-                    let dest = dest.ok_or("no destination")?;
+                    let dest = dest.ok_or(tr("no destination"))?;
                     for p in &src {
-                        let name = p.file_name().ok_or("bad path")?;
+                        let name = p.file_name().ok_or(tr("bad path"))?;
                         let to = free_name(&dest, name);
                         let res = if op == Op::Copy {
                             copy_tree(p, &to)

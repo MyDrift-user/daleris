@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 
 pub use crate::fscommon::*;
+use crate::i18n::{tr, tx};
 use crate::util::ext_of;
 
 #[cfg(target_os = "macos")]
@@ -59,8 +60,8 @@ fn attrs_for(parent: &Path, name: &str, md: &std::fs::Metadata, link: bool, is_d
 
 fn is_virtual_tree(parent: &Path, name: &str) -> bool {
     let p = parent.as_os_str().as_bytes();
-    (p == b"/" && matches!(name, "proc" | "sys" | "dev" | "run" | "snap" | "lost+found" | "System" | "private" | "cores" | "Volumes"))
-        || (p == b"/System" && name == "Volumes")
+    (p == b"/" && matches!(name, "proc" | "sys" | "dev" | "run" | "snap" | "lost+found" | "System" | "private" | "cores" | "Volumes")) // i18n-ignore: folder names on disk
+        || (p == b"/System" && name == "Volumes") // i18n-ignore: a folder name on disk
 }
 
 fn entry_of(parent: &Path, name: String, lmd: std::fs::Metadata) -> Entry {
@@ -194,7 +195,8 @@ fn kind_for(fs: &str, mount: &str, source: &str) -> Option<DriveKind> {
 
 fn mount_label(mount: &str) -> String {
     if mount == "/" {
-        return if cfg!(target_os = "macos") { "Macintosh HD".into() } else { "File System".into() };
+        // "Macintosh HD" is what Apple calls it in every language
+        return if cfg!(target_os = "macos") { "Macintosh HD".into() } else { tr("File System").into() }; // i18n-ignore: Apple's name
     }
     Path::new(mount).file_name().map(|n| n.to_string_lossy().to_string()).unwrap_or_else(|| mount.to_string())
 }
@@ -231,11 +233,11 @@ fn gvfs_drives(out: &mut Vec<Drive>) {
         let (label, url) = match scheme {
             "smb-share" => {
                 let share = kv.get("share").copied().unwrap_or("");
-                (format!("{share} on {server}"), format!("smb://{server}/{share}"))
+                (trf!("{share} on {server}", share = share, server = server), format!("smb://{server}/{share}"))
             }
             "sftp" => (format!("{server} (SFTP)"), format!("sftp://{server}")),
             "ftp" => (format!("{server} (FTP)"), format!("ftp://{server}")),
-            "dav" | "davs" => (format!("{server} (WebDAV)"), format!("{scheme}://{server}")),
+            "dav" | "davs" => (format!("{server} (WebDAV)"), format!("{scheme}://{server}")), // i18n-ignore: a protocol's name
             "nfs" => (format!("{server} (NFS)"), format!("nfs://{server}")),
             _ => (name.clone(), name.clone()),
         };
@@ -380,28 +382,30 @@ fn xdg_user_dir(key: &str, default: &str) -> PathBuf {
 
 pub fn known_folders() -> Vec<Place> {
     let h = home();
+    // the names stay English inside the program, which finds places by them; they're translated where drawn. The
+    // second name on a line is the folder's name on disk.
     #[cfg(target_os = "linux")]
     let list: Vec<(&str, PathBuf)> = vec![
-        ("Home", h.clone()),
-        ("Desktop", xdg_user_dir("DESKTOP", "Desktop")),
-        ("Downloads", xdg_user_dir("DOWNLOAD", "Downloads")),
-        ("Documents", xdg_user_dir("DOCUMENTS", "Documents")),
-        ("Pictures", xdg_user_dir("PICTURES", "Pictures")),
-        ("Music", xdg_user_dir("MUSIC", "Music")),
-        ("Videos", xdg_user_dir("VIDEOS", "Videos")),
+        (tx("Home"), h.clone()),
+        (tx("Desktop"), xdg_user_dir("DESKTOP", "Desktop")), // i18n-ignore: a folder name on disk
+        (tx("Downloads"), xdg_user_dir("DOWNLOAD", "Downloads")), // i18n-ignore: a folder name on disk
+        (tx("Documents"), xdg_user_dir("DOCUMENTS", "Documents")), // i18n-ignore: a folder name on disk
+        (tx("Pictures"), xdg_user_dir("PICTURES", "Pictures")), // i18n-ignore: a folder name on disk
+        (tx("Music"), xdg_user_dir("MUSIC", "Music")), // i18n-ignore: a folder name on disk
+        (tx("Videos"), xdg_user_dir("VIDEOS", "Videos")), // i18n-ignore: a folder name on disk
     ];
     #[cfg(not(target_os = "linux"))]
     let list: Vec<(&str, PathBuf)> = vec![
-        ("Home", h.clone()),
-        ("Desktop", h.join("Desktop")),
-        ("Downloads", h.join("Downloads")),
-        ("Documents", h.join("Documents")),
-        ("Pictures", h.join("Pictures")),
-        ("Music", h.join("Music")),
-        ("Videos", h.join("Movies")),
+        (tx("Home"), h.clone()),
+        (tx("Desktop"), h.join("Desktop")), // i18n-ignore: a folder name on disk
+        (tx("Downloads"), h.join("Downloads")), // i18n-ignore: a folder name on disk
+        (tx("Documents"), h.join("Documents")), // i18n-ignore: a folder name on disk
+        (tx("Pictures"), h.join("Pictures")), // i18n-ignore: a folder name on disk
+        (tx("Music"), h.join("Music")), // i18n-ignore: a folder name on disk
+        (tx("Videos"), h.join("Movies")), // i18n-ignore: a folder name on disk
     ];
     list.into_iter()
-        .filter(|(n, p)| p.is_dir() && (*n == "Home" || p != &h))
+        .filter(|(n, p)| p.is_dir() && (*n == "Home" || p != &h)) // i18n-ignore: the place's key
         .map(|(n, p)| Place { name: n.into(), path: p, kf: () })
         .collect()
 }
@@ -422,21 +426,22 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
                 out.push(CloudRoot { name, provider: provider.into(), path: de.path() });
             }
         }
-        let icloud = h.join("Library/Mobile Documents/com~apple~CloudDocs");
+        let icloud = h.join("Library/Mobile Documents/com~apple~CloudDocs"); // i18n-ignore: a path
         if icloud.is_dir() {
-            out.push(CloudRoot { name: "iCloud Drive".into(), provider: "iCloud".into(), path: icloud });
+            out.push(CloudRoot { name: "iCloud Drive".into(), provider: "iCloud".into(), path: icloud }); // i18n-ignore: Apple's product name
         }
     }
+    // product names, and the folders their apps make
     for (prov, sub) in [
-        ("Dropbox", "Dropbox"),
+        ("Dropbox", "Dropbox"), // i18n-ignore: product and folder names
         ("OneDrive", "OneDrive"),
-        ("GoogleDrive", "Google Drive"),
+        ("GoogleDrive", "Google Drive"), // i18n-ignore: product and folder names
         ("GoogleDrive", "GoogleDrive"),
-        ("Nextcloud", "Nextcloud"),
+        ("Nextcloud", "Nextcloud"), // i18n-ignore: product and folder names
         ("ownCloud", "ownCloud"),
         ("pCloud", "pCloudDrive"),
         ("MEGA", "MEGA"),
-        ("Insync", "Insync"),
+        ("Insync", "Insync"), // i18n-ignore: product and folder names
     ] {
         let p = h.join(sub);
         if p.is_dir() && !out.iter().any(|r| same_path(&r.path, &p)) {
@@ -453,15 +458,15 @@ pub fn cloud_roots() -> Vec<CloudRoot> {
 /// "Always keep on this device" / "Free up space" (macOS iCloud and File Provider clouds).
 pub fn set_pin(path: &Path, keep_local: bool) -> Result<(), String> {
     if !cfg!(target_os = "macos") {
-        return Err("Keeping files offline is managed by your sync app on Linux".into());
+        return Err(tr("Keeping files offline is managed by your sync app on Linux").into());
     }
-    let icloud = path.to_string_lossy().contains("/Library/Mobile Documents/");
+    let icloud = path.to_string_lossy().contains("/Library/Mobile Documents/"); // i18n-ignore: a path
     let (tool, verb) = if icloud { ("brctl", if keep_local { "download" } else { "evict" }) } else { ("fileproviderctl", if keep_local { "materialize" } else { "evict" }) };
     let st = std::process::Command::new(tool).arg(verb).arg(path).status().map_err(|e| e.to_string())?;
     if st.success() {
         Ok(())
     } else {
-        Err(format!("{tool} {verb} failed"))
+        Err(trf!("{tool} {verb} failed", tool = tool, verb = verb))
     }
 }
 
@@ -490,7 +495,7 @@ pub fn set_attrs(path: &Path, readonly: Option<bool>, hidden: Option<bool>) -> R
         {
             let is_dot = path.file_name().is_some_and(|n| n.to_string_lossy().starts_with('.'));
             if h != is_dot {
-                return Err("On Linux a file is hidden when its name starts with a dot. Rename it to change that".into());
+                return Err(tr("On Linux a file is hidden when its name starts with a dot. Rename it to change that").into());
             }
         }
     }
@@ -560,7 +565,7 @@ pub fn watch(path: &Path, on_change: impl Fn() + Send + 'static) -> Watcher {
 
 /// Only Windows has mapped drives to connect again.
 pub fn reconnect_for(_path: &Path, _owner: isize, _ask: bool) -> Result<(), FolderError> {
-    Err(FolderError::new(FailKind::Other, "This isn't a mapped drive"))
+    Err(FolderError::new(FailKind::Other, tr("This isn't a mapped drive")))
 }
 
 /// Whether files can be added to `dir`. Can take as long as a server takes to not answer, so not on the window's thread.
