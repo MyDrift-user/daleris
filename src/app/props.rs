@@ -102,8 +102,8 @@ impl App {
     pub(super) fn props_window(&mut self, ctx: &egui::Context, t: &Tab) {
         let Some(mut p) = self.props.take() else { return };
         let title = match &p.entry {
-            Some(e) => format!("{} Properties", e.name),
-            None => format!("Properties of {} items", p.paths.len()),
+            Some(e) => trf!("{name} Properties", name = e.name),
+            None => trf!("Properties of {n} items", n = fmt_count(p.paths.len())),
         };
         let size = vec2(460.0, 620.0);
         if p.pos.is_none() {
@@ -186,13 +186,13 @@ impl App {
                         .stroke(if primary { Stroke::NONE } else { Stroke::new(1.0_f32, LINE()) });
                     ui.add(b).clicked()
                 };
-                if btn(ui, "Apply", false) {
+                if btn(ui, tr("Apply"), false) {
                     r = PropsResult::Apply;
                 }
-                if btn(ui, "Cancel", false) {
+                if btn(ui, tr("Cancel"), false) {
                     r = PropsResult::Cancel;
                 }
-                if btn(ui, "OK", true) {
+                if btn(ui, tr("OK"), true) {
                     r = PropsResult::Ok;
                 }
             });
@@ -222,11 +222,11 @@ impl App {
                         ui.add(egui::TextEdit::singleline(&mut p.name).frame(egui::Frame::NONE).desired_width(ui.available_width()).font(FontId::proportional(15.0)));
                     });
                 } else {
-                    ui.label(egui::RichText::new(format!("{} items", p.paths.len())).size(16.0).strong());
+                    ui.label(egui::RichText::new(trn!(p.paths.len(), "{n} item", "{n} items")).size(16.0).strong());
                 }
                 let kind = match &p.entry {
                     Some(e) => self.type_name(&e.ext, e.is_dir),
-                    None => "Multiple items".into(),
+                    None => tr("Multiple items").into(),
                 };
                 ui.add_space(2.0);
                 ui.label(egui::RichText::new(kind).color(DIM()));
@@ -239,21 +239,21 @@ impl App {
         if let Some(e) = &e {
             prop_card(ui, |ui| {
                 if !e.is_dir {
-                    prop_row(ui, "Opens with", |ui| {
-                        ui.label(p.opens_with.clone().unwrap_or_else(|| "Not set".into()));
+                    prop_row(ui, tr("Opens with"), |ui| {
+                        ui.label(p.opens_with.clone().unwrap_or_else(|| tr("Not set").into()));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            if ui.add(egui::Button::new("Change…").corner_radius(5)).clicked() {
+                            if ui.add(egui::Button::new(tr("Change…")).corner_radius(5)).clicked() {
                                 self.acts.push(Act::OpenWith(p.paths[0].clone()));
                             }
                         });
                     });
                 }
                 let loc = p.paths[0].parent().map(|x| x.display().to_string()).unwrap_or_else(|| p.paths[0].display().to_string());
-                prop_row(ui, "Location", |ui| {
+                prop_row(ui, tr("Location"), |ui| {
                     ui.add(egui::Label::new(&loc).truncate()).on_hover_text(&loc);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         let b = ui.add(egui::Button::new(egui::RichText::new(ic(I_COPY)).font(icon_font(12.0))).corner_radius(5).min_size(vec2(28.0, 24.0)));
-                        if b.on_hover_text("Copy full path").clicked() {
+                        if b.on_hover_text(tr("Copy full path")).clicked() {
                             shell::clipboard_set_text(&p.paths[0].display().to_string());
                         }
                     });
@@ -265,28 +265,28 @@ impl App {
         // ---- size
         let (bytes, files, dirs, done) = p.size;
         prop_card(ui, |ui| {
-            prop_row(ui, "Size", |ui| {
+            prop_row(ui, tr("Size"), |ui| {
                 ui.label(egui::RichText::new(fmt_size(bytes)).strong());
-                ui.label(egui::RichText::new(format!("{} bytes", fmt_count(bytes as usize))).color(DIM()));
+                ui.label(egui::RichText::new(trn!(bytes, "{n} byte", "{n} bytes")).color(DIM()));
                 if !done {
                     ui.add(egui::Spinner::new().size(12.0).color(ACCENT()));
                 }
             });
             if e.as_ref().is_none_or(|e| e.is_dir) {
-                prop_row(ui, "Contains", |ui| {
-                    ui.label(format!("{} files, {} folders", fmt_count(files), fmt_count(dirs)));
+                prop_row(ui, tr("Contains"), |ui| {
+                    ui.label(trf!("{files}, {folders}", files = trn!(files, "{n} file", "{n} files"), folders = trn!(dirs, "{n} folder", "{n} folders")));
                 });
             }
             // a drive: show its space
             if let Some(d) = p.paths.first().filter(|_| single).and_then(|x| self.drives.iter().find(|d| fsx::same_path(&d.root, x))) {
                 if d.ready && d.total > 0 {
                     let used = d.total - d.free;
-                    prop_row(ui, "Drive", |ui| {
+                    prop_row(ui, tr("Drive"), |ui| {
                         ui.vertical(|ui| {
                             let (r, _) = ui.allocate_exact_size(vec2(ui.available_width(), 8.0), Sense::hover());
                             ui.painter().rect_filled(r, CornerRadius::same(4), LINE());
                             ui.painter().rect_filled(Rect::from_min_size(r.min, vec2(r.width() * used as f32 / d.total as f32, 8.0)), CornerRadius::same(4), ACCENT());
-                            ui.label(egui::RichText::new(format!("{} used · {} free of {} · {}", fmt_size(used), fmt_size(d.free), fmt_size(d.total), d.fs)).color(DIM()).size(12.0));
+                            ui.label(egui::RichText::new(trf!("{used} used · {free} free of {total} · {fs}", used = fmt_size(used), free = fmt_size(d.free), total = fmt_size(d.total), fs = d.fs)).color(DIM()).size(12.0));
                         });
                     });
                 }
@@ -297,20 +297,20 @@ impl App {
         // ---- dates and status
         if let Some(e) = &e {
             prop_card(ui, |ui| {
-                prop_row(ui, "Created", |ui| {
+                prop_row(ui, tr("Created"), |ui| {
                     ui.label(fmt_filetime(e.ctime));
                 });
-                prop_row(ui, "Modified", |ui| {
+                prop_row(ui, tr("Modified"), |ui| {
                     ui.label(fmt_filetime(e.mtime));
                 });
                 if e.atime != 0 {
-                    prop_row(ui, "Accessed", |ui| {
+                    prop_row(ui, tr("Accessed"), |ui| {
                         ui.label(fmt_filetime(e.atime));
                     });
                 }
                 let st = self.cloud_of(&p.paths[0], e.attrs, t);
                 if st != Cloud::None {
-                    prop_row(ui, "Status", |ui| {
+                    prop_row(ui, tr("Status"), |ui| {
                         ui.label(cloud_text(st));
                     });
                 }
@@ -318,10 +318,10 @@ impl App {
             ui.add_space(10.0);
             // ---- attributes
             prop_card(ui, |ui| {
-                prop_row(ui, "Attributes", |ui| {
-                    settings_page::toggle(ui, &mut p.readonly, "Read-only");
+                prop_row(ui, tr("Attributes"), |ui| {
+                    settings_page::toggle(ui, &mut p.readonly, tr("Read-only"));
                     ui.add_space(14.0);
-                    settings_page::toggle(ui, &mut p.hidden, "Hidden");
+                    settings_page::toggle(ui, &mut p.hidden, tr("Hidden"));
                 });
             });
         }
@@ -362,7 +362,7 @@ fn windows_props_button(ui: &mut Ui) -> bool {
         let q = Rect::from_min_size(o + vec2(dx * (s + gap), dy * (s + gap)), vec2(s, s));
         ui.painter().rect_filled(q, CornerRadius::same(1), col);
     }
-    resp.on_hover_text("Open the Windows Properties dialog (Security, Details, Previous versions…)").clicked()
+    resp.on_hover_text(tr("Open the Windows Properties dialog (Security, Details, Previous versions…)")).clicked()
 }
 
 /// A rounded group of rows.
@@ -394,18 +394,18 @@ impl App {
         let (ro, hid) = (e.attrs & fsx::A_READONLY != 0, e.attrs & fsx::A_HIDDEN != 0);
         if ro != p.readonly || hid != p.hidden {
             if let Err(err) = fsx::set_attrs(&path, (ro != p.readonly).then_some(p.readonly), (hid != p.hidden).then_some(p.hidden)) {
-                self.toast(format!("Couldn't change attributes: {err}"), true);
+                self.toast(trf!("Couldn't change attributes: {err}", err = err), true);
             }
         }
         let new = p.name.trim().to_string();
         if !new.is_empty() && new != e.name {
             if new.contains(['\\', '/', ':', '*', '?', '"', '<', '>', '|']) {
-                self.toast("A file name can't contain any of these characters: \\ / : * ? \" < > |", true);
+                self.toast(tr("A file name can't contain any of these characters: \\ / : * ? \" < > |"), true);
             } else {
                 let dest = path.with_file_name(&new);
                 match std::fs::rename(&path, &dest) {
                     Ok(()) => p.paths[0] = dest,
-                    Err(err) => self.toast(format!("Rename failed: {err}"), true),
+                    Err(err) => self.toast(trf!("Rename failed: {err}", err = err), true),
                 }
             }
         }

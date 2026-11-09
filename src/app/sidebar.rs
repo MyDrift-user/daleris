@@ -37,9 +37,9 @@ struct SideDrag {
 /// Hover text for a drive: where it comes from, and whether it's a FUSE mount.
 fn drive_tip(d: &Drive) -> Option<String> {
     if d.locked {
-        return Some("Locked by BitLocker. Click to unlock it".into());
+        return Some(tr("Locked by BitLocker. Click to unlock it").into());
     }
-    let fuse = d.is_fuse().then(|| format!("FUSE mount ({})", d.fs));
+    let fuse = d.is_fuse().then(|| trf!("FUSE mount ({fs})", fs = d.fs));
     match (d.remote.clone(), fuse) {
         (Some(r), Some(f)) => Some(format!("{r}\n{f}")),
         (r, f) => r.or(f),
@@ -80,16 +80,16 @@ impl App {
             match sec.id.as_str() {
                 "quick" => {
                     for p in &self.places {
-                        push(side_key(&p.path), p.name.clone(), Some(Loc::Dir(p.path.clone())), None, None, false, None, None);
+                        push(side_key(&p.path), tr_dyn(&p.name), Some(Loc::Dir(p.path.clone())), None, None, false, None, None);
                     }
                 }
                 "cloud" => {
                     for c in &self.clouds {
-                        push(side_key(&c.path), c.name.clone(), Some(Loc::Dir(c.path.clone())), None, None, false, None, None);
+                        push(side_key(&c.path), tr_dyn(&c.name), Some(Loc::Dir(c.path.clone())), None, None, false, None, None);
                     }
                 }
                 "pc" => {
-                    push("thispc".into(), "This PC".into(), Some(Loc::ThisPc), Some(I_PC), None, false, None, None);
+                    push("thispc".into(), tr("This PC").into(), Some(Loc::ThisPc), Some(I_PC), None, false, None, None);
                     for d in self.drives.iter().filter(|d| d.kind != DriveKind::Network) {
                         let usage = (d.ready && d.total > 0).then(|| 1.0 - d.free as f32 / d.total.max(1) as f32);
                         push(side_key(&d.root), d.title(), Some(Loc::Dir(d.root.clone())), None, usage, false, None, drive_tip(d));
@@ -98,7 +98,7 @@ impl App {
                 "network" => {
                     for d in self.drives.iter().filter(|d| d.kind == DriveKind::Network) {
                         let tip = if self.drive_offline(d) {
-                            Some(format!("Not available right now. Click to try again.\n{}", d.remote.clone().unwrap_or_default()))
+                            Some(trf!("Not available right now. Click to try again.\n{remote}", remote = d.remote.clone().unwrap_or_default()))
                         } else {
                             drive_tip(d)
                         };
@@ -175,7 +175,7 @@ impl App {
 
     pub(super) fn new_section(&mut self, with: Option<PathBuf>) -> String {
         let id = format!("custom{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_millis()).unwrap_or(0));
-        let title = "New section".to_string();
+        let title = tr("New section").to_string();
         self.settings.sections.push(SectionCfg { id: id.clone(), title: title.clone(), visible: true, collapsed: false, pins: with.into_iter().collect() });
         self.renaming_section = Some((id.clone(), title));
         self.save_settings();
@@ -214,7 +214,7 @@ impl App {
                     }
                     let shown: Vec<&SideItem> = sec.items.iter().filter(|i| i.visible).collect();
                     if shown.is_empty() && sec.accepts_pins {
-                        ui.label(egui::RichText::new("   Drag folders here to pin them").size(11.5).color(FAINT()));
+                        ui.label(egui::RichText::new(format!("   {}", tr("Drag folders here to pin them"))).size(11.5).color(FAINT()));
                     }
                     let count = shown.len();
                     for (ii, item) in shown.into_iter().enumerate() {
@@ -254,7 +254,7 @@ impl App {
         let chev = if sec.collapsed { I_CHEV_R } else { I_CHEV_D };
         let col = if resp.hovered() { DIM() } else { FAINT() };
         ui.painter().text(rect.left_center() + vec2(7.0, 0.0), Align2::CENTER_CENTER, ic(chev), icon_font(8.0), col);
-        ui.painter().text(rect.left_center() + vec2(16.0, 0.0), Align2::LEFT_CENTER, &sec.title, FontId::proportional(11.5), col);
+        ui.painter().text(rect.left_center() + vec2(16.0, 0.0), Align2::LEFT_CENTER, tr_dyn(&sec.title), FontId::proportional(11.5), col);
         if resp.clicked() {
             if let Some(s) = self.settings.section_mut(&sec.id) {
                 s.collapsed = !s.collapsed;
@@ -276,7 +276,7 @@ impl App {
         let locked = policy::current().sidebar_locked();
         // mapping a drive lives on the section, not as an entry in it
         let network = id == "network";
-        let resp = if network { resp.on_hover_text("Right-click to map a network drive") } else { resp };
+        let resp = if network { resp.on_hover_text(tr("Right-click to map a network drive")) } else { resp };
         resp.context_menu(|ui| {
             if network {
                 if menu_item(ui, I_NETDRIVE, network_label(), "") {
@@ -284,7 +284,7 @@ impl App {
                 }
                 ui.separator();
             }
-            if menu_item(ui, if sec.collapsed { I_CHEV_D } else { I_CHEV_R }, if sec.collapsed { "Expand" } else { "Collapse" }, "") {
+            if menu_item(ui, if sec.collapsed { I_CHEV_D } else { I_CHEV_R }, if sec.collapsed { tr("Expand") } else { tr("Collapse") }, "") {
                 if let Some(s) = self.settings.section_mut(&id) {
                     s.collapsed = !s.collapsed;
                 }
@@ -294,31 +294,31 @@ impl App {
             if locked {
                 return;
             }
-            if custom && menu_item(ui, I_RENAME, "Rename section", "") {
+            if custom && menu_item(ui, I_RENAME, tr("Rename section"), "") {
                 self.renaming_section = Some((id.clone(), title.clone()));
             }
-            if index > 0 && menu_item(ui, I_CHEV_U, "Move section up", "") {
+            if index > 0 && menu_item(ui, I_CHEV_U, tr("Move section up"), "") {
                 self.move_section(&id, -1);
             }
-            if index + 1 < count && menu_item(ui, I_CHEV_D, "Move section down", "") {
+            if index + 1 < count && menu_item(ui, I_CHEV_D, tr("Move section down"), "") {
                 self.move_section(&id, 1);
             }
-            if menu_item(ui, I_HIDE, "Hide section", "") {
+            if menu_item(ui, I_HIDE, tr("Hide section"), "") {
                 if let Some(s) = self.settings.section_mut(&id) {
                     s.visible = false;
                 }
                 self.save_settings();
-                self.toast("Section hidden. Show it again in Settings › Sidebar", false);
+                self.toast(tr("Section hidden. Show it again in Settings › Sidebar"), false);
             }
-            if custom && menu_item(ui, I_DELETE, "Delete section", "") {
+            if custom && menu_item(ui, I_DELETE, tr("Delete section"), "") {
                 self.settings.sections.retain(|s| s.id != id);
                 self.save_settings();
             }
             ui.separator();
-            if menu_item(ui, I_ADD, "New section", "") {
+            if menu_item(ui, I_ADD, tr("New section"), "") {
                 self.new_section(None);
             }
-            if menu_item(ui, I_SETTINGS, "Customize sidebar…", "") {
+            if menu_item(ui, I_SETTINGS, tr("Customize sidebar…"), "") {
                 self.acts.push(Act::OpenSettings(Some(settings_page::Page::Sidebar)));
             }
         });
@@ -418,14 +418,14 @@ impl App {
         let locked = policy::current().sidebar_locked();
         resp.context_menu(|ui| {
             if let Some(l) = &loc {
-                if menu_item(ui, I_ADD, "Open in new tab", "") {
+                if menu_item(ui, I_ADD, tr("Open in new tab"), "") {
                     self.acts.push(Act::NavigateNewTab(l.clone()));
                 }
             }
             if locked {
                 // a sidebar managed by the organization can't be rearranged
             } else if pinned {
-                if menu_item(ui, I_PIN, "Unpin", "") {
+                if menu_item(ui, I_PIN, tr("Unpin"), "") {
                     if let Some(s) = self.settings.section_mut(&sid) {
                         s.pins.retain(|p| side_key(p) != key);
                     }
@@ -433,37 +433,37 @@ impl App {
                 }
             } else if let Some(Loc::Dir(p)) = &loc {
                 if !pin_sections.is_empty() {
-                    ui.menu_button(format!("      Pin to"), |ui| {
+                    ui.menu_button(format!("      {}", tr("Pin to")), |ui| {
                         for (id, title) in &pin_sections {
-                            if menu_item(ui, I_PIN, title, "") {
+                            if menu_item(ui, I_PIN, &tr_dyn(title), "") {
                                 self.pin_to(id, p.clone());
                             }
                         }
                     });
                 }
             }
-            if !locked && index > 0 && menu_item(ui, I_CHEV_U, "Move up", "") {
+            if !locked && index > 0 && menu_item(ui, I_CHEV_U, tr("Move up"), "") {
                 self.move_side_item(&sid, &key, None, -1);
             }
-            if !locked && index + 1 < count && menu_item(ui, I_CHEV_D, "Move down", "") {
+            if !locked && index + 1 < count && menu_item(ui, I_CHEV_D, tr("Move down"), "") {
                 self.move_side_item(&sid, &key, None, 1);
             }
-            if !locked && menu_item(ui, I_HIDE, "Hide from sidebar", "") {
+            if !locked && menu_item(ui, I_HIDE, tr("Hide from sidebar"), "") {
                 self.toggle_side_item(&sid, &key);
-                self.toast("Hidden. Show it again in Settings › Sidebar", false);
+                self.toast(tr("Hidden. Show it again in Settings › Sidebar"), false);
             }
             if let Some(l) = net {
-                if menu_item(ui, I_CLOSE, "Disconnect", "") {
+                if menu_item(ui, I_CLOSE, tr("Disconnect"), "") {
                     self.acts.push(Act::Disconnect(l));
                 }
             }
             if let Some(Loc::Dir(p)) = &loc {
-                if menu_item(ui, I_INFO, "Properties", "") {
+                if menu_item(ui, I_INFO, tr("Properties"), "") {
                     self.acts.push(Act::Properties(p.clone()));
                 }
             }
             ui.separator();
-            if menu_item(ui, I_SETTINGS, "Customize sidebar…", "") {
+            if menu_item(ui, I_SETTINGS, tr("Customize sidebar…"), "") {
                 self.acts.push(Act::OpenSettings(Some(settings_page::Page::Sidebar)));
             }
         });

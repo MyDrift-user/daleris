@@ -37,7 +37,7 @@ impl App {
             if m.who == me {
                 continue;
             }
-            out.push(Opener { who: m.who.clone(), app: m.app.clone(), since: Some(m.started), face: self.faces.get(&m.who).cloned(), me: false, from: "their Daleris" });
+            out.push(Opener { who: m.who.clone(), app: m.app.clone(), since: Some(m.started), face: self.faces.get(&m.who).cloned(), me: false, from: tx("their Daleris") });
         }
         out.sort_by_key(|o| !o.me);
         let mut seen = HashSet::new();
@@ -127,9 +127,9 @@ fn person_colour(who: &str) -> Color32 {
 fn openers_tip(ui: &mut Ui, list: &[Opener], faces: &[Option<egui::TextureId>]) {
     ui.set_max_width(340.0);
     let title = match list.len() {
-        1 if list[0].me => "Open on this PC".to_string(),
-        1 => "Open by someone".to_string(),
-        n => format!("Open by {n} people"),
+        1 if list[0].me => tr("Open on this PC").to_string(),
+        1 => tr("Open by someone").to_string(),
+        n => trf!("Open by {n} people", n = fmt_count(n)),
     };
     ui.label(egui::RichText::new(title).strong());
     ui.add_space(6.0);
@@ -149,16 +149,15 @@ fn openers_tip(ui: &mut Ui, list: &[Opener], faces: &[Option<egui::TextureId>]) 
             }
             ui.vertical(|ui| {
                 ui.label(egui::RichText::new(&o.who).color(TEXT()));
-                let mut bits = Vec::new();
-                if let Some(app) = &o.app {
-                    bits.push(format!("in {app}"));
-                }
-                if let Some(s) = o.since {
-                    let secs = crate::marks::now().saturating_sub(s);
-                    bits.push(format!("opened {}", super::ops::ago(Duration::from_secs(secs))));
-                }
-                bits.push(format!("known from {}", o.from));
-                ui.label(egui::RichText::new(bits.join(" · ")).small().color(DIM()));
+                let ago = o.since.map(|s| super::ops::ago(Duration::from_secs(crate::marks::now().saturating_sub(s))));
+                let source = tr(o.from);
+                let line = match (&o.app, ago) {
+                    (Some(app), Some(ago)) => trf!("in {app} · opened {ago} · known from {source}", app = app, ago = ago, source = source),
+                    (Some(app), None) => trf!("in {app} · known from {source}", app = app, source = source),
+                    (None, Some(ago)) => trf!("opened {ago} · known from {source}", ago = ago, source = source),
+                    (None, None) => trf!("known from {source}", source = source),
+                };
+                ui.label(egui::RichText::new(line).small().color(DIM()));
             });
         });
         ui.add_space(2.0);

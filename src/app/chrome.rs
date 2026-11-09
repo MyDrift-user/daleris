@@ -24,7 +24,7 @@ impl App {
                 // title-bar parts (each can be switched off in Settings › Appearance)
                 let mut left_w = 0.0;
                 if custom && (self.settings.shows_logo() || self.settings.shows_name()) {
-                    let name_w = if self.settings.shows_name() { ui.fonts_mut(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 };
+                    let name_w = if self.settings.shows_name() { ui.fonts_mut(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 }; // i18n-ignore: the app's name
                     let logo_w = if self.settings.shows_logo() { 26.0 } else { 0.0 };
                     let (r, resp) = ui.allocate_exact_size(vec2(logo_w + name_w + 8.0, 40.0), Sense::click_and_drag());
                     // standing in for the settings button: a button, drawn like the tabs' hover
@@ -38,7 +38,7 @@ impl App {
                         paint_logo(ui.painter(), Rect::from_center_size(pos2(r.left() + 11.0, r.center().y), vec2(18.0, 18.0)), ACCENT());
                     }
                     if self.settings.shows_name() {
-                        ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), if button && resp.hovered() { TEXT() } else { DIM() });
+                        ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), if button && resp.hovered() { TEXT() } else { DIM() }); // i18n-ignore: the app's name
                     }
                     if button {
                         if resp.clicked() {
@@ -48,7 +48,7 @@ impl App {
                         if resp.drag_started_by(egui::PointerButton::Primary) {
                             ui.ctx().send_viewport_cmd(egui::ViewportCommand::StartDrag);
                         }
-                        let _ = resp.on_hover_text("Settings (Ctrl+,)");
+                        let _ = resp.on_hover_text(tr("Settings (Ctrl+,)"));
                     } else {
                         self.title_drag(ui, &resp);
                     }
@@ -94,7 +94,7 @@ impl App {
                             self.draw_icon(ui, icon_r, &path, "", true, 0);
                         }
                     }
-                    let title = if active && t.searching() { format!("Search: {}", t.query) } else { loc.title() };
+                    let title = if active && t.searching() { trf!("Search: {query}", query = t.query) } else { loc_title(&loc) };
                     let gal = truncated(ui, &title, FontId::proportional(13.0), if active { TEXT() } else { DIM() }, w - 64.0);
                     ui.painter().galley(pos2(rect.left() + 32.0, rect.center().y - gal.size().y / 2.0), gal, TEXT());
                     if loading {
@@ -137,7 +137,7 @@ impl App {
                     }
                     resp.on_hover_text(match &loc {
                         Loc::Dir(p) => p.to_string_lossy().to_string(),
-                        other => other.title(),
+                        other => loc_title(other),
                     });
                 }
                 if tab_under_drag.is_none() {
@@ -154,7 +154,7 @@ impl App {
                 ui.vertical(|ui| {
                     // its hover the same height as an inactive tab's, clear of the line under the strip
                     ui.add_space(tab_y + 1.0 + TAB_HOVER_INSET);
-                    if icon_button_sized(ui, I_ADD, vec2(32.0, TAB_H - 2.0 - 2.0 * TAB_HOVER_INSET), "New tab (Ctrl+T)\nWith Shift: the same folder again (Ctrl+Shift+T)", true).clicked() {
+                    if icon_button_sized(ui, I_ADD, vec2(32.0, TAB_H - 2.0 - 2.0 * TAB_HOVER_INSET), tr("New tab (Ctrl+T)\nWith Shift: the same folder again (Ctrl+Shift+T)"), true).clicked() {
                         self.acts.push(Act::NewTab { same: ui.input(|i| i.modifiers.shift) });
                     }
                 });
@@ -170,7 +170,7 @@ impl App {
                 if self.settings.shows_gear() {
                     ui.vertical(|ui| {
                         ui.add_space(if custom { 5.0 } else { 1.0 });
-                        if icon_button(ui, I_SETTINGS, "Settings", true).clicked() {
+                        if icon_button(ui, I_SETTINGS, tr("Settings"), true).clicked() {
                             self.acts.push(Act::OpenSettings(None));
                         }
                     });
@@ -180,7 +180,7 @@ impl App {
                     ui.spacing_mut().item_spacing.x = 0.0;
                     self.maximized = ctx.input(|i| i.viewport().maximized.unwrap_or(false));
                     let max_glyph = if self.maximized { I_RESTORE } else { I_MAX };
-                    for (g, tip, close) in [(I_MIN, "Minimize", false), (max_glyph, if self.maximized { "Restore" } else { "Maximize" }, false), (I_WCLOSE, "Close", true)] {
+                    for (g, tip, close) in [(I_MIN, tr("Minimize"), false), (max_glyph, if self.maximized { tr("Restore") } else { tr("Maximize") }, false), (I_WCLOSE, tr("Close"), true)] {
                         let (r, resp) = ui.allocate_exact_size(vec2(46.0, 40.0), Sense::click());
                         if resp.hovered() {
                             ui.painter().rect_filled(r, CornerRadius::ZERO, if close { Color32::from_rgb(0xc4, 0x2b, 0x1c) } else { HOVER() });
@@ -251,16 +251,16 @@ impl App {
         egui::Panel::top("toolbar").exact_size(46.0).frame(frame).show_separator_line(pal().explorer).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
-                if icon_button(ui, I_BACK, "Back (Alt+Left)", !t.back.is_empty()).clicked() {
+                if icon_button(ui, I_BACK, tr("Back (Alt+Left)"), !t.back.is_empty()).clicked() {
                     self.acts.push(Act::Back);
                 }
-                if icon_button(ui, I_FWD, "Forward (Alt+Right)", !t.fwd.is_empty()).clicked() {
+                if icon_button(ui, I_FWD, tr("Forward (Alt+Right)"), !t.fwd.is_empty()).clicked() {
                     self.acts.push(Act::Forward);
                 }
-                if icon_button(ui, I_UP, "Up (Alt+Up)", t.dir().is_some()).clicked() {
+                if icon_button(ui, I_UP, tr("Up (Alt+Up)"), t.dir().is_some()).clicked() {
                     self.acts.push(Act::Up);
                 }
-                if icon_button(ui, I_REFRESH, "Refresh (F5)", true).clicked() {
+                if icon_button(ui, I_REFRESH, tr("Refresh (F5)"), true).clicked() {
                     self.acts.push(Act::Refresh);
                 }
                 ui.add_space(6.0);
@@ -283,7 +283,7 @@ impl App {
             let te = egui::TextEdit::singleline(buf)
                 .frame(egui::Frame::NONE)
                 .desired_width(rect.width() - 20.0)
-                .hint_text("Type a path, e.g. C:\\Users, %APPDATA% or \\\\server\\share")
+                .hint_text(tr("Type a path, e.g. C:\\Users, %APPDATA% or \\\\server\\share"))
                 .font(FontId::proportional(13.5));
             let r = child.add(te);
             if self.focus_address {
@@ -305,7 +305,7 @@ impl App {
             return;
         }
         // breadcrumbs
-        let mut crumbs: Vec<(String, Loc)> = if t.loc == Loc::Settings { vec![("Settings".into(), Loc::Settings)] } else { vec![("This PC".into(), Loc::ThisPc)] };
+        let mut crumbs: Vec<(String, Loc)> = if t.loc == Loc::Settings { vec![(tr("Settings").into(), Loc::Settings)] } else { vec![(tr("This PC").into(), Loc::ThisPc)] };
         if let Loc::Dir(p) = &t.loc {
             let mut acc = PathBuf::new();
             for c in p.components() {
@@ -365,11 +365,11 @@ impl App {
             self.acts.push(Act::ConnectServer(text.to_string(), String::new(), String::new()));
             return;
         }
-        if lower == "settings" {
+        if lower == "settings" || lower == tr("Settings").to_lowercase() { // i18n-ignore: what's typed in the address bar
             self.acts.push(Act::Navigate(Loc::Settings));
             return;
         }
-        if lower == "this pc" || lower.is_empty() {
+        if lower == "this pc" || lower == tr("This PC").to_lowercase() || lower.is_empty() { // i18n-ignore: what's typed in the address bar
             self.acts.push(Act::Navigate(Loc::ThisPc));
             return;
         }
@@ -379,7 +379,7 @@ impl App {
         match kind {
             target::PathKind::Dir | target::PathKind::Unknown => self.acts.push(Act::Navigate(Loc::Dir(p))),
             target::PathKind::File => self.acts.push(Act::Open(p)),
-            target::PathKind::Missing => self.toast(format!("Can't find '{text}'"), true),
+            target::PathKind::Missing => self.toast(trf!("Can't find '{text}'", text = text), true),
         }
     }
 
@@ -411,9 +411,9 @@ impl App {
         let edit_r = Rect::from_min_max(pos2(rect.left() + 30.0, rect.top() + 2.0), pos2(text_right, rect.bottom() - 2.0));
         let mut child = ui.new_child(egui::UiBuilder::new().max_rect(edit_r));
         let place = match (&t.loc, t.scope) {
-            (_, Scope::AllDrives) | (Loc::ThisPc, _) => "Search all drives".to_string(),
-            (Loc::Dir(_), Scope::ThisFolder) => format!("Filter {}", t.loc.title()),
-            _ => format!("Search {}", t.loc.title()),
+            (_, Scope::AllDrives) | (Loc::ThisPc, _) => tr("Search all drives").to_string(),
+            (Loc::Dir(_), Scope::ThisFolder) => trf!("Filter {place}", place = loc_title(&t.loc)),
+            _ => trf!("Search {place}", place = loc_title(&t.loc)),
         };
         let te = egui::TextEdit::singleline(&mut t.query)
             .frame(egui::Frame::NONE)
@@ -456,14 +456,14 @@ impl App {
 
         // square switch: search subfolders too (on = this folder and every folder below it)
         let tip = if !in_dir {
-            "Searching every drive"
+            tr("Searching every drive")
         } else if nested {
-            "Subfolders: on. Searches this folder and every folder below it. Click to search only this folder."
+            tr("Subfolders: on. Searches this folder and every folder below it. Click to search only this folder.")
         } else {
-            "Subfolders: off. Only filters what's in this folder. Click to also search every folder below it."
+            tr("Subfolders: off. Only filters what's in this folder. Click to also search every folder below it.")
         };
         let sub_fixed = policy::is_fixed("nested_search");
-        let tip = if sub_fixed { format!("{tip}\n\n{}", settings_page::MANAGED) } else { tip.to_string() };
+        let tip = if sub_fixed { format!("{tip}\n\n{}", tr(settings_page::MANAGED)) } else { tip.to_string() };
         // one setting for every tab, like the regex switch next to it; only "all drives" is a tab's own
         let all_drives = t.scope == Scope::AllDrives;
         let sub_clicked = chip_r.is_some_and(|chip_r| square_toggle(ui, chip_r, "nested-search", self.settings.nested_search || all_drives, !sub_fixed && !all_drives, &tip, |p, r, col| {
@@ -476,12 +476,13 @@ impl App {
         }));
         // square switch: regular expressions
         let rx_tip = match &t.query_error {
-            Some(e) => format!("Regular expression: {}\n\nInvalid: {e}", if self.settings.regex_search { "on" } else { "off" }),
-            None if self.settings.regex_search => "Regular expression: on. The whole search is a regex (case-insensitive), e.g. ^img_\\d+\\.jpg$".into(),
-            None => "Regular expression: off. Click to treat the search as a regex. You can also write re:pattern or /pattern/ in a normal search.".into(),
+            Some(e) if self.settings.regex_search => trf!("Regular expression: on\n\nInvalid: {e}", e = e),
+            Some(e) => trf!("Regular expression: off\n\nInvalid: {e}", e = e),
+            None if self.settings.regex_search => tr("Regular expression: on. The whole search is a regex (case-insensitive), e.g. ^img_\\d+\\.jpg$").into(),
+            None => tr("Regular expression: off. Click to treat the search as a regex. You can also write re:pattern or /pattern/ in a normal search.").into(),
         };
         let rx_fixed = policy::is_fixed("regex_search");
-        let rx_tip = if rx_fixed { format!("{rx_tip}\n\n{}", settings_page::MANAGED) } else { rx_tip };
+        let rx_tip = if rx_fixed { format!("{rx_tip}\n\n{}", tr(settings_page::MANAGED)) } else { rx_tip };
         if regex_r.is_some_and(|regex_r| square_toggle(ui, regex_r, "regex-search", self.settings.regex_search, !rx_fixed, &rx_tip, |p, r, col| {
             p.text(r.center() + vec2(0.0, -1.0), Align2::CENTER_CENTER, ".*", FontId::monospace(15.0), col);
         })) {
@@ -492,7 +493,7 @@ impl App {
         if let Some(e) = t.query_error.clone().filter(|_| !t.query.trim().is_empty()) {
             ui.painter().rect_stroke(rect, CornerRadius::same(6), Stroke::new(1.0_f32, WARN()), StrokeKind::Inside);
             let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("search-err")));
-            let g = painter.layout_no_wrap(format!("Invalid regex: {e}"), FontId::proportional(12.0), Color32::WHITE);
+            let g = painter.layout_no_wrap(trf!("Invalid regex: {e}", e = e), FontId::proportional(12.0), Color32::WHITE);
             let r = Rect::from_min_size(rect.left_bottom() + vec2(0.0, 4.0), g.size() + vec2(16.0, 8.0));
             painter.rect_filled(r, CornerRadius::same(5), WARN());
             painter.galley(r.min + vec2(8.0, 4.0), g, Color32::WHITE);
@@ -514,38 +515,38 @@ impl App {
                 ui.set_min_width(320.0);
                 if in_dir {
                     let mut all = t.scope == Scope::AllDrives;
-                    if ui.checkbox(&mut all, "Search all drives instead of this folder").changed() {
+                    if ui.checkbox(&mut all, tr("Search all drives instead of this folder")).changed() {
                         t.scope = if all { Scope::AllDrives } else { own_scope };
                     }
                     ui.separator();
                 }
-                ui.label(egui::RichText::new("Search syntax").color(DIM()).small());
+                ui.label(egui::RichText::new(tr("Search syntax")).color(DIM()).small());
                 for (q, d) in [
-                    ("report 2024", "name contains both words"),
-                    ("*.rs   img_??.png", "wildcards"),
-                    ("\"exact name.txt\"", "exact name"),
-                    ("-draft", "exclude a word"),
-                    ("ext:pdf,docx", "by extension"),
-                    ("kind:image", "video audio doc code archive app folder"),
-                    ("size:>100mb", "also <1k or 1mb..1gb"),
-                    ("modified:today", "yesterday week month year 2025 >2026-01-01"),
-                    (r"re:^img_\d+   /^img_\d+/", "regular expression (or switch on .* for the whole search)"),
+                    ("report 2024", tx("name contains both words")),
+                    ("*.rs   img_??.png", tx("wildcards")),
+                    ("\"exact name.txt\"", tx("exact name")), // i18n-ignore: an example query, typed as it is
+                    ("-draft", tx("exclude a word")),
+                    ("ext:pdf,docx", tx("by extension")),
+                    ("kind:image", "video audio doc code archive app folder"), // i18n-ignore: the words kind: takes, typed as they are
+                    ("size:>100mb", tx("also <1k or 1mb..1gb")),
+                    ("modified:today", "yesterday week month year 2025 >2026-01-01"), // i18n-ignore: the words modified: takes, typed as they are
+                    (r"re:^img_\d+   /^img_\d+/", tx("regular expression (or switch on .* for the whole search)")),
                 ] {
                     ui.horizontal(|ui| {
                         ui.label(egui::RichText::new(q).monospace().color(ACCENT()));
-                        ui.label(egui::RichText::new(d).color(DIM()).small());
+                        ui.label(egui::RichText::new(tr(d)).color(DIM()).small());
                     });
                 }
                 if t.search.is_some() {
                     ui.separator();
-                    if ui.button("Rescan the index").clicked() {
+                    if ui.button(tr("Rescan the index")).clicked() {
                         rescan = true;
                         ui.close();
                     }
                 }
             })
             .response
-            .on_hover_text("Search syntax and options");
+            .on_hover_text(tr("Search syntax and options"));
         if rescan {
             if let Some(s) = &t.search {
                 s.index.cancel.store(true, Ordering::Relaxed);
@@ -635,7 +636,7 @@ impl App {
         egui::Panel::top("commands").exact_size(40.0).frame(frame).show(root, |ui| {
             // right-click the empty part of the bar to customize it
             ui.interact(ui.max_rect(), ui.scope_id().with("ribbon_bg"), Sense::click()).context_menu(|ui| {
-                if menu_item(ui, I_SETTINGS, "Customize ribbon bar…", "") {
+                if menu_item(ui, I_SETTINGS, tr("Customize ribbon bar…"), "") {
                     self.acts.push(Act::OpenSettings(Some(settings_page::Page::Ribbon)));
                 }
             });
@@ -662,13 +663,13 @@ impl App {
             "new" => {
                 ui.add_enabled_ui(in_dir, |ui| {
                     // the arrow says it opens a list, as Explorer's does
-                    let label = (egui::RichText::new(format!("{}  New", ic(I_ADD))).font(icon_font(13.5)), egui::RichText::new(ic(I_CHEV_D)).font(icon_font(9.0)).color(DIM()));
+                    let label = (egui::RichText::new(format!("{}  {}", ic(I_ADD), tr("New"))).font(icon_font(13.5)), egui::RichText::new(ic(I_CHEV_D)).font(icon_font(9.0)).color(DIM()));
                     ui.menu_button(label, |ui| {
                         ui.set_max_width(280.0);
-                        if menu_item(ui, I_NEWFOLDER, "Folder", "Ctrl+Shift+N") {
+                        if menu_item(ui, I_NEWFOLDER, tr("Folder"), tr("Ctrl+Shift+N")) {
                             self.acts.push(Act::NewFolder);
                         }
-                        if menu_item(ui, I_RENAME, "Text document", "") {
+                        if menu_item(ui, I_RENAME, tr("Text document"), "") {
                             self.acts.push(Act::NewTextFile);
                         }
                         // what the system offers too: Explorer's list on Windows, the Templates folder on Linux
@@ -690,27 +691,27 @@ impl App {
                 });
             }
             "cut" => {
-                if icon_button(ui, I_CUT, "Cut (Ctrl+X)", has_sel).clicked() {
+                if icon_button(ui, I_CUT, tr("Cut (Ctrl+X)"), has_sel).clicked() {
                     self.acts.push(Act::Cut);
                 }
             }
             "copy" => {
-                if icon_button(ui, I_COPY, "Copy (Ctrl+C)", has_sel).clicked() {
+                if icon_button(ui, I_COPY, tr("Copy (Ctrl+C)"), has_sel).clicked() {
                     self.acts.push(Act::Copy);
                 }
             }
             "paste" => {
-                if icon_button(ui, I_PASTE, "Paste (Ctrl+V)", in_dir).clicked() {
+                if icon_button(ui, I_PASTE, tr("Paste (Ctrl+V)"), in_dir).clicked() {
                     self.acts.push(Act::Paste);
                 }
             }
             "rename" => {
-                if icon_button(ui, I_RENAME, "Rename (F2)", t.sel.len() == 1).clicked() {
+                if icon_button(ui, I_RENAME, tr("Rename (F2)"), t.sel.len() == 1).clicked() {
                     self.acts.push(Act::StartRename);
                 }
             }
             "delete" => {
-                if icon_button(ui, I_DELETE, "Delete (Del). Shift+Del deletes permanently", has_sel).clicked() {
+                if icon_button(ui, I_DELETE, tr("Delete (Del). Shift+Del deletes permanently"), has_sel).clicked() {
                     self.acts.push(Act::Delete(ui.input(|i| i.modifiers.shift)));
                 }
             }
@@ -718,17 +719,17 @@ impl App {
             "filter" => self.filter_button(ui, t),
             "view" => {
                 let view_glyph = if self.settings.view == View::Details { I_LIST } else { I_GRID };
-                ui.menu_button(egui::RichText::new(format!("{}  View", ic(view_glyph))).font(icon_font(13.5)), |ui| {
+                ui.menu_button(egui::RichText::new(format!("{}  {}", ic(view_glyph), tr("View"))).font(icon_font(13.5)), |ui| {
                     let free = |key: &str| !policy::is_fixed(key);
-                    if ui.add_enabled(free("view"), egui::RadioButton::new(self.settings.view == View::Details, "Details")).clicked() {
+                    if ui.add_enabled(free("view"), egui::RadioButton::new(self.settings.view == View::Details, tr("Details"))).clicked() {
                         self.settings.view = View::Details;
                     }
-                    if ui.add_enabled(free("view"), egui::RadioButton::new(self.settings.view == View::Icons, "Large icons")).clicked() {
+                    if ui.add_enabled(free("view"), egui::RadioButton::new(self.settings.view == View::Icons, tr("Large icons"))).clicked() {
                         self.settings.view = View::Icons;
                     }
                     ui.separator();
-                    ui.add_enabled(free("preview"), egui::Checkbox::new(&mut self.settings.show_preview, "Preview pane  (Alt+P)"));
-                    if ui.add_enabled(free("hidden"), egui::Checkbox::new(&mut self.settings.show_hidden, "Hidden items")).changed() {
+                    ui.add_enabled(free("preview"), egui::Checkbox::new(&mut self.settings.show_preview, tr("Preview pane  (Alt+P)")));
+                    if ui.add_enabled(free("hidden"), egui::Checkbox::new(&mut self.settings.show_hidden, tr("Hidden items"))).changed() {
                         t.dirty = true;
                         self.tabs.iter_mut().for_each(|o| o.dirty = true);
                         if t.searching() {
@@ -736,25 +737,25 @@ impl App {
                         }
                     }
                     let mut show_dots = !self.settings.hide_dotfiles;
-                    if cfg!(windows) && ui.add_enabled(free("hide_dots"), egui::Checkbox::new(&mut show_dots, "Dotfiles  (Ctrl+Shift+.)")).changed() {
+                    if cfg!(windows) && ui.add_enabled(free("hide_dots"), egui::Checkbox::new(&mut show_dots, tr("Dotfiles  (Ctrl+Shift+.)"))).changed() {
                         self.acts.push(Act::ToggleDotfiles);
                     }
-                    ui.add_enabled(free("ext"), egui::Checkbox::new(&mut self.settings.show_ext, "File name extensions"));
+                    ui.add_enabled(free("ext"), egui::Checkbox::new(&mut self.settings.show_ext, tr("File name extensions")));
                 });
             }
             "more" => {
-                if icon_button(ui, I_MORE, "Windows menu for this folder", t.dir().is_some()).clicked() {
+                if icon_button(ui, I_MORE, tr("Windows menu for this folder"), t.dir().is_some()).clicked() {
                     self.acts.push(Act::NativeMenu(false));
                 }
             }
             "terminal" => {
-                if icon_button(ui, I_TERMINAL, "Open in Terminal", t.dir().is_some()).clicked() {
+                if icon_button(ui, I_TERMINAL, tr("Open in Terminal"), t.dir().is_some()).clicked() {
                     self.acts.push(Act::Terminal);
                 }
             }
             "hidden" => {
                 let fixed = policy::is_fixed("hidden");
-                let hid = icon_button(ui, I_EYE, if fixed { settings_page::MANAGED } else { "Show hidden items" }, !fixed);
+                let hid = icon_button(ui, I_EYE, if fixed { tr(settings_page::MANAGED) } else { tr("Show hidden items") }, !fixed);
                 if self.settings.show_hidden {
                     ui.painter().rect_stroke(hid.rect, CornerRadius::same(5), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
                 }
@@ -769,7 +770,7 @@ impl App {
             }
             "preview" => {
                 let fixed = policy::is_fixed("preview");
-                let pv = icon_button(ui, I_PANE, if fixed { settings_page::MANAGED } else { "Preview pane (Alt+P)" }, !fixed);
+                let pv = icon_button(ui, I_PANE, if fixed { tr(settings_page::MANAGED) } else { tr("Preview pane (Alt+P)") }, !fixed);
                 if self.settings.show_preview {
                     ui.painter().rect_stroke(pv.rect, CornerRadius::same(5), Stroke::new(1.0_f32, ACCENT()), StrokeKind::Inside);
                 }
@@ -788,18 +789,18 @@ impl App {
     /// The Sort menu: what by, which way round, whether folders stay on top, and whether this folder has its own.
     fn sort_button(&mut self, ui: &mut Ui, t: &mut Tab) {
         let arrow = if t.asc { "↑" } else { "↓" };
-        let label = format!("{}  {}  {arrow}", ic(I_SORT), t.sort.label());
+        let label = format!("{}  {}  {arrow}", ic(I_SORT), tr(t.sort.label()));
         ui.menu_button(egui::RichText::new(label).font(icon_font(13.5)), |ui| {
             ui.set_min_width(250.0);
             ui.set_max_width(280.0);
-            ui.label(egui::RichText::new("Sort by").size(12.0).color(DIM()));
+            ui.label(egui::RichText::new(tr("Sort by")).size(12.0).color(DIM()));
             for k in SortKey::ALL {
-                if ui.radio(t.sort == k, k.label()).clicked() {
+                if ui.radio(t.sort == k, tr(k.label())).clicked() {
                     self.acts.push(Act::Sort(k, None));
                 }
             }
             ui.separator();
-            let words = |asc: bool| SortSpec { key: t.sort, asc, dirs_first: true }.direction();
+            let words = |asc: bool| tr(SortSpec { key: t.sort, asc, dirs_first: true }.direction());
             if ui.radio(t.asc, words(true)).clicked() {
                 self.acts.push(Act::Sort(t.sort, Some(true)));
             }
@@ -808,35 +809,35 @@ impl App {
             }
             ui.separator();
             let mut first = t.dirs_first;
-            if ui.checkbox(&mut first, "Folders first").changed() {
+            if ui.checkbox(&mut first, tr("Folders first")).changed() {
                 self.acts.push(Act::FoldersFirst(first));
             }
             if t.dir().is_some() && !t.searching() {
                 ui.separator();
                 let own = self.folder_has_own_sort(t);
                 let note = if own {
-                    "This folder keeps this sort."
-                } else if t.dir().is_some_and(|d| self.places.iter().any(|p| p.name == "Downloads" && fsx::same_path(&p.path, d))) && self.settings.downloads_newest {
-                    "Downloads opens newest first. Changing it here keeps your choice."
+                    tr("This folder keeps this sort.")
+                } else if t.dir().is_some_and(|d| self.places.iter().any(|p| p.name == "Downloads" && fsx::same_path(&p.path, d))) && self.settings.downloads_newest { // i18n-ignore: a place name the code compares
+                    tr("Downloads opens newest first. Changing it here keeps your choice.")
                 } else {
-                    "This is your default. Changing it here keeps your choice for this folder."
+                    tr("This is your default. Changing it here keeps your choice for this folder.")
                 };
                 ui.add(egui::Label::new(egui::RichText::new(note).size(12.0).color(DIM())).wrap());
                 ui.add_space(2.0);
-                if ui.add_enabled(own, egui::Button::new("Reset this folder to default")).clicked() {
+                if ui.add_enabled(own, egui::Button::new(tr("Reset this folder to default"))).clicked() {
                     self.acts.push(Act::ResetSort);
                     ui.close();
                 }
             }
         })
         .response
-        .on_hover_text("How this folder is sorted");
+        .on_hover_text(tr("How this folder is sorted"));
     }
 
     /// The Filter button, and while something's filtered, how much of the folder is showing.
     fn filter_button(&mut self, ui: &mut Ui, t: &mut Tab) {
         let n = t.filter.count();
-        let label = if n > 0 { format!("{}  Filter ({n})", ic(I_FILTER)) } else { format!("{}  Filter", ic(I_FILTER)) };
+        let label = if n > 0 { format!("{}  {}", ic(I_FILTER), trf!("Filter ({n})", n = n)) } else { format!("{}  {}", ic(I_FILTER), tr("Filter")) };
         let b = ui.add_enabled(t.dir().is_some(), egui::Button::new(egui::RichText::new(label).font(icon_font(13.5))).selected(t.filter_open || n > 0));
         if b.clicked() {
             t.filter_open = !t.filter_open;
@@ -844,13 +845,13 @@ impl App {
             t.dirty = true;
         }
         t.filter_anchor = Some(b.rect);
-        let _ = b.on_hover_text("Show only some of what's in this folder");
+        let _ = b.on_hover_text(tr("Show only some of what's in this folder"));
         if t.filter.is_active() {
             ui.add_space(4.0);
             if t.filtered() {
-                ui.label(egui::RichText::new(format!("{} of {} shown", fmt_count(t.view.len()), fmt_count(t.shown_of))).size(12.5).color(ACCENT()));
+                ui.label(egui::RichText::new(trf!("{shown} of {total} shown", shown = fmt_count(t.view.len()), total = fmt_count(t.shown_of))).size(12.5).color(ACCENT()));
             }
-            let x = ui.add(egui::Button::new(egui::RichText::new(ic(I_CLOSE)).font(icon_font(10.0))).frame(false).min_size(vec2(22.0, 22.0))).on_hover_text("Clear the filter");
+            let x = ui.add(egui::Button::new(egui::RichText::new(ic(I_CLOSE)).font(icon_font(10.0))).frame(false).min_size(vec2(22.0, 22.0))).on_hover_text(tr("Clear the filter"));
             if x.clicked() {
                 self.acts.push(Act::ClearFilter);
             }
@@ -877,15 +878,15 @@ impl App {
                 ui.spacing_mut().item_spacing = vec2(6.0, 6.0);
                 egui::ScrollArea::vertical().max_height((screen.height() - at.y - 80.0).max(160.0)).auto_shrink([false, true]).show(ui, |ui| {
                     let f = &mut t.filter;
-                    section(ui, "Kind");
+                    section(ui, tr("Kind"));
                     ui.horizontal_wrapped(|ui| {
                         for (k, label) in listing::FILTER_KINDS {
-                            if chip(ui, label, f.kinds.contains(&k)) {
+                            if chip(ui, tr(label), f.kinds.contains(&k)) {
                                 f.toggle_kind(k);
                             }
                         }
                     });
-                    section(ui, "Extension");
+                    section(ui, tr("Extension"));
                     // what's in this folder, most common first, and whatever was chosen elsewhere
                     let mut seen: Vec<(String, usize)> = t.type_stats_all.clone();
                     seen.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
@@ -901,15 +902,15 @@ impl App {
                                 f.toggle_ext(e);
                             }
                         }
-                        let typed = ui.add(egui::TextEdit::singleline(&mut t.filter_ext).desired_width(70.0).hint_text("other"));
+                        let typed = ui.add(egui::TextEdit::singleline(&mut t.filter_ext).desired_width(70.0).hint_text(tr("other")));
                         if typed.lost_focus() && ui.input(|i| i.key_pressed(Key::Enter)) {
                             f.toggle_ext(&t.filter_ext);
                             t.filter_ext.clear();
                         }
                     });
-                    section(ui, "Date modified");
+                    section(ui, tr("Date modified"));
                     ui.horizontal_wrapped(|ui| {
-                        for (d, label) in [(DateRange::Any, "Any time"), (DateRange::Today, "Today"), (DateRange::Week, "This week"), (DateRange::Month, "This month"), (DateRange::Custom, "Between…")] {
+                        for (d, label) in [(DateRange::Any, tr("Any time")), (DateRange::Today, tr("Today")), (DateRange::Week, tr("This week")), (DateRange::Month, tr("This month")), (DateRange::Custom, tr("Between…"))] {
                             if chip(ui, label, f.date == d) {
                                 f.date = d;
                             }
@@ -918,16 +919,16 @@ impl App {
                     if f.date == DateRange::Custom {
                         ui.horizontal(|ui| {
                             ui.add(egui::TextEdit::singleline(&mut f.date_from).desired_width(100.0).hint_text("2026-01-01"));
-                            ui.label("and");
+                            ui.label(tr("and"));
                             ui.add(egui::TextEdit::singleline(&mut f.date_to).desired_width(100.0).hint_text("2026-12-31"));
                         });
                         if let Some(e) = f.date_error() {
-                            ui.label(egui::RichText::new(e).size(12.0).color(WARN()));
+                            ui.label(egui::RichText::new(tr(e)).size(12.0).color(WARN()));
                         }
                     }
-                    section(ui, "Size");
+                    section(ui, tr("Size"));
                     ui.horizontal_wrapped(|ui| {
-                        for (s, label) in [(SizeRange::Any, "Any size"), (SizeRange::Under1Mb, "Under 1 MB"), (SizeRange::Mb1To100, "1 to 100 MB"), (SizeRange::Mb100To1Gb, "100 MB to 1 GB"), (SizeRange::Over1Gb, "Over 1 GB"), (SizeRange::Custom, "Between…")] {
+                        for (s, label) in [(SizeRange::Any, tr("Any size")), (SizeRange::Under1Mb, tr("Under 1 MB")), (SizeRange::Mb1To100, tr("1 to 100 MB")), (SizeRange::Mb100To1Gb, tr("100 MB to 1 GB")), (SizeRange::Over1Gb, tr("Over 1 GB")), (SizeRange::Custom, tr("Between…"))] {
                             if chip(ui, label, f.size == s) {
                                 f.size = s;
                             }
@@ -936,29 +937,29 @@ impl App {
                     if f.size == SizeRange::Custom {
                         ui.horizontal(|ui| {
                             ui.add(egui::TextEdit::singleline(&mut f.size_min).desired_width(90.0).hint_text("10 MB"));
-                            ui.label("and");
+                            ui.label(tr("and"));
                             ui.add(egui::TextEdit::singleline(&mut f.size_max).desired_width(90.0).hint_text("2 GB"));
                         });
                         if let Some(e) = f.size_error() {
-                            ui.label(egui::RichText::new(e).size(12.0).color(WARN()));
+                            ui.label(egui::RichText::new(tr(e)).size(12.0).color(WARN()));
                         }
                     }
-                    section(ui, "Name contains");
+                    section(ui, tr("Name contains"));
                     ui.add(egui::TextEdit::singleline(&mut f.name).desired_width(f32::INFINITY).margin(egui::Margin::symmetric(8, 5)));
                 });
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     let text = if t.search.is_some() {
-                        "Applies to the search results".to_string()
+                        tr("Applies to the search results").to_string()
                     } else {
-                        format!("{} of {} shown", fmt_count(t.view.len()), fmt_count(t.shown_of))
+                        trf!("{shown} of {total} shown", shown = fmt_count(t.view.len()), total = fmt_count(t.shown_of))
                     };
                     ui.label(egui::RichText::new(text).size(12.5).color(if t.filter.is_active() { ACCENT() } else { DIM() }));
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if action_button(ui, "Done", false).clicked() {
+                        if action_button(ui, tr("Done"), false).clicked() {
                             t.filter_open = false;
                         }
-                        if ui.add_enabled(t.filter.is_active(), egui::Button::new("Clear").min_size(vec2(64.0, 30.0))).clicked() {
+                        if ui.add_enabled(t.filter.is_active(), egui::Button::new(tr("Clear")).min_size(vec2(64.0, 30.0))).clicked() {
                             t.filter = ListFilter::default();
                         }
                     });
@@ -984,16 +985,16 @@ impl App {
         egui::Panel::top("picker_top").exact_size(48.0).frame(frame).show_separator_line(true).show(root, |ui| {
             ui.horizontal_centered(|ui| {
                 ui.spacing_mut().item_spacing.x = 2.0;
-                if icon_button(ui, I_BACK, "Back (Alt+Left)", !t.back.is_empty()).clicked() {
+                if icon_button(ui, I_BACK, tr("Back (Alt+Left)"), !t.back.is_empty()).clicked() {
                     self.acts.push(Act::Back);
                 }
-                if icon_button(ui, I_FWD, "Forward (Alt+Right)", !t.fwd.is_empty()).clicked() {
+                if icon_button(ui, I_FWD, tr("Forward (Alt+Right)"), !t.fwd.is_empty()).clicked() {
                     self.acts.push(Act::Forward);
                 }
-                if icon_button(ui, I_UP, "Up (Alt+Up)", t.dir().is_some()).clicked() {
+                if icon_button(ui, I_UP, tr("Up (Alt+Up)"), t.dir().is_some()).clicked() {
                     self.acts.push(Act::Up);
                 }
-                if icon_button(ui, I_REFRESH, "Refresh (F5)", true).clicked() {
+                if icon_button(ui, I_REFRESH, tr("Refresh (F5)"), true).clicked() {
                     self.acts.push(Act::Refresh);
                 }
                 ui.add_space(6.0);
@@ -1007,7 +1008,7 @@ impl App {
                 self.sort_button(ui, t);
                 self.filter_button(ui, t);
                 let glyph = if self.settings.view == View::Details { I_GRID } else { I_LIST };
-                if icon_button(ui, glyph, "Switch between details and large icons", !policy::is_fixed("view")).clicked() {
+                if icon_button(ui, glyph, tr("Switch between details and large icons"), !policy::is_fixed("view")).clicked() {
                     let next = if self.settings.view == View::Details { View::Icons } else { View::Details };
                     self.acts.push(Act::SetView(next));
                 }
@@ -1058,52 +1059,55 @@ impl App {
                 let small = |s: String| egui::RichText::new(s).size(12.0).color(DIM());
                 if let Some(s) = &t.search {
                     let idx = &s.index;
-                    let more = if s.results.len() >= search::MAX_RESULTS { "+" } else { "" };
-                    ui.label(small(format!("{}{} results", fmt_count(s.results.len()), more)));
+                    let found = s.results.len();
+                    let results = if found >= search::MAX_RESULTS { trf!("{n}+ results", n = fmt_count(found)) } else { trn!(found, "{n} result", "{n} results") };
+                    ui.label(small(results));
                     ui.label(small("·".into()));
                     if idx.is_done() {
                         let took = idx.took.lock().unwrap().unwrap_or_default();
-                        ui.label(small(format!("{} items indexed in {}", fmt_count(idx.count()), fmt_duration(took))));
+                        ui.label(small(trn!(idx.count(), "{n} item indexed in {time}", "{n} items indexed in {time}", time = fmt_duration(took))));
                         ui.label(small("·".into()));
-                        ui.label(egui::RichText::new(format!("query {}", fmt_duration(s.query_time))).size(12.0).color(GREEN()));
+                        ui.label(egui::RichText::new(trf!("query {time}", time = fmt_duration(s.query_time))).size(12.0).color(GREEN()));
                     } else {
                         ui.add(egui::Spinner::new().size(12.0).color(ACCENT()));
-                        ui.label(small(format!(
-                            "Indexing… {} items in {} folders ({:.1} s)",
-                            fmt_count(idx.count()),
-                            fmt_count(idx.dirs.load(Ordering::Relaxed)),
-                            idx.started.elapsed().as_secs_f32()
+                        let secs = format!("{:.1}", idx.started.elapsed().as_secs_f32()).replace('.', &crate::i18n::decimal().to_string());
+                        ui.label(small(trf!(
+                            "Indexing… {items} in {folders} ({secs} s)",
+                            items = trn!(idx.count(), "{n} item", "{n} items"),
+                            folders = trn!(idx.dirs.load(Ordering::Relaxed), "{n} folder", "{n} folders"),
+                            secs = secs
                         )));
                     }
                 } else if t.loc == Loc::ThisPc {
-                    ui.label(small(format!("{} drives", self.drives.len())));
+                    ui.label(small(trn!(self.drives.len(), "{n} drive", "{n} drives")));
                 } else {
                     if t.error.is_some() {
-                        ui.label(small("Not available".into()));
+                        ui.label(small(tr("Not available").into()));
                     } else if t.loading && t.entries.is_empty() {
-                        ui.label(small("Opening".into()));
+                        ui.label(small(tr("Opening").into()));
                     } else if t.filtered() {
-                        ui.label(egui::RichText::new(format!("{} of {} shown", fmt_count(t.view.len()), fmt_count(t.shown_of))).size(12.0).color(ACCENT()));
+                        ui.label(egui::RichText::new(trf!("{shown} of {total} shown", shown = fmt_count(t.view.len()), total = fmt_count(t.shown_of))).size(12.0).color(ACCENT()));
                     } else {
-                        ui.label(small(format!("{} items", fmt_count(t.view.len()))));
+                        ui.label(small(trn!(t.view.len(), "{n} item", "{n} items")));
                     }
                     if t.sel_info.0 > 0 {
                         ui.label(small("·".into()));
-                        let size = if t.sel_info.1 > 0 { format!("  {}", fmt_size(t.sel_info.1)) } else { String::new() };
-                        ui.label(small(format!("{} selected{size}", fmt_count(t.sel_info.0))));
+                        let selected = trn!(t.sel_info.0, "{n} item selected", "{n} items selected");
+                        let line = if t.sel_info.1 > 0 { format!("{selected}  {}", fmt_size(t.sel_info.1)) } else { selected };
+                        ui.label(small(line));
                     }
                     if t.loading {
                         ui.add(egui::Spinner::new().size(12.0).color(ACCENT()));
                     }
                     if t.in_cloud {
                         ui.label(small("·".into()));
-                        ui.label(egui::RichText::new(format!("{}  Cloud folder", ic(I_CLOUD))).font(icon_font(12.0)).color(CLOUD_BLUE()));
+                        ui.label(egui::RichText::new(format!("{}  {}", ic(I_CLOUD), tr("Cloud folder"))).font(icon_font(12.0)).color(CLOUD_BLUE()));
                     }
                 }
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                     let drive = t.dir().and_then(|d| self.drive_for(d));
                     if let Some(d) = drive.filter(|d| d.ready) {
-                        ui.label(small(format!("{}  ·  {} free of {}", d.title(), fmt_size(d.free), fmt_size(d.total))));
+                        ui.label(small(trf!("{drive}  ·  {free} free of {total}", drive = d.title(), free = fmt_size(d.free), total = fmt_size(d.total))));
                     }
                 });
             });
@@ -1114,17 +1118,17 @@ impl App {
         egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| {
             ui.add_space(14.0);
             egui::Frame::new().inner_margin(egui::Margin::symmetric(22, 0)).show(ui, |ui| {
-                ui.heading("Folders");
+                ui.heading(tr("Folders"));
                 ui.add_space(6.0);
                 let places = self.places.clone();
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = vec2(10.0, 10.0);
-                    for p in places.iter().filter(|p| p.name != "Home") {
+                    for p in places.iter().filter(|p| p.name != "Home") { // i18n-ignore: a place name the code compares
                         self.place_tile(ui, &p.name, &p.path);
                     }
                 });
                 ui.add_space(18.0);
-                ui.heading("Drives and devices");
+                ui.heading(tr("Drives and devices"));
                 ui.add_space(6.0);
                 let drives = self.drives.clone();
                 ui.horizontal_wrapped(|ui| {
@@ -1135,16 +1139,16 @@ impl App {
                 });
                 ui.add_space(18.0);
                 ui.horizontal(|ui| {
-                    ui.heading("Network locations");
+                    ui.heading(tr("Network locations"));
                     ui.add_space(10.0);
-                    if ui.button(egui::RichText::new(format!("{}  {}", ic(I_NETDRIVE), network_label().trim_end_matches('…'))).font(icon_font(13.0))).clicked() {
+                    if ui.button(egui::RichText::new(format!("{}  {}", ic(I_NETDRIVE), tr(network_label()).trim_end_matches('…'))).font(icon_font(13.0))).clicked() {
                         self.acts.push(Act::MapDrive);
                     }
                 });
                 ui.add_space(6.0);
                 let net: Vec<&Drive> = drives.iter().filter(|d| d.kind == DriveKind::Network).collect();
                 if net.is_empty() {
-                    ui.label(egui::RichText::new("No network drives mapped yet. Type \\\\server or \\\\server\\share in the address bar to browse a network computer.").color(DIM()));
+                    ui.label(egui::RichText::new(tr("No network drives mapped yet. Type \\\\server or \\\\server\\share in the address bar to browse a network computer.")).color(DIM()));
                 }
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing = vec2(10.0, 10.0);
@@ -1154,7 +1158,7 @@ impl App {
                 });
                 if !self.clouds.is_empty() {
                     ui.add_space(18.0);
-                    ui.heading("Cloud drives");
+                    ui.heading(tr("Cloud drives"));
                     ui.add_space(6.0);
                     let clouds = self.clouds.clone();
                     ui.horizontal_wrapped(|ui| {
@@ -1178,7 +1182,7 @@ impl App {
             list::drop_mark(ui.painter(), rect, 8, ok);
         }
         self.draw_icon(ui, Rect::from_center_size(rect.left_center() + vec2(28.0, 0.0), vec2(32.0, 32.0)), &path, "", true, fsx::A_READONLY);
-        let g = truncated(ui, name, FontId::proportional(14.0), TEXT(), rect.width() - 64.0);
+        let g = truncated(ui, &tr_dyn(name), FontId::proportional(14.0), TEXT(), rect.width() - 64.0);
         ui.painter().galley(pos2(rect.left() + 54.0, rect.center().y - g.size().y / 2.0), g, TEXT());
         if resp.clicked() {
             self.acts.push(Act::Navigate(Loc::Dir(path.clone())));
@@ -1204,20 +1208,23 @@ impl App {
         let bar = Rect::from_min_size(pos2(x, rect.top() + 34.0), vec2(rect.width() - 76.0, 6.0));
         if self.drive_offline(d) {
             ui.painter().circle_filled(pos2(x + 4.0, rect.top() + 43.0), 3.5, WARN());
-            let sub = format!("Not available{}", d.remote.as_ref().map_or(String::new(), |r| format!("  ·  {r}")));
+            let sub = match &d.remote {
+                Some(r) => trf!("Not available  ·  {remote}", remote = r),
+                None => tr("Not available").to_string(),
+            };
             let g = truncated(ui, &sub, FontId::proportional(12.0), DIM(), rect.width() - 84.0);
             ui.painter().galley(pos2(x + 14.0, rect.top() + 36.0), g, DIM());
         } else if !d.checked && d.kind != DriveKind::Network {
             shimmer(ui, bar);
-            ui.painter().text(pos2(x, rect.top() + 48.0), Align2::LEFT_TOP, "Looking at the drive…", FontId::proportional(12.0), FAINT());
+            ui.painter().text(pos2(x, rect.top() + 48.0), Align2::LEFT_TOP, tr("Looking at the drive…"), FontId::proportional(12.0), FAINT());
         } else if d.ready && d.total > 0 {
             let u = 1.0 - d.free as f32 / d.total as f32;
             ui.painter().rect_filled(bar, CornerRadius::same(3), LINE());
             ui.painter().rect_filled(Rect::from_min_size(bar.min, vec2(bar.width() * u, 6.0)), CornerRadius::same(3), if u > 0.9 { WARN() } else { ACCENT() });
-            let sub = format!("{} free of {}  ·  {}", fmt_size(d.free), fmt_size(d.total), d.fs);
+            let sub = trf!("{free} free of {total}  ·  {fs}", free = fmt_size(d.free), total = fmt_size(d.total), fs = d.fs);
             ui.painter().text(pos2(x, rect.top() + 48.0), Align2::LEFT_TOP, sub, FontId::proportional(12.0), DIM());
         } else {
-            let sub = if d.locked { "Locked by BitLocker. Open it to unlock".to_string() } else { d.remote.clone().unwrap_or_else(|| "Not ready".into()) };
+            let sub = if d.locked { tr("Locked by BitLocker. Open it to unlock").to_string() } else { d.remote.clone().unwrap_or_else(|| tr("Not ready").into()) };
             ui.painter().text(pos2(x, rect.top() + 36.0), Align2::LEFT_TOP, sub, FontId::proportional(12.0), DIM());
         }
         if resp.clicked() {
@@ -1225,16 +1232,24 @@ impl App {
         }
         let (letter, net, root) = (d.letter, d.kind == DriveKind::Network, d.root.clone());
         resp.context_menu(|ui| {
-            if menu_item(ui, I_ADD, "Open in new tab", "") {
+            if menu_item(ui, I_ADD, tr("Open in new tab"), "") {
                 self.acts.push(Act::NavigateNewTab(Loc::Dir(root.clone())));
             }
-            if net && menu_item(ui, I_CLOSE, "Disconnect", "") {
+            if net && menu_item(ui, I_CLOSE, tr("Disconnect"), "") {
                 self.acts.push(Act::Disconnect(letter));
             }
-            if menu_item(ui, I_INFO, "Properties", "") {
+            if menu_item(ui, I_INFO, tr("Properties"), "") {
                 self.acts.push(Act::Properties(root.clone()));
             }
         });
+    }
+}
+
+/// A place's title as shown: "This PC" and "Settings" in the language shown, a folder by its own name.
+fn loc_title(loc: &Loc) -> String {
+    match loc {
+        Loc::Dir(_) => loc.title(),
+        other => tr_dyn(&other.title()),
     }
 }
 
@@ -1340,7 +1355,7 @@ impl App {
                 (None, Some(p)) => {
                     // off the strip: say what letting go does
                     let painter = ui.ctx().layer_painter(egui::LayerId::new(egui::Order::Tooltip, egui::Id::unique("tabtip")));
-                    let g = painter.layout_no_wrap("Let go to open in its own window, or over another Daleris window to move it there".into(), FontId::proportional(13.0), TEXT());
+                    let g = painter.layout_no_wrap(tr("Let go to open in its own window, or over another Daleris window to move it there").into(), FontId::proportional(13.0), TEXT());
                     let r = Rect::from_min_size(p + vec2(14.0, 14.0), g.size() + vec2(16.0, 10.0));
                     painter.rect_filled(r, CornerRadius::same(5), SEL_STRONG());
                     painter.galley(r.min + vec2(8.0, 5.0), g, TEXT());
