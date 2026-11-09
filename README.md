@@ -14,16 +14,43 @@ Native, written in Rust, with no web view and no runtime to install.
 ![UI](https://img.shields.io/badge/UI-egui-4C6EF5)
 ![License](https://img.shields.io/badge/license-GPL--3.0-blue)
 
-<img src="assets/screenshot.png" width="800" alt="Daleris showing a folder with the sidebar and preview pane">
+<img src="assets/screenshots/explorer-look.png" width="820" alt="Daleris looking like Windows Explorer, with a photo in the preview pane">
 
 </div>
 
 ---
 
+## 💡 Why Daleris
+
+- **It's fast.** A native program, no web view. Big folders list as they load, folder sizes count in the background, and search answers from an index in milliseconds.
+- **It feels like home.** On Windows it looks like File Explorer out of the box, with Windows's own icons, right-click menu and Mica. Or give it a look of its own.
+- **You see what's happening.** Copies and moves show on the files themselves, and you see who has a file open, on this PC or on a share.
+- **It never hangs on a server.** A share that's down says so in plain words and keeps trying, while the rest of the window works.
+- **It's yours to shape,** from the ribbon bar and the right-click menu to the sidebar and what search leaves out.
+- **It speaks your language:** English, German or Italian, following Windows.
+- **It's ready for organizations:** every setting can be fixed or preset by Group Policy, and it can stand in for File Explorer.
+- **It's free and open source,** for Windows, Linux and macOS.
+
 ## ✨ Features
 
+### 🪟 Looks like Explorer, or like itself
+Out of the box on Windows, Daleris has Explorer's colours, lines, Mica, icons and compact rows. One button in **Settings → Appearance** gives it Daleris's own look instead, with its own icon set, a dark or light theme and an accent colour; each part stays a setting of its own.
+
+<p align="center"><img src="assets/screenshots/daleris-look.png" width="820" alt="Daleris's own look in dark, with photo thumbnails"></p>
+
+### 📦 See what's happening to your files
+A copy or move shows on the item itself: a ring filling with its progress, and badges for where it's copied from and what's being written. The progress card has the speed and time left, and conflicts ask once, with both files side by side.
+
+<p align="center"><img src="assets/screenshots/copying.png" width="820" alt="A folder being copied, with a progress ring on it and the progress card"></p>
+
+**Who has a file open** shows as a picture next to its name: programs on this PC, people named by Office's and LibreOffice's lock files, and, on a network share, other people's Daleris, with what they copy, move or delete there. Point at it for who, in which program and since when.
+
+<p align="center"><img src="assets/screenshots/who-has-it-open.png" width="820" alt="A tooltip saying Ana Müller has a document open in Office"></p>
+
 ### ⚡ Fast search
-A parallel crawler builds a compact in-memory index of the folder. The first search streams matches while it crawls, and every later keystroke searches the finished index on all CPU cores.
+A parallel crawler builds a compact in-memory index of the folder. The first search streams matches while it crawls, and every later keystroke searches the finished index on all CPU cores. Folders you never want searched, such as app data or `node_modules`, are left out by default.
+
+<p align="center"><img src="assets/screenshots/search.png" width="820" alt="Search results for every picture under a folder, found in about a millisecond"></p>
 
 | Query | Finds |
 |---|---|
@@ -32,19 +59,32 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 | `*.log` or `img_??` | wildcard matches |
 | `-draft` | leaves out names containing "draft" |
 | `ext:pdf` | files of one type |
+| `kind:image` | pictures, and likewise `video`, `audio`, `doc`, `code`, `archive`, `app`, `folder` |
 | `size:>100mb` or `size:1g..5g` | files by size |
 | `modified:today` or `date:>2026-01-01` | files by date |
 | `hidden:yes` | hidden items |
 | `/^img_\d+/` or `re:^img_\d+` | regular expressions |
 
+### 🎨 Make it yours
+- Daleris's look or Explorer's, dark, light or following Windows, with a choice of accent colours
+- Icon packs: Daleris, with its own drawings for hundreds of file types, Phosphor, the real Windows icons on Windows, or your own pack made from PNG files
+- A sidebar, ribbon bar and right-click menu you can rearrange, hide parts of and add your own commands to, using `{path}`, `{paths}`, `{name}` and `{dir}`
+- Where new tabs open, which switches the search box shows, whether the logo is the settings button, and a custom title bar or the standard one
+
+<p align="center"><img src="assets/screenshots/settings.png" width="820" alt="Settings, Appearance: language, look, theme and accent colour"></p>
+
+### 🌍 Speaks your language
+English, German and Italian, following the language Windows is shown in, or chosen in **Settings → Appearance**. Numbers and dates are written the way each language writes them, and the installers follow Windows's language too.
+
+<p align="center"><img src="assets/screenshots/german.png" width="820" alt="This PC in German"></p>
+
 ### 🗂️ Everyday file management
-- Tabs, with back, forward and up navigation and an editable address bar
+- Tabs that open This PC, Home or a folder of your choice, with back, forward and up, an editable address bar, and tabs you can drag into a window of their own
 - List and large icon views, with resizable columns
 - A Sort menu with name, dates, type, extension and size, and **Folders first** as its own switch. Each folder keeps the sort you choose for it, and Downloads opens newest first
 - A filter panel for kind, extension, date, size and name, per tab, showing how much of the folder it leaves on screen
-- On Windows, hide dotfiles and dotfolders too, on top of the hidden setting
 - Folder sizes counted in the background
-- Preview pane for text files and folder summaries, plus a details panel for files
+- Preview pane for pictures, text files and folder summaries, plus a details panel for files
 - Cut, copy, paste, rename and delete, including drag and drop onto folders, tabs, the sidebar and any part of the path
 
 ### ☁️ Cloud and network drives
@@ -53,21 +93,16 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 - Files that are only in the cloud aren't downloaded just to show a preview
 - Map network drives on Windows, or connect to SMB and SFTP servers on Linux and macOS
 - A server that's down never holds up the window: a folder says what it's waiting for, says in plain words what went wrong, keeps trying, and opens once the server answers. Unavailable drives look it in the sidebar and come back by themselves
+- A drive locked by BitLocker says so, and opens once you unlock it
 
 ### 🖱️ Native Windows integration
-The real Windows icons, thumbnails and right-click menu, so your shell extensions keep working. You can also add your own commands to the menu, using `{path}`, `{paths}`, `{name}` and `{dir}`.
+The real Windows icons, thumbnails and right-click menu, so your shell extensions keep working, and right-clicking the title bar gives Windows's own window menu.
 
 ### 🪟 Stands in for File Explorer (Windows, optional)
 Under **Settings → Windows Explorer** there are separate switches, all off by default, to open folders in Daleris, make Win + E open it, select the file on "Show in folder", open new folders as tabs in the running window, show Daleris for apps' Open and Save dialogs, and send an ordinary file dialog to the folder Daleris shows with Ctrl + G. Each switch says whether it's really active. [What each one does, and its limits.](#-windows-explorer-integration)
 
-### 🎨 Make it yours
-- Dark, light or follow Windows, with a choice of accent colours
-- Icon packs: Daleris, with its own drawings for hundreds of file types, Phosphor, the real Windows icons on Windows, or your own pack made from PNG files
-- A sidebar and ribbon bar you can rearrange
-- A custom title bar, or the standard one
-
 ### 🏢 Ready for IT departments
-You can manage every setting as a fixed value or a default, including what search never finds: on Windows through **Group Policy (ADMX/ADML in English and German)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`PolicyDefinitions/README.txt`](PolicyDefinitions/README.txt).
+You can manage every setting as a fixed value or a default, including the language and what search never finds: on Windows through **Group Policy (ADMX/ADML in English, German and Italian)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`PolicyDefinitions/README.txt`](PolicyDefinitions/README.txt).
 
 ## ⌨️ Keyboard shortcuts
 
@@ -76,6 +111,7 @@ You can manage every setting as a fixed value or a default, including what searc
 | Keys | Action |
 |---|---|
 | `Ctrl+T` / `Ctrl+W` | New tab / close tab |
+| `Ctrl+Shift+T` | New tab in the same folder |
 | `Ctrl+Tab` | Next tab |
 | `Ctrl+1`…`Ctrl+9` | Jump to a tab (`9` is the last one) |
 | `Ctrl+F` or `F3` | Search |
@@ -84,6 +120,7 @@ You can manage every setting as a fixed value or a default, including what searc
 | `F5` | Refresh |
 | `Ctrl+Shift+N` | New folder |
 | `Alt+P` | Show or hide the preview pane |
+| `Ctrl+,` | Settings |
 
 ---
 

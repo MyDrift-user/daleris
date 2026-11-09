@@ -2312,7 +2312,10 @@ impl App {
         if is_dir {
             return tr("File folder").into();
         }
-        if let Some(t) = self.type_names.get(&format!("e:{ext}")) {
+        // test hook for screenshots on a Windows in another language: Daleris's own names, not Windows's
+        static OWN_NAMES: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+        let own = *OWN_NAMES.get_or_init(|| std::env::var_os("DALERIS_TEST_OWN_TYPE_NAMES").is_some());
+        if let Some(t) = self.type_names.get(&format!("e:{ext}")).filter(|_| !own) {
             return t.clone();
         }
         if ext.is_empty() {
