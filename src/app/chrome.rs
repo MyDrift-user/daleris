@@ -23,26 +23,44 @@ impl App {
                 ui.spacing_mut().item_spacing.x = 2.0;
                 // title-bar parts (each can be switched off in Settings › Appearance)
                 let mut left_w = 0.0;
+                // standing in for the settings button, the logo and name are Settings's tab: it has none in the strip
+                let brand_tab = self.settings.brand_opens_settings();
+                let mut brand_rect: Option<Rect> = None;
                 if custom && (self.settings.shows_logo() || self.settings.shows_name()) {
                     let name_w = if self.settings.shows_name() { ui.fonts_mut(|f| f.layout_no_wrap("Daleris".into(), FontId::proportional(13.0), TEXT()).size().x) + 10.0 } else { 0.0 }; // i18n-ignore: the app's name
                     let logo_w = if self.settings.shows_logo() { 26.0 } else { 0.0 };
                     let (r, resp) = ui.allocate_exact_size(vec2(logo_w + name_w + 8.0, 40.0), Sense::click_and_drag());
-                    // standing in for the settings button: a button, drawn like the tabs' hover
                     window_menu |= custom && resp.secondary_clicked();
-                    let button = self.settings.brand_opens_settings();
-                    if button && (resp.hovered() || matches!(t.loc, Loc::Settings)) {
-                        let fill = if resp.is_pointer_button_down_on() { HOVER() } else { HOVER().gamma_multiply(0.6) };
-                        ui.painter().rect_filled(Rect::from_min_max(pos2(r.left() - 4.0, r.top() + 6.0), pos2(r.right() - 2.0, r.bottom() - 6.0)), CornerRadius::same(6), fill);
+                    let button = brand_tab;
+                    // as Settings's tab: shaped and lit like a tab, in front while Settings is
+                    let tab_r = Rect::from_min_max(pos2(r.left() - 4.0, r.bottom() - TAB_H), pos2(r.right() - 2.0, r.bottom()));
+                    let open = matches!(t.loc, Loc::Settings);
+                    if button {
+                        brand_rect = Some(tab_r);
+                        if open {
+                            ui.painter().rect_filled(tab_r, CornerRadius { nw: 8, ne: 8, sw: 0, se: 0 }, TOP());
+                        } else if resp.hovered() {
+                            let fill = if resp.is_pointer_button_down_on() { HOVER() } else { HOVER().gamma_multiply(0.6) };
+                            ui.painter().rect_filled(tab_hover_box(tab_r), CornerRadius::same(6), fill);
+                        }
                     }
+                    let cy = if button { tab_r.center().y } else { r.center().y };
                     if self.settings.shows_logo() {
-                        paint_logo(ui.painter(), Rect::from_center_size(pos2(r.left() + 11.0, r.center().y), vec2(18.0, 18.0)), ACCENT());
+                        paint_logo(ui.painter(), Rect::from_center_size(pos2(r.left() + 11.0, cy), vec2(18.0, 18.0)), ACCENT());
                     }
                     if self.settings.shows_name() {
-                        ui.painter().text(pos2(r.left() + logo_w, r.center().y), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), if button && resp.hovered() { TEXT() } else { DIM() }); // i18n-ignore: the app's name
+                        ui.painter().text(pos2(r.left() + logo_w, cy), Align2::LEFT_CENTER, "Daleris", FontId::proportional(13.0), if button && (resp.hovered() || open) { TEXT() } else { DIM() }); // i18n-ignore: the app's name
                     }
                     if button {
                         if resp.clicked() {
                             self.acts.push(Act::OpenSettings(None));
+                        }
+                        // closed like any tab
+                        if resp.middle_clicked() {
+                            let settings_at = (0..self.tabs.len()).find(|&i| (if i == self.active { &t.loc } else { &self.tabs[i].loc }) == &Loc::Settings);
+                            if let Some(i) = settings_at {
+                                self.acts.push(Act::CloseTab(i));
+                            }
                         }
                         // still moves the window when dragged
                         if resp.drag_started_by(egui::PointerButton::Primary) {
@@ -57,13 +75,22 @@ impl App {
                 let right_w = if custom { 46.0 * 3.0 } else { 0.0 } + if self.settings.shows_gear() { 40.0 } else { 0.0 };
                 let tab_y = if custom { 8.0 } else { 0.0 };
                 let count = self.tabs.len();
+                let settings_tab = (0..count).find(|&i| (if i == self.active { &t.loc } else { &self.tabs[i].loc }) == &Loc::Settings);
+                let hidden = if brand_tab { settings_tab } else { None };
+                let shown = (count - usize::from(hidden.is_some())).max(1);
                 let avail = ui.available_width() - 40.0 - right_w - 24.0;
                 let _ = left_w;
-                let w = (avail / count as f32).clamp(80.0, 230.0);
+                let w = (avail / shown as f32).clamp(80.0, 230.0);
                 let mut tab_under_drag = None;
                 // where each tab sits, so a tab dragged along the strip knows where it would land
                 let mut slots: Vec<Rect> = Vec::with_capacity(count);
                 for i in 0..count {
+                    // Settings's tab is the logo: here it takes no room, but keeps its place in the order for dragging
+                    if hidden == Some(i) {
+                        let at = ui.cursor().min;
+                        slots.push(Rect::from_min_max(pos2(at.x, at.y + tab_y), pos2(at.x, at.y + tab_y + TAB_H)));
+                        continue;
+                    }
                     let (loc, loading) = if i == self.active { (t.loc.clone(), t.loading) } else { (self.tabs[i].loc.clone(), self.tabs[i].loading) };
                     let active = i == self.active;
                     // the tab is only what's drawn of it: the strip above it is title bar
@@ -145,8 +172,9 @@ impl App {
                 }
                 // Explorer's look: a line under the strip that rises around the tab in front
                 if pal().explorer {
-                    if let Some(r) = slots.get(self.active) {
-                        tab_outline(ui, *r, ctx.content_rect().x_range());
+                    let front = if hidden == Some(self.active) { brand_rect } else { slots.get(self.active).copied() };
+                    if let Some(r) = front {
+                        tab_outline(ui, r, ctx.content_rect().x_range());
                     }
                 }
                 self.tab_dragging(ui, &slots);
