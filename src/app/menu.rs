@@ -594,7 +594,9 @@ impl App {
             pos2(x, y)
         };
         let id = egui::Id::unique(("ctxpop", pp.serial, key.clone()));
-        let width = if depth == 0 { 310.0 } else { 280.0 };
+        // wide enough for the longest label next to the longest shortcut, in the language shown
+        let need = entries.iter().map(|e| 44.0 + text_width(ctx, &e.label, 13.5)).fold(0.0, f32::max) + entries.iter().map(|e| shortcut_room(ctx, e.shortcut)).fold(0.0, f32::max) + 24.0;
+        let width = need.clamp(if depth == 0 { 310.0 } else { 280.0 }, 520.0);
         let shown = egui::Area::new(id).order(egui::Order::Foreground).fixed_pos(pos).constrain(false).show(ctx, |ui| {
             egui::Frame::menu(ui.style()).show(ui, |ui| {
                 ui.set_width(width);
@@ -744,7 +746,7 @@ impl App {
         ui.label(egui::RichText::new(tr("Right-click menu")).heading());
         ui.label(
             egui::RichText::new(tr(
-                "This is your menu exactly as it will look. Drag items to reorder them, or drag them into \"Show more options\" or \"Hidden\". \
+                "This is your menu exactly as it will look. Drag items to reorder them, or drag them into \"Show more options\" or \"Not shown\". \
                  Items from Windows and installed apps (7-Zip, Git, VS Code, Photos…) are included.",
             ))
             .color(DIM()),
@@ -964,7 +966,7 @@ impl App {
             ui.painter().text(rect.right_center() - vec2(14.0, 0.0), Align2::CENTER_CENTER, ic(if open { I_CHEV_D } else { I_CHEV_R }), icon_font(10.0), DIM().gamma_multiply(fade));
         }
         let col = TEXT().gamma_multiply(fade);
-        let gal = truncated(ui, &label, FontId::proportional(13.5), col, rect.width() - 64.0 - if e.shortcut.is_empty() && !is_sub { 0.0 } else { 70.0 });
+        let gal = truncated(ui, &label, FontId::proportional(13.5), col, rect.width() - 64.0 - if is_sub { 30.0 } else { shortcut_room(ui.ctx(), e.shortcut) });
         let pos = pos2(rect.left() + 54.0, rect.center().y - gal.size().y / 2.0);
         ui.painter().galley(pos, gal.clone(), col);
         if e.bold {
@@ -1157,6 +1159,17 @@ fn menu_frame() -> egui::Frame {
 
 /// A menu row (our own or Windows'), with its icon or glyph.
 /// `chevron` marks a submenu; `open` keeps it highlighted while its submenu shows.
+/// How wide `text` is at `size` points.
+fn text_width(ctx: &egui::Context, text: &str, size: f32) -> f32 {
+    ctx.fonts_mut(|f| f.layout_no_wrap(text.to_string(), FontId::proportional(size), Color32::WHITE).size().x)
+}
+
+/// Room kept at a row's right for its shortcut, as wide as the shortcut is written: "Strg+Eingabetaste" is wider than
+/// "Ctrl+Enter".
+fn shortcut_room(ctx: &egui::Context, shortcut: &str) -> f32 {
+    if shortcut.is_empty() { 0.0 } else { text_width(ctx, shortcut, 12.0) + 22.0 }
+}
+
 fn pop_row(ui: &mut Ui, e: &MEntry, chevron: bool, open: bool) -> Response {
     let w = ui.available_width();
     let (rect, resp) = ui.allocate_exact_size(vec2(w, 28.0), if e.enabled { Sense::click() } else { Sense::hover() });
@@ -1173,7 +1186,7 @@ fn pop_row(ui: &mut Ui, e: &MEntry, chevron: bool, open: bool) -> Response {
         ui.painter().text(c, Align2::CENTER_CENTER, ic(g), icon_font(14.0), if e.bold { ACCENT() } else { DIM() });
     }
     let col = if e.enabled { TEXT() } else { FAINT() };
-    let g = truncated(ui, &e.label, FontId::proportional(13.5), col, w - 44.0 - if e.shortcut.is_empty() { 0.0 } else { 70.0 });
+    let g = truncated(ui, &e.label, FontId::proportional(13.5), col, w - 44.0 - shortcut_room(ui.ctx(), e.shortcut));
     let pos = rect.left_center() + vec2(32.0, -g.size().y / 2.0);
     ui.painter().galley(pos, g.clone(), col);
     if e.bold {

@@ -375,11 +375,17 @@ fn prop_card(ui: &mut Ui, add: impl FnOnce(&mut Ui)) {
 }
 
 /// One "label   value" row with an aligned label column.
+/// Every row's label, so the column fits the longest in the language shown and the values line up
+const ROW_LABELS: [&str; 10] = [tx("Opens with"), tx("Location"), tx("Size"), tx("Contains"), tx("Drive"), tx("Created"), tx("Modified"), tx("Accessed"), tx("Status"), tx("Attributes")];
+
 fn prop_row(ui: &mut Ui, label: &str, add: impl FnOnce(&mut Ui)) {
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let w = ROW_LABELS.iter().map(|l| ui.fonts_mut(|f| f.layout_no_wrap(tr(l).to_string(), font.clone(), DIM()).size().x)).fold(0.0, f32::max) + 12.0;
+    let w = w.max(96.0);
     ui.horizontal(|ui| {
         ui.set_min_height(30.0);
-        ui.allocate_ui_with_layout(vec2(96.0, 24.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
-            ui.set_min_width(96.0);
+        ui.allocate_ui_with_layout(vec2(w, 24.0), egui::Layout::left_to_right(egui::Align::Center), |ui| {
+            ui.set_min_width(w);
             ui.label(egui::RichText::new(label).color(DIM()));
         });
         add(ui);

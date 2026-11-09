@@ -63,8 +63,8 @@ pub const T: &[(&str, &str)] = &[
     ("Delete (Del)", "Löschen (Entf)"),
     ("Right-click menu", "Kontextmenü"),
     (
-        "This is your menu exactly as it will look. Drag items to reorder them, or drag them into \"Show more options\" or \"Hidden\". Items from Windows and installed apps (7-Zip, Git, VS Code, Photos…) are included.",
-        "So sieht Ihr Menü genau aus. Ziehen Sie Elemente, um sie neu anzuordnen, oder ziehen Sie sie nach „Weitere Optionen anzeigen“ oder „Ausgeblendet“. Elemente von Windows und installierten Apps (7-Zip, Git, VS Code, Fotos…) sind enthalten.",
+        "This is your menu exactly as it will look. Drag items to reorder them, or drag them into \"Show more options\" or \"Not shown\". Items from Windows and installed apps (7-Zip, Git, VS Code, Photos…) are included.",
+        "So sieht Ihr Menü genau aus. Ziehen Sie Elemente, um sie neu anzuordnen, oder ziehen Sie sie nach „Weitere Optionen anzeigen“ oder „Nicht angezeigt“. Elemente von Windows und installierten Apps (7-Zip, Git, VS Code, Fotos…) sind enthalten.",
     ),
     ("Preview the menu for", "Vorschau des Menüs für"),
     ("Showing the menu for the background of {folder}", "Angezeigt wird das Menü für den Hintergrund von {folder}"),

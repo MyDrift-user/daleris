@@ -303,9 +303,11 @@ impl App {
     }
 
     pub(super) fn settings_ui(&mut self, ui: &mut Ui) {
+        // as wide as the longest page name in the language shown, and no narrower than it was
+        let longest = PAGES.iter().map(|(_, _, l)| ui.fonts_mut(|f| f.layout_no_wrap(tr(l).to_string(), FontId::proportional(14.0), TEXT()).size().x)).fold(0.0, f32::max);
         egui::Panel::left("settings_nav")
             .resizable(false)
-            .exact_size(210.0)
+            .exact_size((longest + 38.0 + 16.0 + 8.0 + 14.0).max(210.0))
             .frame(egui::Frame::new().fill(BG()).inner_margin(egui::Margin { left: 16, right: 8, top: 18, bottom: 12 }))
             .show_separator_line(false)
             .show(ui, |ui| {

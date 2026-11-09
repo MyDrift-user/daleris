@@ -267,8 +267,11 @@ fn tick_box(ui: &mut Ui, check: egui::Checkbox) -> egui::Response {
 }
 
 fn side_row(ui: &mut Ui, label: &str, s: &Side, newer: bool) {
+    // as wide as the widest of the three labels in the language shown, so both rows line up
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let w = [tr("Being moved"), tr("Being copied"), tr("Already there")].iter().map(|l| ui.fonts_mut(|f| f.layout_no_wrap(l.to_string(), font.clone(), DIM()).size().x)).fold(0.0, f32::max) + 12.0;
     ui.horizontal(|ui| {
-        ui.add_sized(vec2(110.0, 18.0), egui::Label::new(egui::RichText::new(label).color(DIM())));
+        ui.add_sized(vec2(w.max(110.0), 18.0), egui::Label::new(egui::RichText::new(label).color(DIM())));
         let mut parts = Vec::new();
         if !s.is_dir {
             parts.push(crate::util::fmt_size(s.size));
