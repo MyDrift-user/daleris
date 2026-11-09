@@ -13,10 +13,10 @@
       <string id="ShowHiddenItems">Versteckte und Systemelemente anzeigen</string>
       <string id="HideDotfiles">Dotfiles und Dot-Ordner ausblenden (Windows)</string>
       <string id="ExplorerColours">Die Farben des Explorers, wie in Windows eingestellt (Windows)</string>
-      <string id="ExplorerLines">Die Linien des Explorers zwischen den Bereichen und um den vorderen Tab (Windows)</string>
+      <string id="ExplorerLines">Die Linien des Explorers zwischen den Bereichen und um die vordere Registerkarte (Windows)</string>
       <string id="ExplorerMica">Mica hinter der Tableiste (Windows 11)</string>
-      <string id="ExplorerMicaBar">Mit Mica, etwas davon durch den vorderen Tab und die Adressleiste (Windows 11)</string>
-      <string id="OpenNewDrives">Einen Tab für ein Laufwerk öffnen, wenn es angeschlossen wird (Windows)</string>
+      <string id="ExplorerMicaBar">Mit Mica, etwas davon durch die vordere Registerkarte und die Adressleiste (Windows 11)</string>
+      <string id="OpenNewDrives">Eine Registerkarte für ein Laufwerk öffnen, wenn es angeschlossen wird (Windows)</string>
       <string id="StartNewWindow">Ein erneuter Start von Daleris öffnet ein neues Fenster (Windows)</string>
       <string id="ShareTransferNotes">Anderen auf Netzwerkfreigaben zeigen, was Sie kopieren, verschieben, löschen und geöffnet haben</string>
       <string id="DefaultSort">Standard-Sortierung</string>
@@ -36,7 +36,7 @@
       <string id="TitleBarName">App-Namen in der Titelleiste anzeigen</string>
       <string id="TitleBarSettingsButton">Einstellungen-Schaltfläche anzeigen</string>
       <string id="TitleBarBrandSettings">Logo und Name öffnen die Einstellungen, statt der Einstellungen-Schaltfläche</string>
-      <string id="ReopenTabs">Tabs beim Start wieder öffnen</string>
+      <string id="ReopenTabs">Registerkarten beim Start wieder öffnen</string>
       <string id="WindowsPropertiesDialog">Windows-Eigenschaftendialog verwenden</string>
       <string id="FolderSizes">Ordnergrößen anzeigen</string>
       <string id="SearchSubfolders">Unterordner durchsuchen</string>
@@ -112,9 +112,9 @@
       <string id="IconPack">Symbolpaket</string>
       <string id="IconPackExplain_ExplainFixed">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="IconPackExplain_ExplainRecommended">system (Windows-Symbole), flat (Daleris), phosphor oder der Name eines Symbolpaket-Ordners. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
-      <string id="NewTabOpens">Wo ein neuer Tab öffnet</string>
-      <string id="NewTabOpensExplain_ExplainFixed">home, same (der Ordner des vorderen Tabs), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet ein neuer Tab immer den Ordner des vorderen Tabs. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
-      <string id="NewTabOpensExplain_ExplainRecommended">home, same (der Ordner des vorderen Tabs), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet ein neuer Tab immer den Ordner des vorderen Tabs. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
+      <string id="NewTabOpens">Wo eine neue Registerkarte geöffnet wird</string>
+      <string id="NewTabOpensExplain_ExplainFixed">home, same (der Ordner der vorderen Registerkarte), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet eine neue Registerkarte immer den Ordner der vorderen Registerkarte. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
+      <string id="NewTabOpensExplain_ExplainRecommended">home, same (der Ordner der vorderen Registerkarte), thispc (Dieser PC) oder der Pfad eines Ordners. Mit Umschalt öffnet eine neue Registerkarte immer den Ordner der vorderen Registerkarte. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="RibbonLeft">Befehlsleiste: linke Seite</string>
       <string id="RibbonLeftExplain_ExplainFixed">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="RibbonLeftExplain_ExplainRecommended">Einträge durch senkrechte Striche getrennt. Was auf keiner Seite steht, wird nicht angezeigt. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
@@ -167,9 +167,9 @@
       <string id="ExplorerSelectFile">„Im Ordner anzeigen“ wählt die Datei aus</string>
       <string id="ExplorerSelectFileExplain_ExplainFixed">Zeigt eine App eine Datei über den dafür vorgesehenen Windows-Aufruf in ihrem Ordner an, wird die Datei ausgewählt. Dafür müssen sich Ordner in Daleris öffnen. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="ExplorerSelectFileExplain_ExplainRecommended">Zeigt eine App eine Datei über den dafür vorgesehenen Windows-Aufruf in ihrem Ordner an, wird die Datei ausgewählt. Dafür müssen sich Ordner in Daleris öffnen. Nur Windows. Es wirkt erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
-      <string id="ExplorerSingleWindow">Neue Ordner als Tabs im laufenden Fenster öffnen</string>
-      <string id="ExplorerSingleWindowExplain_ExplainFixed">Von außen geöffnete Ordner werden zu Tabs im bereits geöffneten Fenster. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
-      <string id="ExplorerSingleWindowExplain_ExplainRecommended">Von außen geöffnete Ordner werden zu Tabs im bereits geöffneten Fenster. Nur Windows. Es wirkt erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
+      <string id="ExplorerSingleWindow">Neue Ordner als Registerkarten im laufenden Fenster öffnen</string>
+      <string id="ExplorerSingleWindowExplain_ExplainFixed">Von außen geöffnete Ordner werden zu Registerkarten im bereits geöffneten Fenster. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
+      <string id="ExplorerSingleWindowExplain_ExplainRecommended">Von außen geöffnete Ordner werden zu Registerkarten im bereits geöffneten Fenster. Nur Windows. Es wirkt erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
       <string id="ExplorerFileDialogs">Öffnen- und Speichern-Dialoge verwenden Daleris</string>
       <string id="ExplorerFileDialogsExplain_ExplainFixed">Apps, die Windows nach einem modernen Dateidialog fragen, erhalten Daleris, über eine COM-Registrierung pro Benutzer, die beim Öffnen des Dialogs eine DLL in die App lädt. Von der App hinzugefügte Steuerelemente zeigt Daleris ebenfalls an. Spiele, Launcher, Anti-Cheat und Sicherheitssoftware erhalten immer den Windows-Dialog. Nur Windows. Ist dies aus, wird alles, was dieser Schalter für einen Benutzer geschrieben hat, beim nächsten Start von Daleris für ihn entfernt, oder früher, falls es läuft; auch das Startprogramm und die DLL halten sich sofort daran. Ist dies an, wirkt es erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist fest: Er gilt für alle Betroffenen und ist in der App ausgegraut. Ist er nicht konfiguriert, entscheiden die Benutzer selbst.</string>
       <string id="ExplorerFileDialogsExplain_ExplainRecommended">Apps, die Windows nach einem modernen Dateidialog fragen, erhalten Daleris, über eine COM-Registrierung pro Benutzer, die beim Öffnen des Dialogs eine DLL in die App lädt. Spiele, Launcher, Anti-Cheat und Sicherheitssoftware erhalten immer den Windows-Dialog. Nur Windows. Es wirkt erst, sobald Daleris für diesen Benutzer gelaufen ist. Dieser Wert ist ein Standard: Er gilt, bis ein Benutzer in der App einen eigenen Wert wählt, und kann jederzeit geändert werden.</string>
@@ -191,7 +191,7 @@
       <presentation id="AccentColor"><dropdownList refId="AccentColor" noSort="true" /></presentation>
       <presentation id="RowHeight"><dropdownList refId="RowHeight" noSort="true" /></presentation>
       <presentation id="IconPack"><textBox refId="IconPack"><label>Symbolpaket</label></textBox></presentation>
-      <presentation id="NewTabOpens"><textBox refId="NewTabOpens"><label>Wo ein neuer Tab öffnet</label></textBox></presentation>
+      <presentation id="NewTabOpens"><textBox refId="NewTabOpens"><label>Wo eine neue Registerkarte geöffnet wird</label></textBox></presentation>
       <presentation id="RibbonLeft"><textBox refId="RibbonLeft"><label>Befehlsleiste: linke Seite</label></textBox></presentation>
       <presentation id="RibbonRight"><textBox refId="RibbonRight"><label>Befehlsleiste: rechte Seite</label></textBox></presentation>
       <presentation id="RibbonHidden"><textBox refId="RibbonHidden"><label>Befehlsleiste: ausgeblendete Einträge</label></textBox></presentation>

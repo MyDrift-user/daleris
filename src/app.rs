@@ -612,7 +612,7 @@ pub struct Settings {
     title_gear: bool,
     /// the logo and name in the title bar open Settings, in place of the settings button
     title_brand_settings: bool,
-    /// where a new tab opens: "home", "same" (the folder of the tab in front), "thispc" or a folder's path
+    /// where a new tab opens: "thispc" (the default), "home", "same" (the folder of the tab in front) or a folder's path
     new_tab: String,
     sections: Vec<SectionCfg>,
     side_hidden: HashSet<String>,
@@ -795,7 +795,7 @@ impl Settings {
             title_name: false,
             title_gear: true,
             title_brand_settings: false,
-            new_tab: "home".into(),
+            new_tab: "thispc".into(),
             sections: default_sections(),
             side_hidden: HashSet::new(),
             side_order: HashMap::new(),
@@ -1066,7 +1066,7 @@ impl Settings {
             "title_name2" => self.title_name = on,
             "title_gear" => self.title_gear = on,
             "title_brand_settings" => self.title_brand_settings = on,
-            "new_tab" => self.new_tab = if v.trim().is_empty() { "home".into() } else { v.trim().to_string() },
+            "new_tab" => self.new_tab = if v.trim().is_empty() { "thispc".into() } else { v.trim().to_string() },
             "restore_tabs2" => self.restore_tabs = on,
             "auto_update" => self.auto_update = on,
             "exp_folders" => self.exp_folders = on,
@@ -3577,17 +3577,17 @@ mod tests {
     }
 
     #[test]
-    fn new_tabs_open_home_unless_set_otherwise() {
+    fn new_tabs_open_this_pc_unless_set_otherwise() {
         let mut s = Settings::defaults();
-        assert_eq!(s.new_tab, "home");
+        assert_eq!(s.new_tab, "thispc");
         assert!(!s.body().contains("new_tab="), "the default isn't written");
-        for v in ["same", "thispc", r"D:\Projects"] {
+        for v in ["same", "home", r"D:\Projects"] {
             assert!(s.set_value("new_tab", v));
             assert_eq!(s.new_tab, v);
             assert!(s.body().contains(&format!("new_tab={v}\n")));
         }
         s.set_value("new_tab", " ");
-        assert_eq!(s.new_tab, "home", "an empty value is the default");
+        assert_eq!(s.new_tab, "thispc", "an empty value is the default");
     }
 
     #[test]

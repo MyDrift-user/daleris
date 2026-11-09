@@ -1024,7 +1024,7 @@ impl App {
                     ui.horizontal_wrapped(|ui| {
                         ui.label(tr("New tabs open"));
                         let now = self.settings.new_tab.clone();
-                        for (v, l) in [("home", tr("Home")), ("same", tr("The same folder as the tab in front")), ("thispc", tr("This PC"))] {
+                        for (v, l) in [("thispc", tr("This PC")), ("home", tr("Home")), ("same", tr("The same folder as the tab in front"))] {
                             if ui.selectable_label(now == v, l).clicked() {
                                 self.settings.new_tab = v.into();
                                 ch = true;
