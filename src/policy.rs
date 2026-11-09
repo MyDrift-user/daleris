@@ -38,9 +38,9 @@ const VALUES: [(&str, &str, Kind); 67] = [
     ("ShowPreviewPane", "preview", Kind::Bool),
     ("ShowFileExtensions", "ext", Kind::Bool),
     ("DefaultView", "view", Kind::View),
-    ("Theme", "theme", Kind::Max(2)),
+    ("Theme", "theme", Kind::Max(2)), // i18n-ignore: registry value name
     ("AccentColor", "accent2", Kind::Max(7)),
-    ("Language", "language", Kind::OneOf(&["system", "en", "de", "it"])),
+    ("Language", "language", Kind::OneOf(&["system", "en", "de", "it"])), // i18n-ignore: registry value name
     ("IconPack", "iconpack", Kind::Text),
     ("RowHeight", "density", Kind::Max(2)),
     ("CustomTitleBar", "title_custom", Kind::Bool),
@@ -260,7 +260,7 @@ fn build(fixed: impl Fn(&str) -> Option<String>, default: impl Fn(&str) -> Optio
 }
 
 #[cfg(not(windows))]
-const POLICY_FILE: &str = if cfg!(target_os = "macos") { "/Library/Application Support/Daleris/policy.conf" } else { "/etc/daleris/policy.conf" };
+const POLICY_FILE: &str = if cfg!(target_os = "macos") { "/Library/Application Support/Daleris/policy.conf" } else { "/etc/daleris/policy.conf" }; // i18n-ignore: file path
 
 #[cfg(not(windows))]
 fn read() -> Policy {

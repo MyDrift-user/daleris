@@ -33,8 +33,8 @@ pub const T: &[(&str, &str)] = &[
     ("New {label}", "Neu {label}"),
     // presence.rs
     ("You", "Sie"),
-    ("known from this PC", "erkannt auf diesem PC"),
-    ("known from its lock file", "erkannt an der Sperrdatei"),
+    ("this PC", "dieser PC"),
+    ("its lock file", "Sperrdatei"),
     // app/list.rs
     ("Folder", "Ordner"),
     ("Status", "Status"),
@@ -138,7 +138,7 @@ pub const T: &[(&str, &str)] = &[
     ("Encrypted", "Verschlüsselt"),
     ("Link", "Link"),
     ("Attributes", "Attribute"),
-    ("Location", "Speicherort"),
+    ("Location", "Ort"),
     ("Open", "Öffnen"),
     ("Properties", "Eigenschaften"),
     ("{n} item selected", "{n} Element ausgewählt"),

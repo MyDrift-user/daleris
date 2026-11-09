@@ -33,8 +33,8 @@ pub const T: &[(&str, &str)] = &[
     ("New {label}", "Nuovo {label}"),
     // presence.rs
     ("You", "Tu"),
-    ("known from this PC", "rilevato su questo PC"),
-    ("known from its lock file", "rilevato dal file di blocco"),
+    ("this PC", "questo PC"),
+    ("its lock file", "file di blocco"),
     // app/list.rs
     ("Folder", "Cartella"),
     ("Status", "Stato"),

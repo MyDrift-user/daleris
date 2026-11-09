@@ -24,8 +24,8 @@ pub struct Opener {
     pub since: Option<u64>,
     pub face: Option<Arc<Face>>,
     pub me: bool,
-    /// where it's known from, as a whole phrase for the tooltip, marked with `tx` and shown with `tr`: "known from this
-    /// PC", "known from their Daleris", "known from its lock file"
+    /// where it's known from, for the tooltip's "known from {source}": "this PC", "their Daleris", "its lock file",
+    /// marked with `tx` and shown with `tr`
     pub from: &'static str,
 }
 
@@ -249,7 +249,7 @@ pub fn scan(dir: &Path, items: &[(String, bool)], share_note: Option<&str>) -> s
             since: first_seen.get(name).copied(),
             face: my_face(),
             me: true,
-            from: tx("known from this PC"),
+            from: tx("this PC"),
         });
     }
     // the people Office and LibreOffice name, unless it's you, who's already there
@@ -270,7 +270,7 @@ pub fn scan(dir: &Path, items: &[(String, bool)], share_note: Option<&str>) -> s
             since,
             face: if you { my_face() } else { None },
             me: you,
-            from: tx("known from its lock file"),
+            from: tx("its lock file"),
         });
     }
     if let Some(file) = share_note.filter(|_| crate::fsx::is_network_path(dir)) {
