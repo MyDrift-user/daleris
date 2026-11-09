@@ -41,11 +41,11 @@ Out of the box on Windows, Daleris has Explorer's colours, lines, Mica, icons an
 ### 📦 See what's happening to your files
 A copy or move shows on the item itself: a ring filling with its progress, and badges for where it's copied from and what's being written. The progress card has the speed and time left, and conflicts ask once, with both files side by side.
 
-<p align="center"><img src="assets/screenshots/copying.png" width="820" alt="A folder being copied, with a progress ring on it and the progress card"></p>
+<p align="center"><img src="assets/screenshots/copying.png" width="900" alt="A folder being copied, with a progress ring on the copy, and the progress card with its speed"></p>
 
 **Who has a file open** shows as a picture next to its name: programs on this PC, people named by Office's and LibreOffice's lock files, and, on a network share, other people's Daleris, with what they copy, move or delete there. Point at it for who, in which program and since when.
 
-<p align="center"><img src="assets/screenshots/who-has-it-open.png" width="820" alt="A tooltip saying Ana Müller has a document open in Office"></p>
+<p align="center"><img src="assets/screenshots/who-has-it-open.png" width="733" alt="Initials next to two files, and a tooltip saying Ana Müller has one open in Office"></p>
 
 ### ⚡ Fast search
 A parallel crawler builds a compact in-memory index of the folder. The first search streams matches while it crawls, and every later keystroke searches the finished index on all CPU cores. Folders you never want searched, such as app data or `node_modules`, are left out by default.
