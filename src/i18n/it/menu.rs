@@ -73,7 +73,7 @@ pub const T: &[(&str, &str)] = &[
     ("Menu", "Menu"),
     ("Show more options submenu", "Sottomenu \"Mostra altre opzioni\""),
     ("Rarely used items, one level down.", "Elementi usati di rado, un livello più in basso."),
-    ("Hidden", "Nascosti"),
+    ("Not shown", "Non mostrati"),
     ("Never shown. Includes Windows' own copies of commands this menu already has.", "Mai mostrati. Include le copie di Windows dei comandi che questo menu ha già."),
     ("Reset this menu to defaults", "Ripristina le impostazioni predefinite del menu"),
     ("Your own commands", "I tuoi comandi"),

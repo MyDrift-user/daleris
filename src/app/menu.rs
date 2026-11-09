@@ -812,7 +812,7 @@ impl App {
                 ui.set_width(if wide { ui.available_width().max(240.0) } else { menu_w });
                 app.editor_zone(ui, &list, MenuMode::More, tr("Show more options submenu"), tr("Rarely used items, one level down."), handled);
                 ui.add_space(12.0);
-                app.editor_zone(ui, &list, MenuMode::Hide, tr("Hidden"), tr("Never shown. Includes Windows' own copies of commands this menu already has."), handled);
+                app.editor_zone(ui, &list, MenuMode::Hide, tr("Not shown"), tr("Never shown. Includes Windows' own copies of commands this menu already has."), handled);
                 ui.add_space(8.0);
                 if ui.button(tr("Reset this menu to defaults")).clicked() {
                     let keys: HashSet<String> = list.iter().flat_map(|(e, _)| std::iter::once(e.key.clone()).chain(e.alt_key.clone())).collect();
@@ -1123,7 +1123,7 @@ impl App {
                     let mut mode = self.entry_mode(&probe);
                     ui.label(&label);
                     ui.horizontal(|ui| {
-                        for (mm, word) in [(MenuMode::Show, tr("In menu")), (MenuMode::More, tr("In \"Show more options\"")), (MenuMode::Hide, tr("Hidden"))] {
+                        for (mm, word) in [(MenuMode::Show, tr("In menu")), (MenuMode::More, tr("In \"Show more options\"")), (MenuMode::Hide, tr("Not shown"))] {
                             if ui.radio_value(&mut mode, mm, word).changed() {
                                 self.set_mode(&probe, mm);
                             }

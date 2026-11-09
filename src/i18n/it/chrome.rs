@@ -63,7 +63,7 @@ pub const T: &[(&str, &str)] = &[
     ("This folder keeps this sort.", "Questa cartella mantiene questo ordinamento."),
     ("Downloads opens newest first. Changing it here keeps your choice.", "Download si apre con i più recenti in cima. Se lo cambi qui, la tua scelta viene mantenuta."),
     ("This is your default. Changing it here keeps your choice for this folder.", "Questa è la tua impostazione predefinita. Se la cambi qui, la tua scelta vale per questa cartella."),
-    ("Reset this folder to default", "Ripristina il predefinito per questa cartella"),
+    ("Reset this folder to default", "Ripristina predefinito per questa cartella"),
     ("How this folder is sorted", "Come è ordinata questa cartella"),
     ("Filter ({n})", "Filtra ({n})"),
     ("Filter", "Filtra"),
