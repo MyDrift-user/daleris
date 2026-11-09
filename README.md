@@ -47,6 +47,10 @@ A copy or move shows on the item itself: a ring filling with its progress, and b
 
 <p align="center"><img src="assets/screenshots/who-has-it-open.png" width="733" alt="Initials next to two files, and a tooltip saying Ana Müller has one open in Office"></p>
 
+**Dragging** says where things go before you let go, onto folders, tabs, the sidebar or any part of the path: in the accent colour when they can go there, orange when it needs administrator rights (Windows asks for them when you let go), and red when they can't, with why.
+
+<p align="center"><img src="assets/screenshots/dropping.png" width="772" alt="Three drops: allowed into a folder, needing administrator rights for a shared drive, and impossible onto an empty DVD drive"></p>
+
 ### ⚡ Fast search
 A parallel crawler builds a compact in-memory index of the folder. The first search streams matches while it crawls, and every later keystroke searches the finished index on all CPU cores. Folders you never want searched, such as app data or `node_modules`, are left out by default.
 
@@ -65,6 +69,10 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 | `hidden:yes` | hidden items |
 | `/^img_\d+/` or `re:^img_\d+` | regular expressions |
 
+The **filter panel** narrows the folder by kind, extension, date, size and name, without typing a query.
+
+<p align="center"><img src="assets/screenshots/filter.png" width="411" alt="The filter panel, with kinds, the folder's extensions, dates and sizes"></p>
+
 ### 🎨 Make it yours
 - Daleris's look or Explorer's, dark, light or following Windows, with a choice of accent colours
 - Icon packs: Daleris, with its own drawings for hundreds of file types, Phosphor, the real Windows icons on Windows, or your own pack made from PNG files
@@ -72,6 +80,8 @@ A parallel crawler builds a compact in-memory index of the folder. The first sea
 - Where new tabs open, which switches the search box shows, whether the logo is the settings button, and a custom title bar or the standard one
 
 <p align="center"><img src="assets/screenshots/settings.png" width="820" alt="Settings, Appearance: language, look, theme and accent colour"></p>
+
+<p align="center"><img src="assets/screenshots/ribbon-bar.png" width="820" alt="Settings, Ribbon bar: every item, shown or hidden, in order, on the left or the right"></p>
 
 ### 🌍 Speaks your language
 English, German and Italian, following the language Windows is shown in, or chosen in **Settings > Appearance**. Numbers and dates are written the way each language writes them, and the installers follow Windows's language too.
@@ -95,14 +105,20 @@ English, German and Italian, following the language Windows is shown in, or chos
 - A server that's down never holds up the window: a folder says what it's waiting for, says in plain words what went wrong, keeps trying, and opens once the server answers. Unavailable drives look it in the sidebar and come back by themselves
 - A drive locked by BitLocker says so, and opens once you unlock it
 
+<p align="center"><img src="assets/screenshots/network.png" width="500" alt="A share that didn't accept the sign-in, with Sign in, Saved passwords, Try again and Back"></p>
+
 ### 🖱️ Native Windows integration
 The real Windows icons, thumbnails and right-click menu, so your shell extensions keep working, and right-clicking the title bar gives Windows's own window menu.
 
 ### 🪟 Stands in for File Explorer (Windows, optional)
 Under **Settings > Windows Explorer** there are separate switches, all off by default, to open folders in Daleris, make Win + E open it, select the file on "Show in folder", open new folders as tabs in the running window, show Daleris for apps' Open and Save dialogs, and send an ordinary file dialog to the folder Daleris shows with Ctrl + G. Each switch says whether it's really active. [What each one does, and its limits.](#-windows-explorer-integration)
 
+<p align="center"><img src="assets/screenshots/explorer-settings.png" width="820" alt="Settings, Windows Explorer: a switch for each way Daleris can stand in for File Explorer, each explained"></p>
+
 ### 🏢 Ready for IT departments
 You can manage every setting as a fixed value or a default, including the language and what search never finds: on Windows through **Group Policy (ADMX/ADML in English, German and Italian)** or Group Policy Preferences, and on Linux and macOS through a file only administrators can change. Open windows pick up changes within 30 seconds. See [`PolicyDefinitions/README.txt`](PolicyDefinitions/README.txt).
+
+<p align="center"><img src="assets/screenshots/managed.png" width="820" alt="Settings with some switches greyed out and marked Managed by your organization"></p>
 
 ## ⌨️ Keyboard shortcuts
 

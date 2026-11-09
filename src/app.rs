@@ -2362,7 +2362,9 @@ impl App {
         t.type_stats = counts.into_iter().map(|((ext, d), n)| (ext.to_string(), d, n)).collect();
         if t.filter_open {
             let mut all: HashMap<&str, usize> = HashMap::new();
-            for e in t.entries.iter().filter(|e| !e.is_dir && !e.ext.is_empty()) {
+            // what the list could show, so a hidden lock file's ".ods#" isn't offered
+            let shown = |e: &&Entry| listing::is_visible(e.hidden(), e.is_dotfile(), show_hidden, hide_dots) && !crate::marks::is_mark(&e.name);
+            for e in t.entries.iter().filter(|e| !e.is_dir && !e.ext.is_empty()).filter(shown) {
                 *all.entry(e.ext.as_str()).or_default() += 1;
             }
             t.type_stats_all = all.into_iter().map(|(e, n)| (e.to_string(), n)).collect();
