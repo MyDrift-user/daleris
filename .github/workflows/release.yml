@@ -317,6 +317,12 @@ jobs:
     env:
       VERSION: ${{ needs.version.outputs.version }}
     steps:
+      - uses: actions/checkout@v7
+        with:
+          path: repo
+          sparse-checkout: CHANGELOG.md
+          sparse-checkout-cone-mode: false
+
       - uses: actions/download-artifact@v8
         with:
           path: dist
@@ -356,11 +362,17 @@ jobs:
             echo "v$VERSION is already released. Raise the version in Cargo.toml."
             exit 1
           fi
+          # The notes are this version's section of CHANGELOG.md, what changed since the last release
+          awk -v v="## $VERSION" '$0 == v { on = 1; next } on && /^## / { exit } on' repo/CHANGELOG.md > notes.md
+          if ! grep -q '[^[:space:]]' notes.md; then
+            echo "CHANGELOG.md has no \"## $VERSION\" section. Write what changed before releasing."
+            exit 1
+          fi
           flags=()
           [ "$PRERELEASE" = "true" ] && flags+=(--prerelease)
           # An upload can fail while GitHub is having trouble, so start over from a clean slate a few times.
           for attempt in 1 2 3 4; do
-            gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Daleris v$VERSION" --generate-notes "${flags[@]}" && exit 0
+            gh release create "v$VERSION" dist/* --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA" --title "Daleris v$VERSION" --notes-file notes.md "${flags[@]}" && exit 0
             sleep 60
             gh release delete "v$VERSION" --repo "$GITHUB_REPOSITORY" --cleanup-tag --yes || true
           done
