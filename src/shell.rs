@@ -77,6 +77,16 @@ unsafe extern "system" fn quiet_moves_proc(hwnd: HWND, msg: u32, wparam: WPARAM,
     }
 }
 
+/// Whether the pointer is over some other window than this one, such as an app in front of Daleris or the taskbar.
+pub fn pointer_over_other_window(own: isize) -> bool {
+    let mut p = POINT::default();
+    if own == 0 || unsafe { GetCursorPos(&mut p) }.is_err() {
+        return false;
+    }
+    let under = unsafe { GetAncestor(WindowFromPoint(p), GA_ROOT) };
+    !under.is_invalid() && under.0 as isize != own
+}
+
 /// Out of sight at once, for a window that still has saving to do before it can go.
 pub fn hide_window(hwnd: isize) {
     use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};

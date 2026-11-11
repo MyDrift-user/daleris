@@ -6,7 +6,7 @@ What changed for people using Daleris, compared with the version before. A relea
 
 - Network drives are left alone unless asked: subfolders aren't searched and folder sizes aren't counted there by default, each with a switch and a policy, and the status bar offers a search of the subfolders once
 - Searches and folder sizes read gently: low disk priority, one folder at a time on hard disks, USB drives and servers, and at most 20 folders a second on servers
-- Files can be dragged out of Daleris into other apps, such as a browser's upload area or a mail
+- Files can be dragged out of Daleris onto the desktop, Explorer and other apps, such as a browser's upload area or a mail, also onto windows in front of Daleris and onto the taskbar to switch apps
 - Text copied from the address bar or search box reaches the Windows clipboard, and both have a right-click menu with Cut, Copy, Paste and Select all
 - The Win + E hook never keeps back a plain E any more, also after Win was released on the lock screen or a UAC prompt
 - Win + E starts Daleris directly, one program start fewer

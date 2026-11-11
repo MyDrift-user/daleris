@@ -3462,7 +3462,8 @@ impl App {
     fn drag_out_of_window(&mut self, ctx: &egui::Context) {
         let Some(files) = egui::DragAndDrop::payload::<DragFiles>(ctx) else { return };
         let (pos, down) = ctx.input(|i| (i.pointer.latest_pos(), i.pointer.primary_down()));
-        let inside = pos.is_some_and(|p| ctx.content_rect().shrink(2.0).contains(p));
+        // a window in front of Daleris takes the files too, as does the taskbar under a maximized one
+        let inside = pos.is_some_and(|p| ctx.content_rect().shrink(2.0).contains(p)) && !shell::pointer_over_other_window(self.hwnd);
         if !down || inside {
             return;
         }
