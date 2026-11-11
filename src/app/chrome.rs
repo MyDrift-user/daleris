@@ -314,6 +314,8 @@ impl App {
                 .hint_text(tr("Type a path, e.g. C:\\Users, %APPDATA% or \\\\server\\share"))
                 .font(FontId::proportional(13.5));
             let r = child.add(te);
+            // while its right-click menu is open, the typing goes on
+            let menu = text_menu(ui, &r, buf);
             if self.focus_address {
                 r.request_focus();
                 let len = buf.chars().count();
@@ -323,7 +325,7 @@ impl App {
                 }
                 self.focus_address = false;
             }
-            if r.lost_focus() {
+            if r.lost_focus() && !menu {
                 let text = expand_env(buf.trim().trim_matches('"'));
                 self.editing_address = None;
                 if ui.input(|i| i.key_pressed(Key::Enter)) {
@@ -453,6 +455,11 @@ impl App {
             .hint_text(egui::RichText::new(place).color(FAINT()))
             .id_salt("search");
         let r = child.add(te);
+        let before = t.query.clone();
+        text_menu(ui, &r, &mut t.query);
+        if t.query != before {
+            self.query_changed(t);
+        }
         if self.focus_search {
             r.request_focus();
             self.focus_search = false;
@@ -1458,4 +1465,80 @@ fn tab_outline(ui: &Ui, tab: Rect, across: egui::Rangef) {
     pts.extend([pos2(r, y), pos2(across.max, y)]);
     // the strip's own clip would cut the line along its bottom edge in half
     ui.ctx().layer_painter(ui.layer_id()).add(egui::Shape::line(pts, Stroke::new(1.0_f32, LINE())));
+}
+
+/// Cut, Copy, Paste and Select all on right-clicking a text field, which egui's own fields don't have. The copies go
+/// to the Windows clipboard, so they can be pasted anywhere. Drawn here rather than as egui's context menu, which takes
+/// the focus away from the field the moment it opens. True while it's open: the field then counts as still in use.
+pub(super) fn text_menu(ui: &Ui, r: &egui::Response, buf: &mut String) -> bool {
+    let ctx = ui.ctx().clone();
+    let at_id = r.id.with("text-menu");
+    let mut at: Option<egui::Pos2> = ctx.data(|d| d.get_temp(at_id)).flatten();
+    let (pointer, secondary, any_press) = ctx.input(|i| (i.pointer.interact_pos(), i.pointer.secondary_pressed(), i.pointer.any_pressed()));
+    // the box around a field is taller than its line of text, and a right-click anywhere in it counts
+    let opening = secondary && pointer.is_some_and(|p| r.rect.expand2(vec2(10.0, 8.0)).contains(p));
+    // the press itself drops the selection, so the menu works on the one from before it
+    let sel_id = r.id.with("text-menu-sel");
+    let mut st = egui::TextEdit::load_state(&ctx, r.id).unwrap_or_default();
+    if opening {
+        at = pointer;
+        r.request_focus();
+    } else if at.is_none() {
+        if let Some(range) = st.cursor.char_range() {
+            ctx.data_mut(|d| d.insert_temp(sel_id, range));
+        }
+    }
+    let Some(pos) = at else { return false };
+    // getting the focus back moves the cursor too, so the selection is put back for as long as the menu is open
+    if let Some(before) = ctx.data(|d| d.get_temp::<egui::text::CCursorRange>(sel_id)) {
+        st.cursor.set_char_range(Some(before));
+        st.clone().store(&ctx, r.id);
+    }
+    let n = buf.chars().count();
+    let [a, b] = st.cursor.char_range().map_or([n, n], |c| {
+        let [x, y] = c.sorted_cursors();
+        [usize::from(x.index).min(n), usize::from(y.index).min(n)]
+    });
+    let byte = |s: &str, ci: usize| s.char_indices().nth(ci).map_or(s.len(), |(i, _)| i);
+    let (ba, bb) = (byte(buf, a), byte(buf, b));
+    let mut chosen: Option<(usize, usize)> = None;
+    let area = egui::Area::new(at_id).order(egui::Order::Foreground).fixed_pos(pos).show(&ctx, |ui| {
+        egui::Frame::menu(ui.style()).show(ui, |ui| {
+            ui.set_min_width(140.0);
+            if ui.add_enabled(a < b, egui::Button::new(tr("Cut")).frame(false)).clicked() {
+                shell::clipboard_set_text(&buf[ba..bb]);
+                buf.replace_range(ba..bb, "");
+                chosen = Some((a, a));
+            }
+            if ui.add_enabled(a < b, egui::Button::new(tr("Copy")).frame(false)).clicked() {
+                shell::clipboard_set_text(&buf[ba..bb]);
+                chosen = Some((a, b));
+            }
+            let paste = shell::clipboard_get_text().map(|t| t.replace(['\r', '\n'], ""));
+            if ui.add_enabled(paste.is_some(), egui::Button::new(tr("Paste")).frame(false)).clicked() {
+                if let Some(t) = paste {
+                    buf.replace_range(ba..bb, &t);
+                    let end = a + t.chars().count();
+                    chosen = Some((end, end));
+                }
+            }
+            ui.separator();
+            if ui.add_enabled(n > 0, egui::Button::new(tr("Select all")).frame(false)).clicked() {
+                chosen = Some((0, n));
+            }
+        });
+    });
+    let pressed_outside = any_press && !opening && pointer.is_some_and(|p| !area.response.rect.contains(p));
+    let open = chosen.is_none() && !pressed_outside && !ctx.input(|i| i.key_pressed(Key::Escape));
+    if let Some((from, to)) = chosen {
+        st.cursor.set_char_range(Some(egui::text::CCursorRange::two(egui::text::CCursor::new(from), egui::text::CCursor::new(to))));
+        st.store(&ctx, r.id);
+    }
+    if open || chosen.is_some() {
+        // back to the field, to go on typing
+        r.request_focus();
+    }
+    ctx.data_mut(|d| d.insert_temp(at_id, open.then_some(pos)));
+    // a press outside closes it and goes where it was aimed, as with any menu
+    open || chosen.is_some()
 }

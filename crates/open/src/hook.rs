@@ -22,8 +22,10 @@ const WM_PRESSED: u32 = WM_APP + 1;
 const MASK_KEY: u16 = 0xE8;
 
 static WIN_DOWN: AtomicBool = AtomicBool::new(false);
-/// Was E kept back during this press of Win? Then its release is too, and so is the Start menu.
+/// Was E kept back during this press of Win? Then so is the Start menu when Win goes up.
 static KEPT_BACK: AtomicBool = AtomicBool::new(false);
+/// Is the E key that was kept back still down? Its release is kept back too, and only that one.
+static E_KEPT: AtomicBool = AtomicBool::new(false);
 static THREAD: AtomicU32 = AtomicU32::new(0);
 
 pub fn run() {
@@ -82,31 +84,89 @@ unsafe extern "system" fn on_key(code: i32, wparam: WPARAM, lparam: LPARAM) -> L
         }
         return next();
     }
-    if vk == VK_E && WIN_DOWN.load(Ordering::SeqCst) {
-        if down {
-            // Win + Ctrl + E and the like belong to someone else
-            let held = |k: VIRTUAL_KEY| GetAsyncKeyState(k.0 as i32) < 0;
-            if held(VK_CONTROL) || held(VK_MENU) || held(VK_SHIFT) {
-                return next();
+    if vk == VK_E && !down && E_KEPT.swap(false, Ordering::SeqCst) {
+        return LRESULT(1);
+    }
+    if vk == VK_E && down {
+        let held = |k: VIRTUAL_KEY| GetAsyncKeyState(k.0 as i32) < 0;
+        let keys = Keys {
+            remembered_win: WIN_DOWN.load(Ordering::SeqCst),
+            win_held: held(VK_LWIN) || held(VK_RWIN),
+            other_modifier: held(VK_CONTROL) || held(VK_MENU) || held(VK_SHIFT),
+        };
+        match on_e(keys) {
+            ForE::Pass => {}
+            ForE::Forget => {
+                WIN_DOWN.store(false, Ordering::SeqCst);
+                KEPT_BACK.store(false, Ordering::SeqCst);
             }
-            // Daleris is gone or an administrator turned this off: Windows keeps the shortcut. The launcher cleans up.
-            let usable = Hive::real().program_path().is_some_and(|p| p.is_file()) && policy_fixed(Feature::WinEHook) != Some(false);
-            if !usable {
-                let _ = PostThreadMessageW(THREAD.load(Ordering::SeqCst), WM_PRESSED, WPARAM(0), LPARAM(0));
-                return next();
+            ForE::Take => {
+                // Daleris is gone or an administrator turned this off: Windows keeps the shortcut. The launcher cleans up.
+                let usable = Hive::real().program_path().is_some_and(|p| p.is_file()) && policy_fixed(Feature::WinEHook) != Some(false);
+                if !usable {
+                    let _ = PostThreadMessageW(THREAD.load(Ordering::SeqCst), WM_PRESSED, WPARAM(0), LPARAM(0));
+                    return next();
+                }
+                // a key held down repeats, which should only open one window
+                if !KEPT_BACK.swap(true, Ordering::SeqCst) {
+                    let _ = PostThreadMessageW(THREAD.load(Ordering::SeqCst), WM_PRESSED, WPARAM(0), LPARAM(0));
+                }
+                E_KEPT.store(true, Ordering::SeqCst);
+                return LRESULT(1);
             }
-            // a key held down repeats, which should only open one window
-            if !KEPT_BACK.swap(true, Ordering::SeqCst) {
-                let _ = PostThreadMessageW(THREAD.load(Ordering::SeqCst), WM_PRESSED, WPARAM(0), LPARAM(0));
-            }
-            return LRESULT(1);
-        }
-        if KEPT_BACK.load(Ordering::SeqCst) {
-            return LRESULT(1);
         }
     }
     next()
 }}
+
+/// What the hook knows when E goes down.
+#[derive(Clone, Copy)]
+struct Keys {
+    /// Win went down, and this hook hasn't heard it go up since
+    remembered_win: bool,
+    /// Windows says a Win key is down right now
+    win_held: bool,
+    /// Ctrl, Alt or Shift is down too
+    other_modifier: bool,
+}
+
+#[derive(Debug, PartialEq)]
+enum ForE {
+    /// an E like any other, for whatever has the focus
+    Pass,
+    /// Win's release happened where this hook never hears it: Win + L, the UAC prompt, Ctrl + Alt + Del or switching
+    /// users. Remembering Win as held would keep back every E typed from then on, so it's forgotten and E passes.
+    Forget,
+    /// Win + E: kept back, and Daleris opens
+    Take,
+}
+
+fn on_e(k: Keys) -> ForE {
+    match k {
+        Keys { remembered_win: false, .. } => ForE::Pass,
+        Keys { win_held: false, .. } => ForE::Forget,
+        // Win + Ctrl + E and the like belong to someone else
+        Keys { other_modifier: true, .. } => ForE::Pass,
+        _ => ForE::Take,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_win_and_e_together_are_kept_back() {
+        let k = |remembered_win, win_held, other_modifier| on_e(Keys { remembered_win, win_held, other_modifier });
+        assert_eq!(k(true, true, false), ForE::Take, "Win + E");
+        assert_eq!(k(false, false, false), ForE::Pass, "a plain E");
+        assert_eq!(k(false, true, false), ForE::Pass, "Win pressed before the hook started: Windows keeps it");
+        assert_eq!(k(true, true, true), ForE::Pass, "Win + Shift + E belongs to someone else");
+        // the bug: Win went up on the lock screen, and every E typed afterwards vanished
+        assert_eq!(k(true, false, false), ForE::Forget, "a Win release the hook never heard");
+        assert_eq!(k(true, false, true), ForE::Forget);
+    }
+}
 
 /// Windows opens the Start menu when Win goes up with nothing pressed in between. Something now was.
 unsafe fn mask_start_menu() { unsafe {

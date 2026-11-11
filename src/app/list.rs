@@ -426,8 +426,10 @@ impl App {
         let mem_id = egui::Id::unique(("scroll", t.id));
         if let Some(i) = t.scroll_to.take() {
             let offset = ui.ctx().memory(|m| m.data.get_temp::<f32>(mem_id)).unwrap_or(0.0);
-            let view_h = ui.available_height();
-            let y = i as f32 * row_h;
+            // show_rows puts the spacing between rows too, and the horizontal scrollbar takes from the height
+            let step = row_h + ui.spacing().item_spacing.y;
+            let view_h = ui.available_height() - ui.spacing().scroll.bar_width;
+            let y = i as f32 * step;
             if i == 0 {
                 sa = sa.vertical_scroll_offset(0.0);
             } else if y < offset {
@@ -582,7 +584,8 @@ impl App {
         let mem_id = egui::Id::unique(("gscroll", t.id));
         if let Some(i) = t.scroll_to.take() {
             let offset = ui.ctx().memory(|m| m.data.get_temp::<f32>(mem_id)).unwrap_or(0.0);
-            let y = (i / cols) as f32 * tile_h;
+            // show_rows puts the spacing between lines too
+            let y = (i / cols) as f32 * (tile_h + ui.spacing().item_spacing.y);
             let vh = ui.available_height();
             if y < offset {
                 sa = sa.vertical_scroll_offset(y);

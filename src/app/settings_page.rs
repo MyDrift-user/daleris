@@ -1298,13 +1298,14 @@ impl App {
             ch |= managed_toggle(ui, &mut self.settings.dirs_first, "dirs_first", tr("Keep folders above files"));
             ui.add_space(4.0);
             ch |= managed_toggle(ui, &mut self.settings.downloads_newest, "downloads_newest", tr("Show Downloads newest first, with folders mixed in"));
-            let n = self.settings.folder_sorts.len();
+            let n = self.settings.folder_sorts.keys().chain(self.settings.folder_firsts.keys()).collect::<std::collections::BTreeSet<_>>().len();
             if n > 0 {
                 ui.add_space(8.0);
                 ui.horizontal(|ui| {
                     ui.label(egui::RichText::new(trn!(n, "{n} folder is sorted your own way", "{n} folders are sorted your own way")).color(DIM()));
                     if ui.button(tr("Forget them all")).clicked() {
                         self.settings.folder_sorts.clear();
+                        self.settings.folder_firsts.clear();
                         ch = true;
                     }
                 });

@@ -650,6 +650,32 @@ pub fn clipboard_set_text(text: &str) {
     }
 }
 
+/// Text on the clipboard, for a text field's Paste.
+pub fn clipboard_get_text() -> Option<String> {
+    unsafe {
+        if IsClipboardFormatAvailable(13 /* CF_UNICODETEXT */).is_err() {
+            return None;
+        }
+        OpenClipboard(Some(main_hwnd())).ok()?;
+        let text = (|| {
+            let h = GetClipboardData(13).ok()?;
+            let p = GlobalLock(HGLOBAL(h.0)) as *const u16;
+            if p.is_null() {
+                return None;
+            }
+            let mut len = 0;
+            while *p.add(len) != 0 {
+                len += 1;
+            }
+            let s = String::from_utf16_lossy(std::slice::from_raw_parts(p, len));
+            let _ = GlobalUnlock(HGLOBAL(h.0));
+            Some(s)
+        })();
+        let _ = CloseClipboard();
+        text
+    }
+}
+
 /// Files on the clipboard and whether they were cut.
 pub fn clipboard_get_files() -> Option<(Vec<PathBuf>, bool)> {
     unsafe {
@@ -759,6 +785,43 @@ impl Drop for Pidls {
         for p in &self.0 {
             unsafe { ILFree(Some(*p as *const _)) };
         }
+    }
+}
+
+/// Hands files being dragged out of the window to Windows, so other apps (a browser's upload area, a mail, the
+/// desktop) can take them as they would from Explorer. Returns once they're dropped somewhere or the drag is called
+/// off; true if something took them. Items from more than one folder go with the first one's.
+pub fn drag_out(items: &[PathBuf]) -> bool {
+    use windows::Win32::System::Com::IDataObject;
+    use windows::Win32::System::Ole::{DROPEFFECT, DROPEFFECT_COPY, DROPEFFECT_LINK, DROPEFFECT_MOVE};
+    unsafe {
+        let mut pidls = Pidls(Vec::new());
+        let mut folder: Option<IShellFolder> = None;
+        let mut children: Vec<*const ITEMIDLIST> = Vec::new();
+        let parent0 = items.first().and_then(|p| p.parent()).map(|p| p.to_path_buf());
+        for p in items {
+            if p.parent().map(|x| x.to_path_buf()) != parent0 {
+                continue; // one data object holds items of one folder
+            }
+            let w = wide(p.as_os_str());
+            let mut pidl = std::ptr::null_mut();
+            if SHParseDisplayName(PCWSTR(w.as_ptr()), None, &mut pidl, 0, None).is_err() {
+                continue;
+            }
+            pidls.0.push(pidl);
+            let mut last = std::ptr::null_mut();
+            let Ok(f) = SHBindToParent::<IShellFolder>(pidl, Some(&mut last)) else { continue };
+            if folder.is_none() {
+                folder = Some(f);
+            }
+            children.push(last as *const _);
+        }
+        let Some(folder) = folder else { return false };
+        let Ok(data) = folder.GetUIObjectOf::<IDataObject>(main_hwnd(), &children, None) else { return false };
+        // the shell's own drag image and drop feedback come with it
+        let done = SHDoDragDrop(Some(main_hwnd()), &data, None, DROPEFFECT_COPY | DROPEFFECT_MOVE | DROPEFFECT_LINK);
+        log::info!("dragged {} item(s) out of the window: {done:?}", children.len());
+        matches!(done, Ok(e) if e != DROPEFFECT(0))
     }
 }
 

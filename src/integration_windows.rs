@@ -184,8 +184,8 @@ pub fn status(feature: Feature) -> Live {
             let key32 = format!(r"Software\Classes\WOW6432Node\CLSID\{}\InprocServer32", reg::DIALOG_CLSIDS[0]);
             let exists = |k: &str| hive.read_text(k, "").is_some_and(|p| Path::new(&p).is_file());
             match (exists(&key), exists(&key32)) {
-                (true, true) => Live::Active(tr("Active for 64-bit and 32-bit apps that use the modern Windows dialogs.").into()),
-                (true, false) => Live::Active(tr("Active for 64-bit apps. 32-bit apps keep the Windows dialog.").into()),
+                (true, true) => Live::Active(tr("Active for 64-bit and 32-bit apps that use the modern Windows dialogs. Browsers and other sandboxed apps keep Windows's own.").into()),
+                (true, false) => Live::Active(tr("Active for 64-bit apps. 32-bit apps, browsers and other sandboxed apps keep Windows's own.").into()),
                 _ => Live::Problem(tr("The DLL is missing, so apps keep the Windows dialog.").into()),
             }
         }

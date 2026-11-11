@@ -453,6 +453,11 @@ pub fn clipboard_set_text(text: &str) {
     }
 }
 
+/// Text on the clipboard. Only Ctrl+V reaches it here, as a paste event, so a text field's menu offers no Paste.
+pub fn clipboard_get_text() -> Option<String> {
+    None
+}
+
 /// Remember the text of a paste event (see `clipboard_get_files`).
 pub fn clipboard_offer_text(text: &str) {
     *OFFERED.lock().unwrap() = Some(text.to_string());

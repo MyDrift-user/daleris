@@ -111,16 +111,31 @@ pub fn folder_key(p: &Path) -> String {
 }
 
 /// What the person last chose for this folder, else the built-in order of Downloads, else the default.
-pub fn sort_for(folder: Option<&Path>, remembered: &BTreeMap<String, SortSpec>, downloads: Option<&Path>, downloads_newest: bool, default: SortSpec) -> SortSpec {
+///
+/// "Folders first" is its own choice: a folder keeps it only when it was switched in that folder (`firsts`), and
+/// otherwise follows the setting. Choosing what a folder is sorted by never freezes it.
+pub fn sort_for(
+    folder: Option<&Path>,
+    remembered: &BTreeMap<String, SortSpec>,
+    firsts: &BTreeMap<String, bool>,
+    downloads: Option<&Path>,
+    downloads_newest: bool,
+    default: SortSpec,
+) -> SortSpec {
     let Some(folder) = folder else { return default };
     let key = folder_key(folder);
-    if let Some(s) = remembered.get(&key) {
-        return *s;
-    }
-    if downloads_newest && downloads.is_some_and(|d| folder_key(d) == key) {
-        return SortSpec::downloads();
-    }
-    default
+    let is_downloads = downloads_newest && downloads.is_some_and(|d| folder_key(d) == key);
+    let mut s = match remembered.get(&key) {
+        Some(s) => *s,
+        None if is_downloads => SortSpec::downloads(),
+        None => default,
+    };
+    s.dirs_first = match firsts.get(&key) {
+        Some(&own) => own,
+        None if is_downloads => SortSpec::downloads().dirs_first,
+        None => default.dirs_first,
+    };
+    s
 }
 
 /// What a row is sorted by. A copy, so that a big folder can be sorted away from the window.
@@ -423,25 +438,41 @@ mod tests {
     #[test]
     fn a_folder_keeps_the_sort_chosen_for_it() {
         let mut memory = BTreeMap::new();
+        let none = BTreeMap::new();
         let plain = SortSpec { key: SortKey::Name, asc: true, dirs_first: true };
         let dl = PathBuf::from(if cfg!(windows) { r"D:\Moved\Downloads" } else { "/moved/Downloads" });
         let other = PathBuf::from(if cfg!(windows) { r"C:\Work" } else { "/work" });
         // Downloads by its built-in order, wherever it was moved to
-        assert_eq!(sort_for(Some(&dl), &memory, Some(&dl), true, plain), SortSpec::downloads());
+        assert_eq!(sort_for(Some(&dl), &memory, &none, Some(&dl), true, plain), SortSpec::downloads());
         // turned off in Settings
-        assert_eq!(sort_for(Some(&dl), &memory, Some(&dl), false, plain), plain);
+        assert_eq!(sort_for(Some(&dl), &memory, &none, Some(&dl), false, plain), plain);
         // the default everywhere else
-        assert_eq!(sort_for(Some(&other), &memory, Some(&dl), true, plain), plain);
-        // an explicit choice beats the built-in one
+        assert_eq!(sort_for(Some(&other), &memory, &none, Some(&dl), true, plain), plain);
+        // an explicit choice beats the built-in one, but folders first stays Downloads's own
         let chosen = SortSpec { key: SortKey::Size, asc: false, dirs_first: true };
         memory.insert(folder_key(&dl), chosen);
-        assert_eq!(sort_for(Some(&dl), &memory, Some(&dl), true, plain), chosen);
+        assert_eq!(sort_for(Some(&dl), &memory, &none, Some(&dl), true, plain), SortSpec { dirs_first: false, ..chosen });
         // and it's the folder that remembers, however its path is written
         let with_sep = PathBuf::from(format!("{}{}", dl.display(), std::path::MAIN_SEPARATOR));
-        assert_eq!(sort_for(Some(&with_sep), &memory, Some(&dl), true, plain), chosen);
+        assert_eq!(sort_for(Some(&with_sep), &memory, &none, Some(&dl), true, plain).key, SortKey::Size);
         // reset
         memory.remove(&folder_key(&dl));
-        assert_eq!(sort_for(Some(&dl), &memory, Some(&dl), true, plain), SortSpec::downloads());
+        assert_eq!(sort_for(Some(&dl), &memory, &none, Some(&dl), true, plain), SortSpec::downloads());
+    }
+
+    #[test]
+    fn folders_first_follows_the_setting_unless_switched_in_that_folder() {
+        let work = PathBuf::from(if cfg!(windows) { r"C:\Work" } else { "/work" });
+        let mut memory = BTreeMap::new();
+        let mut firsts = BTreeMap::new();
+        // sorted by date while the setting was on: that remembers the date, not folders first
+        memory.insert(folder_key(&work), SortSpec { key: SortKey::Modified, asc: false, dirs_first: true });
+        let off = SortSpec { key: SortKey::Name, asc: true, dirs_first: false };
+        let got = sort_for(Some(&work), &memory, &firsts, None, true, off);
+        assert_eq!((got.key, got.asc, got.dirs_first), (SortKey::Modified, false, false), "the setting was turned off since");
+        // switched in that folder's Sort menu: that folder keeps it, whatever the setting says
+        firsts.insert(folder_key(&work), true);
+        assert!(sort_for(Some(&work), &memory, &firsts, None, true, off).dirs_first);
     }
 
     #[test]

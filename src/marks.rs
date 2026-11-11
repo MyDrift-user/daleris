@@ -54,7 +54,13 @@ pub fn now() -> u64 {
 }
 
 /// Who's doing it, as other people see it: the person signed in to this PC, by the name the system knows them by.
+/// Asked once: for a domain account it's a question to the directory, and the list asks for every row it draws.
 pub fn who() -> String {
+    static WHO: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    WHO.get_or_init(ask_who).clone()
+}
+
+fn ask_who() -> String {
     let var = |names: &[&str]| names.iter().find_map(|n| std::env::var(n).ok()).filter(|v| !v.is_empty());
     let user = display_name().or_else(|| var(&["USERNAME", "USER"])).unwrap_or_else(|| "someone".into());
     match var(&["COMPUTERNAME", "HOSTNAME"]) {

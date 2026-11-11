@@ -594,6 +594,8 @@ pub struct Settings {
     downloads_newest: bool,
     /// what was chosen per folder, by `folder_key`
     folder_sorts: BTreeMap<String, SortSpec>,
+    /// folders where "Folders first" was switched in the Sort menu, and to what
+    folder_firsts: BTreeMap<String, bool>,
     show_preview: bool,
     show_ext: bool,
     view: View,
@@ -788,6 +790,7 @@ impl Settings {
             dirs_first: true,
             downloads_newest: true,
             folder_sorts: BTreeMap::new(),
+            folder_firsts: BTreeMap::new(),
             show_preview: true,
             show_ext: true,
             view: View::Details,
@@ -1279,6 +1282,11 @@ impl Settings {
                             }
                         }
                     }
+                    "ffirst" => {
+                        if let Some((folder, on)) = v.split_once('\t') {
+                            s.folder_firsts.insert(folder.to_string(), on == "1");
+                        }
+                    }
                     "fsort" => {
                         if let Some((folder, spec)) = v.split_once('\t') {
                             if let Some(spec) = SortSpec::decode(spec) {
@@ -1476,6 +1484,8 @@ pub struct App {
     indexes: Vec<Arc<Index>>,
     /// the status bar's "Search them this time" was clicked
     net_deep_asked: bool,
+    /// files were dragged out of the window and Windows had the mouse: egui never saw the button go up
+    drag_left_window: bool,
     preview: Preview,
     toast: Option<(String, Instant, bool)>,
     /// The folder dragged files are over this frame, for the label under the pointer.
@@ -1620,6 +1630,7 @@ impl App {
             thumb_order: VecDeque::new(),
             indexes: Vec::new(),
             net_deep_asked: false,
+            drag_left_window: false,
             preview: Preview { path: None, entry: None, generation: 0, content: PvContent::Nothing },
             toast: None,
             drop_hint: None,
@@ -1853,7 +1864,7 @@ impl App {
     fn spec_for(&self, folder: &Path) -> SortSpec {
         let s = &self.settings;
         let downloads = self.places.iter().find(|p| p.name == "Downloads").map(|p| p.path.as_path()); // i18n-ignore: place name compared as a key
-        listing::sort_for(Some(folder), &s.folder_sorts, downloads, s.downloads_newest, SortSpec { key: s.sort_key, asc: s.sort_asc, dirs_first: s.dirs_first })
+        listing::sort_for(Some(folder), &s.folder_sorts, &s.folder_firsts, downloads, s.downloads_newest, SortSpec { key: s.sort_key, asc: s.sort_asc, dirs_first: s.dirs_first })
     }
 
     /// The person chose how this folder is sorted: from now on, that's how it's sorted, wherever it opens.
@@ -1868,6 +1879,9 @@ impl App {
                 while self.settings.folder_sorts.len() > 2000 {
                     self.settings.folder_sorts.pop_first();
                 }
+                while self.settings.folder_firsts.len() > 2000 {
+                    self.settings.folder_firsts.pop_first();
+                }
                 self.save_settings();
             }
         }
@@ -1881,13 +1895,14 @@ impl App {
     }
 
     fn folder_has_own_sort(&self, t: &Tab) -> bool {
-        t.dir().is_some_and(|d| self.settings.folder_sorts.contains_key(&folder_key(d)))
+        t.dir().is_some_and(|d| self.settings.folder_sorts.contains_key(&folder_key(d)) || self.settings.folder_firsts.contains_key(&folder_key(d)))
     }
 
     /// Back to what this folder would have if nobody had chosen anything for it.
     fn reset_sort(&mut self, t: &mut Tab) {
         let Some(d) = t.dir().map(Path::to_path_buf) else { return };
         self.settings.folder_sorts.remove(&folder_key(&d));
+        self.settings.folder_firsts.remove(&folder_key(&d));
         self.save_settings();
         let spec = self.spec_for(&d);
         t.set_spec(spec);
@@ -2994,6 +3009,8 @@ impl App {
         }
 
         self.keyboard(ctx, &mut t);
+        #[cfg(windows)]
+        self.drag_out_of_window(ctx);
         self.dropped_files(ctx, &t);
         let in_settings = t.loc == Loc::Settings;
         // A picker is a dialog: what's for managing files or the window it doesn't need.
@@ -3090,8 +3107,14 @@ impl eframe::App for App {
         let _ = frame;
         // Unwinding out of this would end at the window procedure, which Rust turns into an abort: the whole app gone,
         // with whatever was going on in it.
+        let started = Instant::now();
         if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.frame(ui))).is_err() {
             self.recover_from_panic();
+        }
+        // a 240 Hz screen leaves about 4 ms for a frame: with DALERIS_LOG=debug, the ones that took longer say so
+        let took = started.elapsed();
+        if took > Duration::from_millis(4) {
+            log::debug!("slow frame: {took:?}");
         }
     }
 
@@ -3099,6 +3122,11 @@ impl eframe::App for App {
     /// points). Each step is sent through egui 20 frames after the previous one (first at frame 60), so a
     /// screenshot shows what real clicks do.
     fn raw_input_hook(&mut self, _ctx: &egui::Context, raw: &mut egui::RawInput) {
+        if std::mem::take(&mut self.drag_left_window) {
+            let pos = raw.events.iter().rev().find_map(|e| if let egui::Event::PointerMoved(p) = e { Some(*p) } else { None }).unwrap_or(egui::Pos2::ZERO);
+            raw.events.push(egui::Event::PointerButton { pos, button: egui::PointerButton::Primary, pressed: false, modifiers: Default::default() });
+            raw.events.push(egui::Event::PointerGone);
+        }
         let Some(shot) = &self.shot else { return };
         // a test window never has real focus; keyboard steps still have to reach the widgets
         raw.focused = true;
@@ -3119,6 +3147,13 @@ impl eframe::App for App {
                             let modifiers = egui::Modifiers { shift, ctrl, command: ctrl, ..Default::default() };
                             for pressed in [true, false] {
                                 raw.events.push(egui::Event::Key { key, physical_key: None, pressed, repeat: false, modifiers });
+                            }
+                            // as the real window does for these
+                            match (ctrl, key) {
+                                (true, Key::C) => raw.events.push(egui::Event::Copy),
+                                (true, Key::X) => raw.events.push(egui::Event::Cut),
+                                (true, Key::V) => raw.events.push(egui::Event::Paste(shell::clipboard_get_text().unwrap_or_default())),
+                                _ => {}
                             }
                         }
                     }
@@ -3184,6 +3219,7 @@ impl eframe::App for App {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        log::info!("DBG on_exit start");
         if let Some(p) = &mut self.picker {
             p.cancel_if_unanswered();
         }
@@ -3196,9 +3232,11 @@ impl eframe::App for App {
         } else {
             self.save_settings();
         }
+        log::info!("DBG on_exit saved");
         if let Some(updater) = &self.updater {
             updater.run_pending_on_exit();
         }
+        log::info!("DBG on_exit done");
     }
 }
 
@@ -3340,6 +3378,26 @@ impl App {
     }
 
     // ------------------------------------------------------------------ keyboard
+
+    /// Files dragged past the edge of the window go on as Windows's own drag, which other apps understand: a browser's
+    /// upload area, a mail, the desktop. Inside the window, Daleris's own drag shows where they can go.
+    #[cfg(windows)]
+    fn drag_out_of_window(&mut self, ctx: &egui::Context) {
+        let Some(files) = egui::DragAndDrop::payload::<DragFiles>(ctx) else { return };
+        let (pos, down) = ctx.input(|i| (i.pointer.latest_pos(), i.pointer.primary_down()));
+        let inside = pos.is_some_and(|p| ctx.content_rect().shrink(2.0).contains(p));
+        if !down || inside {
+            return;
+        }
+        egui::DragAndDrop::clear_payload(ctx);
+        shell::drag_out(&files.0);
+        self.drag_left_window = true;
+        // what was moved elsewhere is gone from here
+        for t in &mut self.tabs {
+            t.dirty = true;
+        }
+        ctx.request_repaint();
+    }
 
     fn keyboard(&mut self, ctx: &egui::Context, t: &mut Tab) {
         if self.popup.is_some() || self.op_dialog_open() {

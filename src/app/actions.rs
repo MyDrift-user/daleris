@@ -391,6 +391,9 @@ impl App {
             Act::FoldersFirst(on) => {
                 let mut s = t.spec();
                 s.dirs_first = on;
+                if let Some(d) = t.dir().filter(|_| !t.searching()) {
+                    self.settings.folder_firsts.insert(folder_key(d), on);
+                }
                 self.set_sort(&mut t, s);
             }
             Act::ResetSort => self.reset_sort(&mut t),
