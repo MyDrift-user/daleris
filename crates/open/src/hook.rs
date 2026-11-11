@@ -64,9 +64,10 @@ pub fn run() {
     let _ = unsafe { CloseHandle(mutex) };
 }
 
+/// Opens Daleris from this process, on a thread of its own so the hook answers at once. Starting another copy of this
+/// program first would add a whole process start, which antivirus software makes slow, to every Win + E.
 fn pressed() {
-    let Ok(me) = std::env::current_exe() else { return };
-    let _ = std::process::Command::new(me).arg("--win-e-press").spawn();
+    let _ = std::thread::Builder::new().name("win-e".into()).spawn(|| crate::open(&[], daleris_integration::Feature::WinEHook));
 }
 
 unsafe extern "system" fn on_key(code: i32, wparam: WPARAM, lparam: LPARAM) -> LRESULT { unsafe {

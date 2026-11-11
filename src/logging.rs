@@ -12,17 +12,24 @@ const MAX_SIZE: u64 = 2 * 1024 * 1024;
 
 static FILE: Mutex<Option<File>> = Mutex::new(None);
 static PATH: OnceLock<PathBuf> = OnceLock::new();
+static STARTED: OnceLock<std::time::Instant> = OnceLock::new();
 
 /// The log file, if one could be opened.
 pub fn path() -> Option<&'static PathBuf> {
     PATH.get()
 }
 
+/// How long ago the process started, as near as it can tell: opening the log is the first thing it does.
+pub fn since_start() -> std::time::Duration {
+    STARTED.get().map_or(std::time::Duration::ZERO, std::time::Instant::elapsed)
+}
+
 fn stamp() -> String {
     let ft = crate::util::now_filetime();
     let t = crate::util::filetime_local(ft);
     let sec = ft / 10_000_000 % 60;
-    format!("{:04}-{:02}-{:02} {:02}:{:02}:{sec:02}", t.year, t.month, t.day, t.hour, t.minute)
+    let ms = ft / 10_000 % 1000;
+    format!("{:04}-{:02}-{:02} {:02}:{:02}:{sec:02}.{ms:03}", t.year, t.month, t.day, t.hour, t.minute)
 }
 
 fn write_line(line: &str) {
@@ -66,6 +73,7 @@ fn log_start() {
 }
 
 pub fn init() {
+    let _ = STARTED.set(std::time::Instant::now());
     let level = match std::env::var("DALERIS_LOG").as_deref() {
         Ok("trace") => log::LevelFilter::Trace,
         Ok("debug") => log::LevelFilter::Debug,

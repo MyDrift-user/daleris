@@ -1565,11 +1565,46 @@ pub struct App {
     serving: Arc<AtomicBool>,
     /// what the Ctrl + G watcher was last told this window shows
     jump_told: Option<Option<PathBuf>>,
+    pace: Pace,
 }
+
+/// Frame timing for the log: when the first frame came, and, with DALERIS_LOG=debug, how many frames a second
+/// scrolling, animations and drags really get.
+#[derive(Default)]
+struct Pace {
+    shown: bool,
+    last: Option<Instant>,
+    /// the current run of back-to-back frames: when it started, how many so far, the longest gap
+    run: Option<(Instant, u32, Duration)>,
+}
+
+impl Pace {
+    fn frame(&mut self, now: Instant) {
+        if !std::mem::replace(&mut self.shown, true) {
+            log::info!("first frame {} ms after start", crate::logging::since_start().as_millis());
+        }
+        let gap = self.last.replace(now).map(|l| now - l);
+        // more than 100 ms between frames is idle, not a slow frame
+        match (gap, &mut self.run) {
+            (Some(g), Some((start, n, worst))) if g < Duration::from_millis(100) => {
+                *n += 1;
+                *worst = (*worst).max(g);
+                let span = now - *start;
+                if span >= Duration::from_secs(1) {
+                    log::debug!("{:.0} frames a second, longest gap {} ms", *n as f32 / span.as_secs_f32(), worst.as_millis());
+                    self.run = Some((now, 0, Duration::ZERO));
+                }
+            }
+            _ => self.run = Some((now, 0, Duration::ZERO)),
+        }
+    }
+}
+
 const PER_FILE_ICON: [&str; 11] = ["exe", "lnk", "ico", "url", "cur", "ani", "scr", "msc", "cpl", "appref-ms", "website"];
 
 impl App {
     pub fn new(cc: &eframe::CreationContext, wanted: Wanted, query: Option<String>, screenshot: Option<PathBuf>, picker: Option<Picker>) -> App {
+        log::debug!("window and graphics ready {} ms after start", crate::logging::since_start().as_millis());
         shell::init_com();
         if let Some(gl) = &cc.gl {
             use eframe::glow::{self, HasContext};
@@ -1689,6 +1724,7 @@ impl App {
             #[cfg(windows)]
             serving: Arc::new(AtomicBool::new(false)),
             jump_told: None,
+            pace: Pace::default(),
         };
         app.follow_language();
         app.apply_theme();
@@ -1752,6 +1788,7 @@ impl App {
             app.query_changed(&mut t);
             app.tabs[0] = t;
         }
+        log::debug!("set up {} ms after start", crate::logging::since_start().as_millis());
         app
     }
 
@@ -3108,6 +3145,7 @@ impl eframe::App for App {
         // Unwinding out of this would end at the window procedure, which Rust turns into an abort: the whole app gone,
         // with whatever was going on in it.
         let started = Instant::now();
+        self.pace.frame(started);
         if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| self.frame(ui))).is_err() {
             self.recover_from_panic();
         }
@@ -3219,7 +3257,10 @@ impl eframe::App for App {
     }
 
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
-        log::info!("DBG on_exit start");
+        // gone from the screen before saving, which can take a while when the settings folder is on a server
+        let closing = Instant::now();
+        #[cfg(windows)]
+        shell::hide_window(self.hwnd);
         if let Some(p) = &mut self.picker {
             p.cancel_if_unanswered();
         }
@@ -3232,11 +3273,10 @@ impl eframe::App for App {
         } else {
             self.save_settings();
         }
-        log::info!("DBG on_exit saved");
         if let Some(updater) = &self.updater {
             updater.run_pending_on_exit();
         }
-        log::info!("DBG on_exit done");
+        log::info!("closed, saving took {} ms", closing.elapsed().as_millis());
     }
 }
 

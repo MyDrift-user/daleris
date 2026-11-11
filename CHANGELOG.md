@@ -9,6 +9,8 @@ What changed for people using Daleris, compared with the version before. A relea
 - Files can be dragged out of Daleris into other apps, such as a browser's upload area or a mail
 - Text copied from the address bar or search box reaches the Windows clipboard, and both have a right-click menu with Cut, Copy, Paste and Select all
 - The Win + E hook never keeps back a plain E any more, also after Win was released on the lock screen or a UAC prompt
+- Win + E starts Daleris directly, one program start fewer
+- A closed window leaves the screen at once, before Daleris saves and the graphics driver lets go
 - "Keep folders above files" applies to every folder that wasn't switched in its own Sort menu, also ones sorted some other way before
 - Typing a name in the list scrolls to the item it selects, however far down it is
 - Folders with many items draw faster: who you are on the network is looked up once instead of for every row

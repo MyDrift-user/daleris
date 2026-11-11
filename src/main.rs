@@ -146,6 +146,7 @@ fn main() -> eframe::Result<()> {
         // It takes the place of a window that would be owned by the app, which another process's can't be.
         viewport = viewport.with_always_on_top().with_active(true);
     }
+    log::debug!("opening the window {} ms after start", logging::since_start().as_millis());
     let options = eframe::NativeOptions { viewport, ..Default::default() };
     let result = eframe::run_native("Daleris", options, Box::new(move |cc| Ok(Box::new(app::App::new(cc, wanted, query, screenshot, picker))))); // i18n-ignore: the app's name, used as its id
     match &result {

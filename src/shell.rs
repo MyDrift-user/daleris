@@ -39,6 +39,14 @@ pub fn has_mica() -> bool {
     crate::fsx::reg_text(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber").and_then(|b| b.parse::<u32>().ok()).is_some_and(|b| b >= 22621)
 }
 
+/// Out of sight at once, for a window that still has saving to do before it can go.
+pub fn hide_window(hwnd: isize) {
+    use windows::Win32::UI::WindowsAndMessaging::{ShowWindow, SW_HIDE};
+    if hwnd != 0 {
+        let _ = unsafe { ShowWindow(HWND(hwnd as *mut _), SW_HIDE) };
+    }
+}
+
 /// Asks Windows for Mica behind the window, or none, tinted for a dark or light theme. The window must have been made
 /// see-through at start for it to show.
 pub fn set_backdrop(hwnd: isize, mica: bool, dark: bool) {
