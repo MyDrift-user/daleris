@@ -20,6 +20,7 @@ What changed for people using Daleris, compared with the version before. A relea
 - The filter panel only offers extensions of items the list can show
 - A disconnected drive is named by its own letter, and a disconnected share by its name, instead of "Drive ?:"
 - No middle dots or arrow characters anywhere in the window
+- Phones and cameras connected by USB show up in the sidebar and This PC as they're connected, and open like folders: their storages, folders and files with Windows's icons, sizes and dates, read without holding up the window. Files are copied to and from them by dragging or copy and paste, and deleted, renamed and opened there, with Windows's own progress
 
 ## 0.0.5
 

@@ -229,6 +229,10 @@ pub fn initials(who: &str) -> String {
 pub fn scan(dir: &Path, items: &[(String, bool)], share_note: Option<&str>) -> std::collections::HashMap<String, Vec<Opener>> {
     use std::collections::HashMap;
     let mut out: HashMap<String, Vec<Opener>> = HashMap::new();
+    // nothing on a phone or camera is open in a way anyone can tell
+    if crate::fscommon::is_shell(dir) {
+        return out;
+    }
     let names: Vec<&str> = items.iter().map(|(n, _)| n.as_str()).collect();
     let me = crate::marks::who();
     let my_names: Vec<String> = [Some(me.split(" on ").next().unwrap_or(&me).to_string()), std::env::var("USERNAME").ok(), std::env::var("USER").ok()].into_iter().flatten().map(|n| n.to_lowercase()).collect();

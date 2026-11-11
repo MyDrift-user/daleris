@@ -121,6 +121,7 @@ pub const T: &[(&str, &str)] = &[
     ("Rename failed: {error}", "Impossibile rinominare: {error}"),
     ("The server isn't answering yet. The new name will show if it gets there.", "Il server non risponde ancora. Il nuovo nome comparirà quando ci arriverà."),
     ("Couldn't create it: {error}", "Impossibile crearlo: {error}"),
+    ("This can't be made on a phone or camera", "Non si può creare su un telefono o una fotocamera"),
     ("The server isn't answering yet. It will show up here if it gets there.", "Il server non risponde ancora. Comparirà qui quando ci arriverà."),
     ("Text document", "Documento di testo"),
     ("New Text Document.txt", "Nuovo documento di testo.txt"),

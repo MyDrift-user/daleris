@@ -61,6 +61,7 @@ impl Loc {
         match self {
             Loc::ThisPc => tr("This PC").into(),
             Loc::Settings => tr("Settings").into(),
+            Loc::Dir(p) if fsx::is_shell(p) => crate::shellpath::title(p, tr("Portable device")),
             Loc::Dir(p) => match p.file_name() {
                 Some(n) => known_place_name(p).unwrap_or_else(|| n.to_string_lossy().to_string()),
                 None => p.to_string_lossy().trim_end_matches('\\').to_string(),
@@ -976,7 +977,7 @@ impl Settings {
 
     /// Is the size of the folder `dir` counted? On network drives only when asked for, as counting walks the server.
     fn counts_size_of(&self, dir: &Path) -> bool {
-        self.folder_sizes && (self.folder_sizes_network || !fsx::is_network_path(dir))
+        self.folder_sizes && (self.folder_sizes_network || !fsx::is_network_path(dir)) && !fsx::is_shell(dir)
     }
 
     fn density(&self) -> u8 {
@@ -2016,6 +2017,11 @@ impl App {
     /// happens in it, so without this a new drive waited for the next mouse move.
     fn watch_drives(&self) {
         let (tx, ctx) = (self.tx.clone(), self.ctx.clone());
+        #[cfg(windows)]
+        crate::shellns::watch_devices({
+            let ctx = ctx.clone();
+            move || ctx.request_repaint()
+        });
         bg::spawn("drive-watch", move || {
             let mut last = fsx::drive_signature();
             loop {
@@ -2292,6 +2298,10 @@ impl App {
                 Msg::OpDone(r) => {
                     // copies, moves and deletes change folder sizes
                     self.sizer.clear();
+                    // a phone tells about changes late, if at all: look again
+                    for t in self.tabs.iter_mut().filter(|t| t.dir().is_some_and(fsx::is_shell)) {
+                        t.refresh_at = Some(Instant::now());
+                    }
                     if let Err(e) = r {
                         self.toast(e, true);
                     }
@@ -2648,7 +2658,7 @@ impl App {
         let ps = path.to_string_lossy().to_string();
         if is_dir {
             let is_root = path.parent().is_none() || fsx::is_server_root(path).is_some();
-            let special = attrs & (fsx::A_READONLY | fsx::A_SYSTEM) != 0 || self.places.iter().any(|p| fsx::same_path(&p.path, path));
+            let special = attrs & (fsx::A_READONLY | fsx::A_SYSTEM) != 0 || self.places.iter().any(|p| fsx::same_path(&p.path, path)) || fsx::is_shell(path);
             if is_root || special {
                 let key = format!("p:{}|{px}", ps.to_lowercase());
                 return (key.clone(), ImgReq::Icon { key, path: ps, by_attrs: false, is_dir, px });
@@ -3635,6 +3645,7 @@ impl App {
 
     fn start_address_edit(&mut self, t: &Tab) {
         self.editing_address = Some(match &t.loc {
+            Loc::Dir(p) if fsx::is_shell(p) => crate::shellpath::address_text(p, tr("This PC"), &crate::shellpath::title(&crate::shellpath::root_of(p).unwrap_or_default(), tr("Portable device"))),
             Loc::Dir(p) => p.to_string_lossy().to_string(),
             _ => String::new(),
         });

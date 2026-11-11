@@ -26,6 +26,9 @@ mod shell;
 #[cfg(not(windows))]
 #[path = "shell_unix.rs"]
 mod shell;
+#[cfg(windows)]
+mod shellns;
+mod shellpath;
 mod theme;
 mod update;
 mod util;
@@ -177,6 +180,9 @@ fn read_named(named: &[OsString], wanted: &mut app::Wanted) -> Option<i32> {
             wanted.dir = p.parent().map(Path::to_path_buf);
         }
         Target::ThisPc => wanted.this_pc = true,
+        // a phone or camera, which Daleris shows itself
+        #[cfg(windows)]
+        Target::Shell(name) if target::is_device(&name) => wanted.dir = Some(PathBuf::from(name.strip_prefix("shell:").unwrap_or(&name))),
         #[cfg(windows)]
         Target::Shell(name) => match daleris_integration::explorer::resolve(&name) {
             Some(dir) => wanted.dir = Some(dir),

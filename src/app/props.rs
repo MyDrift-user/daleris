@@ -248,7 +248,7 @@ impl App {
                         });
                     });
                 }
-                let loc = p.paths[0].parent().map(|x| x.display().to_string()).unwrap_or_else(|| p.paths[0].display().to_string());
+                let loc = p.paths[0].parent().map(fsx::readable).unwrap_or_else(|| fsx::readable(&p.paths[0]));
                 prop_row(ui, tr("Location"), |ui| {
                     ui.add(egui::Label::new(&loc).truncate()).on_hover_text(&loc);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {

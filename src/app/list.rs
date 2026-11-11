@@ -1014,7 +1014,7 @@ impl App {
                 if st != Cloud::None {
                     rows.push((tr("Status"), cloud_text(st).to_string()));
                 }
-                rows.push((tr("Location"), path.parent().map(|p| p.to_string_lossy().to_string()).unwrap_or_default()));
+                rows.push((tr("Location"), path.parent().map(fsx::readable).unwrap_or_default()));
                 egui::Grid::new("pvinfo").num_columns(2).spacing(vec2(12.0, 6.0)).show(ui, |ui| {
                     for (k, v) in rows {
                         ui.label(egui::RichText::new(k).color(DIM()).size(12.5));

@@ -7,6 +7,21 @@ use crate::fileops::{Answer, Choice, Job, Kind, Progress, Question, Side, Stage}
 impl App {
     /// Starts a copy, move or delete on its own thread; a move to the Recycle Bin is left to the system.
     pub(super) fn start_job(&mut self, kind: Kind, files: Vec<PathBuf>, dest: Option<PathBuf>) {
+        // Daleris's own copy can't reach a phone or camera: Windows does it, with its own progress
+        #[cfg(windows)]
+        if crate::shellpath::needs_shell_op(&files, dest.as_deref()) {
+            use crate::shellns::ShellOp;
+            let op = match kind {
+                Kind::Copy => ShellOp::Copy,
+                Kind::Move => ShellOp::Move,
+                Kind::Delete => ShellOp::Delete,
+            };
+            let tx = self.tx.clone();
+            crate::shellns::file_op(op, files, dest, move |r| {
+                let _ = tx.send(Msg::OpDone(r));
+            });
+            return;
+        }
         let job = Arc::new(Job::new(kind, files, dest));
         let (j, ctx) = (job.clone(), self.ctx.clone());
         bg::spawn("file-op", move || {

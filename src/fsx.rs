@@ -51,6 +51,10 @@ pub fn is_server_root(p: &Path) -> Option<String> {
 
 /// Stream a directory's entries in batches so the first rows paint immediately.
 pub fn list_dir(path: &Path, cancel: &AtomicBool, mut emit: impl FnMut(Vec<Entry>)) -> Result<(), FolderError> {
+    // a phone or camera: only the shell can read it
+    if is_shell(path) {
+        return crate::shellns::list(path, cancel, emit);
+    }
     // tests see what each failure looks like without a server that fails that way
     if let Some(code) = std::env::var("DALERIS_TEST_FAIL").ok().and_then(|c| c.parse().ok()).filter(|_| is_network_path(path)) {
         return Err(classify(path, code, "(a test)".into())); // i18n-ignore: a test hook's stand-in for what Windows says
@@ -182,6 +186,9 @@ pub fn reconnect_drive(letter: char, owner: HWND, ask: bool) -> Result<(), Folde
 
 /// A look at the folder, enough to know whether it's still there. Can take as long as a server takes to not answer.
 pub fn check_folder(path: &Path) -> Result<(), FolderError> {
+    if is_shell(path) {
+        return crate::shellns::check(path);
+    }
     let mut pattern = path.as_os_str().to_os_string();
     if !pattern.to_string_lossy().ends_with('\\') {
         pattern.push("\\");
@@ -223,6 +230,10 @@ fn entry_from(d: &WIN32_FIND_DATAW) -> Option<Entry> {
 
 /// Fast directory scan for the search crawler and size counter.
 pub fn for_each_raw(path: &Path, mut f: impl FnMut(RawEntry)) -> bool {
+    // a device is never crawled: it sends its lists too slowly, and search and folder sizes skip it
+    if is_shell(path) {
+        return false;
+    }
     let mut pattern = path.as_os_str().to_os_string();
     if !pattern.to_string_lossy().ends_with('\\') {
         pattern.push("\\");
@@ -265,6 +276,9 @@ pub fn for_each_raw(path: &Path, mut f: impl FnMut(RawEntry)) -> bool {
 }
 
 pub fn stat(path: &Path) -> Option<Entry> {
+    if is_shell(path) {
+        return crate::shellns::stat(path);
+    }
     let w = long_path(path);
     let mut data = WIN32_FILE_ATTRIBUTE_DATA::default();
     unsafe { GetFileAttributesExW(PCWSTR(w.as_ptr()), GetFileExInfoStandard, &mut data as *mut _ as *mut _) }.ok()?;
@@ -613,6 +627,9 @@ pub fn set_pin(path: &Path, keep_local: bool) -> Result<(), String> {
 
 /// Calls `on_change` whenever something in `path` (non-recursive) changes.
 pub fn watch(path: &Path, on_change: impl Fn() + Send + 'static) -> Watcher {
+    if is_shell(path) {
+        return crate::shellns::watch(path, on_change);
+    }
     let stop = Arc::new(AtomicBool::new(false));
     let s2 = stop.clone();
     let w = long_path(path);
@@ -700,6 +717,10 @@ mod classify_tests {
 /// changing nothing. Opening the folder to find out would skip the check when Daleris runs as administrator. Can take as
 /// long as a server takes to not answer, so not on the window's thread.
 pub fn can_add_to(dir: &Path) -> Result<(), NoWrite> {
+    // a device says itself, when something is copied there, whether it takes it
+    if is_shell(dir) {
+        return Ok(());
+    }
     use windows::Win32::Security::Authorization::{GetNamedSecurityInfoW, SE_FILE_OBJECT};
     use windows::Win32::Security::*;
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
@@ -821,6 +842,9 @@ mod arrival_tests {
 
 /// Whether BitLocker keeps the drive at `root` locked, as Explorer tells for its Unlock drive command.
 pub fn bitlocker_locked(root: &Path) -> bool {
+    if is_shell(root) {
+        return false;
+    }
     use windows::Win32::Foundation::PROPERTYKEY;
     use windows::Win32::System::Com::StructuredStorage::PropVariantToInt32;
     use windows::Win32::UI::Shell::PropertiesSystem::{IPropertyStore, PSGetPropertyKeyFromName, SHGetPropertyStoreFromParsingName, GPS_DEFAULT};

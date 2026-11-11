@@ -134,6 +134,12 @@ fn shell_name(text: &str) -> Option<Target> {
     Some(Target::Shell(text.to_string()))
 }
 
+/// Is this shell name a phone, camera or other device in This PC, or a folder on one? Daleris shows those itself.
+pub fn is_device(name: &str) -> bool {
+    let bare = name.strip_prefix("shell:").unwrap_or(name);
+    bare.len() > THIS_PC.len() && bare[..THIS_PC.len()].eq_ignore_ascii_case(THIS_PC) && bare[THIS_PC.len()..].trim_start_matches('\\').starts_with("?\\")
+}
+
 /// Undoes what quoting and URLs do to a path.
 fn clean(arg: &OsStr) -> OsString {
     let Some(text) = arg.to_str() else { return arg.to_os_string() };
@@ -249,6 +255,15 @@ mod tests {
         assert_eq!(run(&["Shell:mycomputerfolder"]), Target::ThisPc);
         assert_eq!(run(&["shell:Downloads"]), Target::Shell("shell:Downloads".into()));
         assert_eq!(run(&["::{645FF040-5081-101B-9F08-00AA002F954E}"]), Target::Shell("::{645FF040-5081-101B-9F08-00AA002F954E}".into()));
+    }
+
+    #[test]
+    fn devices_are_told_apart_from_other_shell_names() {
+        assert!(is_device(r"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\\\?\usb#vid_18d1&pid_4ee1#x#{6ac27878-a6fa-4155-ba85-f98f491d4f33}\DCIM"));
+        assert!(is_device(r"shell:::{20d04fe0-3aea-1069-a2d8-08002b30309d}\\\?\usb#vid_1#y#{6ac27878-a6fa-4155-ba85-f98f491d4f33}"));
+        assert!(!is_device(THIS_PC));
+        assert!(!is_device(r"::{20D04FE0-3AEA-1069-A2D8-08002B30309D}\C:\"));
+        assert!(!is_device("::{645FF040-5081-101B-9F08-00AA002F954E}"));
     }
 
     #[test]

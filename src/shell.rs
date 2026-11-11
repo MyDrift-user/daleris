@@ -224,8 +224,8 @@ impl Loader {
 
     pub fn request(&self, r: ImgReq) {
         let q = match &r {
-            ImgReq::Icon { path, by_attrs: false, .. } if crate::fsx::is_network_path(Path::new(path)) => &self.net.q,
-            ImgReq::Thumb { path, .. } if crate::fsx::is_network_path(path) => &self.net.q,
+            ImgReq::Icon { path, by_attrs: false, .. } if crate::fsx::is_network_path(Path::new(path)) || crate::shellpath::is_shell(Path::new(path)) => &self.net.q,
+            ImgReq::Thumb { path, .. } if crate::fsx::is_network_path(path) || crate::shellpath::is_shell(path) => &self.net.q,
             ImgReq::Icon { .. } | ImgReq::KnownFolder { .. } => &self.icons.q,
             ImgReq::Thumb { .. } => &self.thumbs.q,
         };
@@ -308,6 +308,10 @@ impl Loader {
 /// The icon for a file or folder at `px` pixels, from the smallest of Windows's icon sets at least that big, and its type
 /// name. Shrinking a bigger icon by averaging keeps it crisp where stretching the standard one made it soft.
 unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool, px: u32) -> (Option<RawImg>, Option<String>) { unsafe {
+    // a place on a phone or camera has no path Windows knows: its item ID list instead
+    if !by_attrs && crate::shellpath::is_shell(Path::new(path)) {
+        return (crate::shellns::idl(Path::new(path)).and_then(|idl| idl_icon(idl.0, px)), None);
+    }
     let w = wide(path);
     let mut sfi = SHFILEINFOW::default();
     let mut flags = SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_LARGEICON | SHGFI_TYPENAME;
@@ -329,6 +333,23 @@ unsafe fn file_icon(path: &str, by_attrs: bool, is_dir: bool, px: u32) -> (Optio
     };
     let sized = sized_icon(sfi.iIcon, px);
     (sized.or(standard).map(|i| shrink(i, px)), (!tn.is_empty()).then_some(tn))
+}}
+
+/// The icon of whatever an item ID list points at, at `px` pixels.
+unsafe fn idl_icon(pidl: *mut ITEMIDLIST, px: u32) -> Option<RawImg> { unsafe {
+    let mut sfi = SHFILEINFOW::default();
+    let flags = SHGFI_PIDL | SHGFI_SYSICONINDEX | SHGFI_ICON | SHGFI_LARGEICON;
+    if SHGetFileInfoW(PCWSTR(pidl as *const u16), FILE_FLAGS_AND_ATTRIBUTES(0), Some(&mut sfi), std::mem::size_of::<SHFILEINFOW>() as u32, flags) == 0 {
+        return None;
+    }
+    let standard = if !sfi.hIcon.is_invalid() {
+        let i = icon_to_rgba(sfi.hIcon);
+        let _ = DestroyIcon(sfi.hIcon);
+        i
+    } else {
+        None
+    };
+    sized_icon(sfi.iIcon, px).or(standard).map(|i| shrink(i, px))
 }}
 
 unsafe fn known_folder_icon(id: &windows::core::GUID, px: u32) -> Option<RawImg> { unsafe {
@@ -451,8 +472,12 @@ pub fn picture(path: &Path, size: u32) -> Option<RawImg> {
 }
 
 unsafe fn thumbnail(path: &Path, size: i32, icon_only: bool, preview_only: bool) -> Option<RawImg> { unsafe {
-    let w = wide(path.as_os_str());
-    let f: IShellItemImageFactory = SHCreateItemFromParsingName(PCWSTR(w.as_ptr()), None).ok()?;
+    let f: IShellItemImageFactory = if crate::shellpath::is_shell(path) {
+        crate::shellns::item(path).ok()?.cast().ok()?
+    } else {
+        let w = wide(path.as_os_str());
+        SHCreateItemFromParsingName(PCWSTR(w.as_ptr()), None).ok()?
+    };
     let flags = if icon_only {
         SIIGBF(SIIGBF_RESIZETOFIT.0 | SIIGBF_ICONONLY.0)
     } else if preview_only {
@@ -486,6 +511,10 @@ pub fn open_url(url: &str) {
 
 pub fn open(path: &Path) {
     let owner = main_hwnd().0 as isize;
+    if crate::shellpath::is_shell(path) {
+        crate::shellns::open(path, owner);
+        return;
+    }
     let path = path.to_path_buf();
     // A file on a server that's gone keeps this waiting for as long as the server takes to not answer.
     crate::bg::submit(&path.clone(), "open", move || {
@@ -526,6 +555,11 @@ pub fn run_as_admin(path: &Path) {
 }
 
 pub fn open_with(path: &Path) {
+    // Windows's Open with needs a file path, which a file on a phone hasn't got
+    if crate::shellpath::is_shell(path) {
+        open(path);
+        return;
+    }
     let p = wide(path.as_os_str());
     let info = OPENASINFO {
         pcszFile: PCWSTR(p.as_ptr()),
@@ -538,6 +572,22 @@ pub fn open_with(path: &Path) {
 }
 
 pub fn properties(path: &Path) {
+    if crate::shellpath::is_shell(path) {
+        let Some(idl) = crate::shellns::idl(path) else { return };
+        let mut info = SHELLEXECUTEINFOW {
+            cbSize: std::mem::size_of::<SHELLEXECUTEINFOW>() as u32,
+            fMask: SEE_MASK_INVOKEIDLIST,
+            hwnd: main_hwnd(),
+            lpVerb: w!("properties"), // i18n-ignore: a shell verb
+            lpIDList: idl.0 as *mut _,
+            nShow: SW_SHOWNORMAL.0,
+            ..Default::default()
+        };
+        unsafe {
+            let _ = ShellExecuteExW(&mut info);
+        }
+        return;
+    }
     let p = wide(path.as_os_str());
     unsafe {
         let _ = SHObjectProperties(Some(main_hwnd()), SHOP_FILEPATH, PCWSTR(p.as_ptr()), PCWSTR::null());
@@ -603,6 +653,16 @@ fn multi_sz(paths: &[PathBuf]) -> Vec<u16> {
 /// Runs on a worker thread. Daleris uses it for the Recycle Bin, and for what's left of a copy or move when the person
 /// lets Windows finish it, so Windows can ask for administrator rights.
 pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOnce(Result<(), String>) + Send + 'static) {
+    // a phone or camera: Windows's shell copies there, with its own progress
+    if crate::shellpath::needs_shell_op(&src, dest.as_deref()) {
+        let op = match op {
+            Op::Copy => crate::shellns::ShellOp::Copy,
+            Op::Move => crate::shellns::ShellOp::Move,
+            Op::Recycle => crate::shellns::ShellOp::Recycle,
+        };
+        crate::shellns::file_op(op, src, dest, done);
+        return;
+    }
     let owner = main_hwnd().0 as isize;
     crate::bg::spawn("shell-op", move || {
         init_com();
@@ -640,6 +700,9 @@ pub fn file_op(op: Op, src: Vec<PathBuf>, dest: Option<PathBuf>, done: impl FnOn
 /// Put files on the Windows clipboard as CF_HDROP (+ "Preferred DropEffect" for cut),
 /// exactly what Explorer does, so pasting into Explorer or any app works.
 pub fn clipboard_set_files(paths: &[PathBuf], cut: bool) -> bool {
+    if paths.iter().any(|p| crate::shellpath::is_shell(p)) {
+        return crate::shellns::clipboard_set(paths, cut);
+    }
     unsafe {
         if OpenClipboard(Some(main_hwnd())).is_err() {
             return false;
@@ -726,7 +789,7 @@ pub fn clipboard_get_text() -> Option<String> {
 pub fn clipboard_get_files() -> Option<(Vec<PathBuf>, bool)> {
     unsafe {
         if IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_err() {
-            return None;
+            return crate::shellns::clipboard_get();
         }
         OpenClipboard(Some(main_hwnd())).ok()?;
         let r = (|| {
@@ -757,7 +820,7 @@ pub fn clipboard_get_files() -> Option<(Vec<PathBuf>, bool)> {
 }
 
 pub fn clipboard_has_files() -> bool {
-    unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_ok() }
+    (unsafe { IsClipboardFormatAvailable(CF_HDROP.0 as u32).is_ok() }) || crate::shellns::clipboard_has_items()
 }
 
 // ---------------------------------------------------------------- native context menu
@@ -826,6 +889,17 @@ struct ShellCm {
 
 struct Pidls(Vec<*mut ITEMIDLIST>);
 
+/// The item ID list of a path, or of a place on a phone or camera. The caller frees it.
+fn parse_idl(p: &Path) -> Option<*mut ITEMIDLIST> {
+    if crate::shellpath::is_shell(p) {
+        return crate::shellns::idl(p).map(crate::shellns::Idl::into_raw);
+    }
+    let w = wide(p.as_os_str());
+    let mut pidl = std::ptr::null_mut();
+    unsafe { SHParseDisplayName(PCWSTR(w.as_ptr()), None, &mut pidl, 0, None) }.ok()?;
+    Some(pidl)
+}
+
 impl Drop for Pidls {
     fn drop(&mut self) {
         for p in &self.0 {
@@ -849,11 +923,7 @@ pub fn drag_out(items: &[PathBuf]) -> bool {
             if p.parent().map(|x| x.to_path_buf()) != parent0 {
                 continue; // one data object holds items of one folder
             }
-            let w = wide(p.as_os_str());
-            let mut pidl = std::ptr::null_mut();
-            if SHParseDisplayName(PCWSTR(w.as_ptr()), None, &mut pidl, 0, None).is_err() {
-                continue;
-            }
+            let Some(pidl) = parse_idl(p) else { continue };
             pidls.0.push(pidl);
             let mut last = std::ptr::null_mut();
             let Ok(f) = SHBindToParent::<IShellFolder>(pidl, Some(&mut last)) else { continue };
@@ -874,9 +944,7 @@ pub fn drag_out(items: &[PathBuf]) -> bool {
 unsafe fn context_menu_for(items: &[PathBuf], dir: &Path, owner: HWND) -> windows::core::Result<ShellCm> { unsafe {
     let mut pidls = Pidls(Vec::new());
     let cm: IContextMenu = if items.is_empty() {
-        let w = wide(dir.as_os_str());
-        let mut pidl = std::ptr::null_mut();
-        SHParseDisplayName(PCWSTR(w.as_ptr()), None, &mut pidl, 0, None)?;
+        let pidl = parse_idl(dir).ok_or_else(windows::core::Error::from_thread)?;
         pidls.0.push(pidl);
         let desktop = SHGetDesktopFolder()?;
         let folder: IShellFolder = desktop.BindToObject(pidl, None)?;
@@ -889,11 +957,7 @@ unsafe fn context_menu_for(items: &[PathBuf], dir: &Path, owner: HWND) -> window
             if p.parent().map(|x| x.to_path_buf()) != parent0 {
                 continue; // shell menus need one shared parent folder
             }
-            let w = wide(p.as_os_str());
-            let mut pidl = std::ptr::null_mut();
-            if SHParseDisplayName(PCWSTR(w.as_ptr()), None, &mut pidl, 0, None).is_err() {
-                continue;
-            }
+            let Some(pidl) = parse_idl(p) else { continue };
             pidls.0.push(pidl);
             let mut last = std::ptr::null_mut();
             let f: IShellFolder = SHBindToParent(pidl, Some(&mut last))?;

@@ -149,6 +149,8 @@ fn open(args: &[std::ffi::OsString], feature: daleris_integration::Feature) {
                 launch(&Request::Open(p.clone().into_os_string()))
             }
         }
+        // a phone or camera: Daleris shows those itself
+        Target::Shell(name) if daleris_integration::target::is_device(name) => launch(&Request::Open(name.strip_prefix("shell:").unwrap_or(name).into())),
         Target::Shell(name) => match resolve(name) {
             Some(dir) => launch(&Request::Open(dir.into_os_string())),
             // the Recycle Bin, Control Panel and so on: only Explorer can show those
