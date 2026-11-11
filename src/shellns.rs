@@ -26,6 +26,8 @@ use crate::util::{ext_of, wide};
 // The storage property set: name, size and dates of an item, whatever kind of place it's in.
 const FMTID_STORAGE: GUID = GUID::from_u128(0xb725f130_47ef_101a_a5f1_02608c9eebac);
 const PKEY_ITEM_NAME_DISPLAY: PROPERTYKEY = PROPERTYKEY { fmtid: FMTID_STORAGE, pid: 10 };
+/// System.FileName: the name with its extension, whether or not Explorer shows extensions
+const PKEY_FILE_NAME: PROPERTYKEY = PROPERTYKEY { fmtid: windows::core::GUID::from_u128(0x41cf5ae0_f75a_4806_bd87_59c7d9248eb9), pid: 100 };
 const PKEY_SIZE: PROPERTYKEY = PROPERTYKEY { fmtid: FMTID_STORAGE, pid: 12 };
 const PKEY_DATE_MODIFIED: PROPERTYKEY = PROPERTYKEY { fmtid: FMTID_STORAGE, pid: 14 };
 const PKEY_DATE_CREATED: PROPERTYKEY = PROPERTYKEY { fmtid: FMTID_STORAGE, pid: 15 };
@@ -137,7 +139,9 @@ fn take_wide(p: PWSTR) -> String {
 
 /// The name a person knows an item by, with its extension whatever Explorer's settings hide, fit to be part of a path.
 fn name_of(it: &IShellItem2) -> String {
-    let n = unsafe { it.GetString(&PKEY_ITEM_NAME_DISPLAY) }.map(take_wide).unwrap_or_default();
+    let n = unsafe { it.GetString(&PKEY_FILE_NAME) }.map(take_wide).unwrap_or_default();
+    // storages and other things that aren't files have no file name
+    let n = if n.is_empty() { unsafe { it.GetString(&PKEY_ITEM_NAME_DISPLAY) }.map(take_wide).unwrap_or_default() } else { n };
     let n = if n.is_empty() { unsafe { it.GetDisplayName(SIGDN_PARENTRELATIVEEDITING) }.map(take_wide).unwrap_or_default() } else { n };
     let n = if n.is_empty() { unsafe { it.GetDisplayName(SIGDN_NORMALDISPLAY) }.map(take_wide).unwrap_or_default() } else { n };
     shellpath::clean_segment(&n)

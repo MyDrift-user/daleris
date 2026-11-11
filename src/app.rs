@@ -3824,11 +3824,18 @@ mod tests {
         assert!(s.nested_search && !s.nested_search_network, "subfolders are searched on local drives, not on servers");
         assert!(s.folder_sizes && !s.folder_sizes_network, "folder sizes are counted on local drives, not on servers");
         assert!(s.counts_size_of(Path::new(r"C:\Users")));
-        assert!(!s.counts_size_of(Path::new(r"\\fileserver\projects\2026")));
+        // a share is a \\server path on Windows, and a mounted one, which Daleris is told about, elsewhere
+        let share = if cfg!(windows) {
+            PathBuf::from(r"\\fileserver\projects\2026")
+        } else {
+            crate::fsx::set_network_roots(vec![PathBuf::from("/mnt/fileserver")]);
+            PathBuf::from("/mnt/fileserver/projects/2026")
+        };
+        assert!(!s.counts_size_of(&share));
         s.folder_sizes_network = true;
-        assert!(s.counts_size_of(Path::new(r"\\fileserver\projects\2026")));
+        assert!(s.counts_size_of(&share));
         s.folder_sizes = false;
-        assert!(!s.counts_size_of(Path::new(r"\\fileserver\projects\2026")), "the main switch still decides");
+        assert!(!s.counts_size_of(&share), "the main switch still decides");
     }
 
     #[test]
