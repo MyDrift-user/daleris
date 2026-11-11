@@ -324,3 +324,27 @@ impl Drop for Watcher {
         self.stop.store(true, Ordering::Relaxed);
     }
 }
+
+pub use crate::shellpath::{is_shell, Device};
+
+/// The folder `p` is in: for a place on a phone or camera, None at the device itself, which is in This PC.
+pub fn parent_of(p: &Path) -> Option<PathBuf> {
+    crate::shellpath::parent_of(p)
+}
+
+/// The phones, cameras and other devices without a drive letter that are connected now (Windows).
+pub fn devices() -> Vec<Device> {
+    #[cfg(windows)]
+    return crate::shellns::devices();
+    #[cfg(not(windows))]
+    Vec::new()
+}
+
+/// A path as a person reads it: a place on a phone or camera by its names, `This PC\Pixel 8\DCIM`.
+pub fn readable(p: &Path) -> String {
+    if !is_shell(p) {
+        return p.display().to_string();
+    }
+    let root = crate::shellpath::root_of(p).unwrap_or_default();
+    crate::shellpath::address_text(p, tr("This PC"), &crate::shellpath::title(&root, tr("Portable device")))
+}

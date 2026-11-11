@@ -115,6 +115,7 @@ pub const T: &[(&str, &str)] = &[
     ("{drive}, {free} free of {total}", "{drive}, {free} von {total} frei"),
     ("Folders", "Ordner"),
     ("Drives and devices", "Geräte und Laufwerke"),
+    ("Portable device", "Tragbares Gerät"),
     ("Network locations", "Netzwerkadressen"),
     ("No network drives mapped yet. Type \\\\server or \\\\server\\share in the address bar to browse a network computer.", "Noch keine Netzlaufwerke verbunden. Geben Sie \\\\server oder \\\\server\\share in die Adressleiste ein, um einen Computer im Netzwerk zu durchsuchen."),
     ("Cloud drives", "Cloudlaufwerke"),

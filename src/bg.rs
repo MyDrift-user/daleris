@@ -29,6 +29,10 @@ static LANES: Mutex<Option<HashMap<String, Lane>>> = Mutex::new(None);
 
 /// The lane of a path: everything on one server or drive shares a fate.
 pub fn lane_of(path: &Path) -> String {
+    // a phone or camera: each one is its own lane
+    if let Some(root) = crate::shellpath::root_of(path).filter(|_| crate::shellpath::is_shell(path)) {
+        return crate::shellpath::key(&root);
+    }
     let s = path.to_string_lossy();
     if let Some(rest) = s.strip_prefix(r"\\").or_else(|| s.strip_prefix("//")) {
         let server = rest.split(['\\', '/']).next().unwrap_or("");

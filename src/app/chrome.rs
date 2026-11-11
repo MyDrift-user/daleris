@@ -336,7 +336,11 @@ impl App {
         }
         // breadcrumbs
         let mut crumbs: Vec<(String, Loc)> = if t.loc == Loc::Settings { vec![(tr("Settings").into(), Loc::Settings)] } else { vec![(tr("This PC").into(), Loc::ThisPc)] };
-        if let Loc::Dir(p) = &t.loc {
+        if let Some(p) = t.dir().filter(|p| fsx::is_shell(p)).map(Path::to_path_buf) {
+            // a phone or camera: its name, then its folders, as Explorer shows them
+            let device = crate::shellpath::title(&crate::shellpath::root_of(&p).unwrap_or_default(), tr("Portable device"));
+            crumbs.extend(crate::shellpath::crumbs(&p, &device).into_iter().map(|(l, d)| (l, Loc::Dir(d))));
+        } else if let Loc::Dir(p) = &t.loc {
             let mut acc = PathBuf::new();
             for c in p.components() {
                 acc.push(c.as_os_str());
@@ -401,6 +405,11 @@ impl App {
         }
         if lower == "this pc" || lower == tr("This PC").to_lowercase() || lower.is_empty() { // i18n-ignore: what's typed in the address bar
             self.acts.push(Act::Navigate(Loc::ThisPc));
+            return;
+        }
+        // a phone or camera, by its names as the address bar shows them
+        if let Some(p) = crate::shellpath::parse_address(text, &["This PC", tr("This PC")], &fsx::devices()) { // i18n-ignore: what's typed in the address bar
+            self.acts.push(Act::Navigate(Loc::Dir(p)));
             return;
         }
         let p = if text.len() == 2 && text.ends_with(':') { PathBuf::from(format!("{text}\\")) } else { PathBuf::from(text) };
@@ -627,7 +636,9 @@ impl App {
             (Loc::Dir(p), Scope::Subfolders) => fsx::is_network_path(p) && !self.settings.nested_search_network && t.net_deep_for.as_ref().is_none_or(|d| !p.starts_with(d)),
             _ => false,
         };
-        if q.is_empty() || (t.scope == Scope::ThisFolder && t.loc != Loc::ThisPc) || t.net_shallow {
+        // a phone or camera is never crawled: its own list is what's searched
+        let on_device = matches!(&t.loc, Loc::Dir(p) if fsx::is_shell(p));
+        if q.is_empty() || (t.scope == Scope::ThisFolder && t.loc != Loc::ThisPc) || t.net_shallow || on_device {
             t.search = None;
             t.dirty = true;
             return;
@@ -1198,6 +1209,9 @@ impl App {
                     for d in drives.iter().filter(|d| d.kind != DriveKind::Network) {
                         self.drive_card(ui, d);
                     }
+                    for d in fsx::devices() {
+                        self.device_card(ui, &d);
+                    }
                 });
                 ui.add_space(18.0);
                 ui.horizontal(|ui| {
@@ -1252,6 +1266,36 @@ impl App {
         if resp.middle_clicked() {
             self.acts.push(Act::NavigateNewTab(Loc::Dir(path)));
         }
+    }
+
+    /// A phone, camera or other device without a drive letter, with Windows's icon for it.
+    fn device_card(&mut self, ui: &mut Ui, d: &fsx::Device) {
+        let (rect, resp) = ui.allocate_exact_size(vec2(290.0, 72.0), Sense::click());
+        let drop = self.drop_zone(ui, &resp, &d.root);
+        ui.painter().rect_filled(rect, CornerRadius::same(8), if resp.hovered() || drop.is_some() { ROW_HOVER() } else { TILE() });
+        if let Some(ok) = drop {
+            list::drop_mark(ui.painter(), rect, 8, ok);
+        }
+        self.draw_icon(ui, Rect::from_center_size(rect.left_center() + vec2(30.0, 0.0), vec2(36.0, 36.0)), &d.root, "", true, 0);
+        let x = rect.left() + 60.0;
+        let g = truncated(ui, &d.name, FontId::proportional(14.0), TEXT(), rect.width() - 72.0);
+        ui.painter().galley(pos2(x, rect.top() + 14.0), g, TEXT());
+        ui.painter().text(pos2(x, rect.top() + 40.0), Align2::LEFT_TOP, tr("Portable device"), FontId::proportional(12.0), DIM());
+        if resp.clicked() {
+            self.acts.push(Act::Navigate(Loc::Dir(d.root.clone())));
+        }
+        if resp.middle_clicked() {
+            self.acts.push(Act::NavigateNewTab(Loc::Dir(d.root.clone())));
+        }
+        let root = d.root.clone();
+        resp.context_menu(|ui| {
+            if menu_item(ui, I_ADD, tr("Open in new tab"), "") {
+                self.acts.push(Act::NavigateNewTab(Loc::Dir(root.clone())));
+            }
+            if menu_item(ui, I_INFO, tr("Properties"), "") {
+                self.acts.push(Act::NativeProperties(root.clone()));
+            }
+        });
     }
 
     fn drive_card(&mut self, ui: &mut Ui, d: &Drive) {

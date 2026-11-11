@@ -45,8 +45,8 @@ impl App {
             }
             Act::Up => {
                 if let Loc::Dir(p) = &t.loc {
-                    let up = match p.parent() {
-                        Some(par) => Loc::Dir(par.to_path_buf()),
+                    let up = match fsx::parent_of(p) {
+                        Some(par) => Loc::Dir(par),
                         None => Loc::ThisPc,
                     };
                     self.navigate(&mut t, up);
@@ -491,6 +491,18 @@ impl App {
             self.toast(tr("A file name can't contain any of these characters: \\ / : * ? \" < > |"), true);
             return;
         }
+        // on a phone or camera, Windows renames it, and the list shows the new name once it's read again
+        #[cfg(windows)]
+        if fsx::is_shell(&r.path) {
+            let (from, to, tx, ctx) = (r.path.clone(), new.clone(), self.tx.clone(), self.ctx.clone());
+            bg::submit(&r.path, "rename", move || {
+                let done = crate::shellns::rename(&from, &to).map_err(|e| trf!("Rename failed: {error}", error = e));
+                let _ = tx.send(Msg::OpDone(done));
+                ctx.request_repaint();
+            });
+            t.select_after_load = Some(new);
+            return;
+        }
         let dest = r.path.with_file_name(&new);
         let (from, to) = (r.path.clone(), dest);
         match bg::within(&from.clone(), DISK_WAIT, move || std::fs::rename(&from, &to)) {
@@ -529,6 +541,46 @@ impl App {
         if let Some(How::Command(cmd)) = &how {
             let (prog, args) = crate::newitems::command_line(cmd, &p);
             shell::run_program(&prog, &args, dir);
+            return;
+        }
+        // on a phone or camera, Windows makes it: a folder, or a file copied over from one made here
+        #[cfg(windows)]
+        if fsx::is_shell(dir) {
+            let bytes: Option<Vec<u8>> = match how {
+                None => None,
+                Some(How::Bytes(b)) => Some(b),
+                Some(How::CopyOf(f)) => match std::fs::read(&f) {
+                    Ok(b) => Some(b),
+                    Err(e) => {
+                        self.toast(trf!("Couldn't create it: {error}", error = e), true);
+                        return;
+                    }
+                },
+                Some(How::Shortcut) | Some(How::Command(_)) => {
+                    self.toast(tr("This can't be made on a phone or camera"), true);
+                    return;
+                }
+                Some(How::Empty) => Some(Vec::new()),
+            };
+            let (d, n, tx, ctx) = (dir.to_path_buf(), name.clone(), self.tx.clone(), self.ctx.clone());
+            bg::submit(dir, "new", move || {
+                let made = match bytes {
+                    None => crate::shellns::new_item(&d, &n, true),
+                    Some(b) => {
+                        let tmp = std::env::temp_dir().join(format!("daleris-new-{}", std::process::id()));
+                        let _ = std::fs::create_dir_all(&tmp);
+                        let f = tmp.join(&n);
+                        let r = std::fs::write(&f, b).map_err(|e| e.to_string()).and_then(|()| crate::shellns::run(crate::shellns::ShellOp::Copy, std::slice::from_ref(&f), Some(&d), None, true));
+                        let _ = std::fs::remove_dir_all(&tmp);
+                        r
+                    }
+                };
+                let _ = tx.send(Msg::OpDone(made.map_err(|e| trf!("Couldn't create it: {error}", error = e))));
+                ctx.request_repaint();
+            });
+            // named by the person once it shows up, as here
+            t.select_after_load = Some(name.clone());
+            t.rename = Some(Rename { key: name.clone(), path: p, buf: name, focus: true });
             return;
         }
         let shortcut = matches!(how, Some(How::Shortcut));

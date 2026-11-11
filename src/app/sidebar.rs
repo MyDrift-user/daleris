@@ -94,6 +94,10 @@ impl App {
                         let usage = (d.ready && d.total > 0).then(|| 1.0 - d.free as f32 / d.total.max(1) as f32);
                         push(side_key(&d.root), d.title(), Some(Loc::Dir(d.root.clone())), None, usage, false, None, drive_tip(d));
                     }
+                    // phones and cameras, which have no drive letter
+                    for d in fsx::devices() {
+                        push(side_key(&d.root), d.name.clone(), Some(Loc::Dir(d.root.clone())), None, None, false, None, Some(tr("Portable device").to_string()));
+                    }
                 }
                 "network" => {
                     for d in self.drives.iter().filter(|d| d.kind == DriveKind::Network) {
