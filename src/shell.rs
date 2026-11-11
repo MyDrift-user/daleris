@@ -5,6 +5,7 @@
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Condvar, Mutex};
 
 use windows::core::{w, Interface, PCSTR, PCWSTR, PSTR};
@@ -37,6 +38,43 @@ pub fn init_com() {
 pub fn has_mica() -> bool {
     use windows::Win32::System::Registry::HKEY_LOCAL_MACHINE;
     crate::fsx::reg_text(HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion", "CurrentBuildNumber").and_then(|b| b.parse::<u32>().ok()).is_some_and(|b| b >= 22621)
+}
+
+/// Moving the window doesn't change what's in it, but every step of a move would have the window drawn again, and
+/// inside Windows's move loop each of those draws holds up the next step: a drag gets as slow as drawing is. So while
+/// the window is being dragged, its moves aren't passed on, and where it ended up is told once when the drag is over.
+pub fn quiet_moves(hwnd: isize) {
+    if hwnd != 0 {
+        let _ = unsafe { SetWindowSubclass(HWND(hwnd as *mut _), Some(quiet_moves_proc), 0x6d6f7665, 0) };
+    }
+}
+
+static DRAGGING: AtomicBool = AtomicBool::new(false);
+
+unsafe extern "system" fn quiet_moves_proc(hwnd: HWND, msg: u32, wparam: WPARAM, lparam: LPARAM, _id: usize, _data: usize) -> LRESULT {
+    unsafe {
+        match msg {
+            WM_ENTERSIZEMOVE => DRAGGING.store(true, Ordering::Relaxed),
+            WM_EXITSIZEMOVE => {
+                DRAGGING.store(false, Ordering::Relaxed);
+                let mut r = RECT::default();
+                if GetWindowRect(hwnd, &mut r).is_ok() {
+                    let pos = WINDOWPOS { hwnd, x: r.left, y: r.top, cx: r.right - r.left, cy: r.bottom - r.top, flags: SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE, ..Default::default() };
+                    DefSubclassProc(hwnd, WM_WINDOWPOSCHANGED, WPARAM(0), LPARAM(&pos as *const WINDOWPOS as isize));
+                }
+            }
+            WM_WINDOWPOSCHANGED if DRAGGING.load(Ordering::Relaxed) => {
+                let mut pos = *(lparam.0 as *const WINDOWPOS);
+                // only a move: a change of size still goes through, as the window must be drawn at its new size
+                if pos.flags.contains(SWP_NOSIZE) {
+                    pos.flags |= SWP_NOMOVE;
+                    return DefSubclassProc(hwnd, msg, wparam, LPARAM(&pos as *const WINDOWPOS as isize));
+                }
+            }
+            _ => {}
+        }
+        DefSubclassProc(hwnd, msg, wparam, lparam)
+    }
 }
 
 /// Out of sight at once, for a window that still has saving to do before it can go.

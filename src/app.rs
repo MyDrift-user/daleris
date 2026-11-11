@@ -1529,6 +1529,8 @@ pub struct App {
     sys_check: f64,
     /// a look at the drive list is under way
     drives_busy: Arc<AtomicBool>,
+    /// a look asked for while one was under way, to run as soon as that one is done (`true`: all drives)
+    drives_again: Option<bool>,
     /// network drives that haven't said how they are yet, since when
     drive_wait: HashMap<char, Instant>,
     /// what dropping into a folder would run into, checked once per drag
@@ -1576,6 +1578,8 @@ struct Pace {
     last: Option<Instant>,
     /// the current run of back-to-back frames: when it started, how many so far, the longest gap
     run: Option<(Instant, u32, Duration)>,
+    /// time spent building frames in the current run, and the longest one
+    work: (Duration, Duration),
 }
 
 impl Pace {
@@ -1591,11 +1595,15 @@ impl Pace {
                 *worst = (*worst).max(g);
                 let span = now - *start;
                 if span >= Duration::from_secs(1) {
-                    log::debug!("{:.0} frames a second, longest gap {} ms", *n as f32 / span.as_secs_f32(), worst.as_millis());
+                    let (sum, most) = std::mem::take(&mut self.work);
+                    log::debug!("{:.0} frames a second, longest gap {} ms, building a frame took {:.1} ms on average, at most {:.1} ms", *n as f32 / span.as_secs_f32(), worst.as_millis(), sum.as_secs_f32() * 1000.0 / (*n).max(1) as f32, most.as_secs_f32() * 1000.0);
                     self.run = Some((now, 0, Duration::ZERO));
                 }
             }
-            _ => self.run = Some((now, 0, Duration::ZERO)),
+            _ => {
+                self.run = Some((now, 0, Duration::ZERO));
+                self.work = Default::default();
+            }
         }
     }
 }
@@ -1703,6 +1711,7 @@ impl App {
             popup_serial: 0,
             sys_check: 0.0,
             drives_busy: Arc::new(AtomicBool::new(false)),
+            drives_again: None,
             drive_wait: HashMap::new(),
             drop_checks: HashMap::new(),
             drive_poll: Instant::now(),
@@ -2010,7 +2019,7 @@ impl App {
         bg::spawn("drive-watch", move || {
             let mut last = fsx::drive_signature();
             loop {
-                std::thread::sleep(Duration::from_secs(1));
+                std::thread::sleep(Duration::from_millis(250));
                 let now = fsx::drive_signature();
                 if now != last {
                     last = now;
@@ -2033,6 +2042,8 @@ impl App {
     fn look_at_drives(&mut self, all: bool) {
         static LOOKING: std::sync::Mutex<Vec<char>> = std::sync::Mutex::new(Vec::new());
         if self.drives_busy.swap(true, Ordering::AcqRel) {
+            // a drive that came while the last look was still going would otherwise wait for the next poll
+            self.drives_again = Some(all || self.drives_again == Some(true));
             return;
         }
         let tx = self.tx.clone();
@@ -2041,9 +2052,10 @@ impl App {
         let known: Vec<char> = self.drives.iter().map(|d| d.letter).collect();
         let started = bg::spawn("drives", move || {
             let quick = fsx::drives_quick();
+            // free before the list arrives, so a look asked for meanwhile can start when it does
+            busy.store(false, Ordering::Release);
             let _ = tx.send(Msg::Drives(quick.clone()));
             ctx.request_repaint();
-            busy.store(false, Ordering::Release);
             for mut d in quick {
                 if d.checked || !(all || d.kind == DriveKind::Network || !known.contains(&d.letter)) {
                     continue;
@@ -2058,6 +2070,14 @@ impl App {
                 let (tx, ctx, root) = (tx.clone(), ctx.clone(), d.root.clone());
                 bg::submit(&root, "drive", move || {
                     fsx::drive_details(&mut d);
+                    // a USB stick gets its letter a moment before Windows can read it: look again for a few seconds
+                    for _ in 0..8 {
+                        if d.ready || d.locked || !matches!(d.kind, DriveKind::Removable | DriveKind::Fixed) {
+                            break;
+                        }
+                        std::thread::sleep(Duration::from_millis(500));
+                        fsx::drive_details(&mut d);
+                    }
                     LOOKING.lock().unwrap_or_else(std::sync::PoisonError::into_inner).retain(|l| *l != d.letter);
                     let _ = tx.send(Msg::DriveDetail(d));
                     ctx.request_repaint();
@@ -2240,6 +2260,10 @@ impl App {
                     self.drive_wait.retain(|l, _| self.drives.iter().any(|d| d.letter == *l));
                     for d in self.drives.iter().filter(|d| d.kind == DriveKind::Network && !d.checked) {
                         self.drive_wait.entry(d.letter).or_insert_with(Instant::now);
+                    }
+                    log::debug!("drives: {}", self.drives.iter().map(|d| d.letter).collect::<String>());
+                    if let Some(all) = self.drives_again.take() {
+                        self.look_at_drives(all);
                     }
                 }
                 Msg::DriveDetail(d) => {
@@ -3139,6 +3163,7 @@ impl eframe::App for App {
             if let Ok(RawWindowHandle::Win32(h)) = frame.window_handle().map(|h| h.as_raw()) {
                 self.hwnd = h.hwnd.get();
                 self.set_backdrop();
+                shell::quiet_moves(self.hwnd);
             }
         }
         let _ = frame;
@@ -3151,6 +3176,8 @@ impl eframe::App for App {
         }
         // a 240 Hz screen leaves about 4 ms for a frame: with DALERIS_LOG=debug, the ones that took longer say so
         let took = started.elapsed();
+        self.pace.work.0 += took;
+        self.pace.work.1 = self.pace.work.1.max(took);
         if took > Duration::from_millis(4) {
             log::debug!("slow frame: {took:?}");
         }

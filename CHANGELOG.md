@@ -11,6 +11,8 @@ What changed for people using Daleris, compared with the version before. A relea
 - The Win + E hook never keeps back a plain E any more, also after Win was released on the lock screen or a UAC prompt
 - Win + E starts Daleris directly, one program start fewer
 - A closed window leaves the screen at once, before Daleris saves and the graphics driver lets go
+- Dragging the window is as smooth as Windows makes it, whatever folder it shows: nothing is drawn again while it moves
+- New drives and USB sticks show up within a quarter of a second, also while mapped network drives are slow to answer, and a stick Windows is still mounting gets its name and size as soon as it can be read
 - "Keep folders above files" applies to every folder that wasn't switched in its own Sort menu, also ones sorted some other way before
 - Typing a name in the list scrolls to the item it selects, however far down it is
 - Folders with many items draw faster: who you are on the network is looked up once instead of for every row

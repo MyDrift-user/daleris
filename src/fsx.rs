@@ -324,7 +324,7 @@ fn list_shares(server: &str) -> Result<Vec<Entry>, FolderError> {
 
 
 /// Fast pass: letters, types and network mappings. No volume queries (those can hang on dead shares).
-/// Changes when a drive letter comes or goes, such as a USB stick or a mapped drive. Cheap enough to ask every second.
+/// Changes when a drive letter comes or goes, such as a USB stick or a mapped drive. Cheap enough to ask several times a second.
 pub fn drive_signature() -> u64 {
     unsafe { GetLogicalDrives() as u64 }
 }
