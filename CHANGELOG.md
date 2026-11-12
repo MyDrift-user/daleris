@@ -2,7 +2,7 @@
 
 What changed for people using Daleris, compared with the version before. A release's notes on GitHub are its section here.
 
-## 0.0.6 (not released yet)
+## 0.0.6
 
 - Network drives are left alone unless asked: subfolders aren't searched and folder sizes aren't counted there by default, each with a switch and a policy, and the status bar offers a search of the subfolders once
 - Searches and folder sizes read gently: low disk priority, one folder at a time on hard disks, USB drives and servers, and at most 20 folders a second on servers
